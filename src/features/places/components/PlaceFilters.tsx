@@ -1,10 +1,13 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Search,
   X,
   MapPin as MapIcon,
   LayoutList as ListIcon,
   SlidersHorizontal,
+  Sparkles,
+  Loader2,
+  Send,
 } from 'lucide-react';
 import type { PlaceStatus } from '@/features/places/types/place';
 import type { FilterOptions } from '@/features/places/types/filters';
@@ -22,22 +25,56 @@ interface PlaceFiltersProps {
   filteredCount: number;
   viewMode: 'list' | 'map';
   onViewModeChange: (mode: 'list' | 'map') => void;
-  hideViewToggle?: boolean; // NEW
+  hideViewToggle?: boolean;
+  onAiSearch?: (query: string) => void;
+  isAiMode?: boolean;
+  onAiModeChange?: (isAiMode: boolean) => void;
+  isAiLoading?: boolean;
 }
 
 export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
   filters,
   onFiltersChange,
   availableCategories,
-  availableCuisines, // NEW
+  availableCuisines,
   customStatuses,
   totalPlaces,
   filteredCount,
   viewMode,
   onViewModeChange,
   hideViewToggle,
+  onAiSearch,
+  isAiMode = false,
+  onAiModeChange,
+  isAiLoading = false,
 }) => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [localSearchQuery, setLocalSearchQuery] = useState(filters.searchQuery || '');
+
+  // Sync local state with props
+  useEffect(() => {
+    setLocalSearchQuery(filters.searchQuery || '');
+  }, [filters.searchQuery]);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setLocalSearchQuery(value);
+
+    // Only update parents filter if NOT in AI mode
+    if (!isAiMode) {
+      onFiltersChange({
+        ...filters,
+        searchQuery: value || undefined,
+      });
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && isAiMode && onAiSearch) {
+      e.preventDefault();
+      onAiSearch(localSearchQuery);
+    }
+  };
 
   const updateFilter = (key: keyof FilterOptions, value: FilterOptions[keyof FilterOptions]) => {
     onFiltersChange({
@@ -48,14 +85,18 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
 
   const clearFilters = () => {
     onFiltersChange({});
+    if (isAiMode && onAiModeChange) {
+      onAiModeChange(false);
+    }
+    setLocalSearchQuery('');
   };
 
   const hasActiveFilters = !!(
     filters.searchQuery ||
     filters.status ||
     filters.category ||
-    filters.cuisine || // NEW
-    filters.openNow || // NEW
+    filters.cuisine ||
+    filters.openNow ||
     filters.minRating ||
     filters.maxRating ||
     filters.priceLevel
@@ -76,15 +117,50 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
       {/* Mobile Component */}
       <div className="lg:hidden mb-4 space-y-3">
         {/* Search */}
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Search places..."
-            value={filters.searchQuery || ''}
-            onChange={(e) => updateFilter('searchQuery', e.target.value || undefined)}
-            className="w-full pl-10 pr-4 py-2 border light-border-default light-bg-card light-text-primary rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-          />
+        <div className="relative flex gap-2">
+          <div className="relative flex-1 group">
+            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 ${isAiMode ? 'text-purple-500' : 'text-gray-400'}`} />
+            <input
+              type="text"
+              placeholder={isAiMode ? "Ask your list (e.g. Best brunch)..." : "Search places..."}
+              value={isAiMode ? localSearchQuery : (filters.searchQuery || '')}
+              onChange={handleSearchChange}
+              onKeyDown={handleKeyDown}
+              disabled={isAiLoading}
+              className={`w-full pl-10 pr-10 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 transition-all ${isAiMode
+                ? 'border-purple-300 focus:ring-purple-500 bg-purple-50/50 dark:bg-purple-900/20'
+                : 'light-border-default light-bg-card light-text-primary focus:ring-blue-500'
+                }`}
+            />
+            {isAiMode && (
+              <>
+                <div className="absolute right-0 top-0 bottom-0 pointer-events-none rounded-md bg-gradient-to-r from-purple-500/10 to-pink-500/10 opacity-0 group-focus-within:opacity-100 transition-opacity" />
+                <button
+                  onClick={() => onAiSearch && onAiSearch(localSearchQuery)}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 rounded-md hover:bg-purple-100 dark:hover:bg-purple-800 text-purple-500 transition-colors"
+                  disabled={isAiLoading}
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </>
+            )}
+          </div>
+          {onAiModeChange && (
+            <button
+              onClick={() => onAiModeChange(!isAiMode)}
+              disabled={isAiLoading}
+              className={`p-2 aspect-square rounded-lg shadow-sm active:scale-95 transition-all ${isAiMode
+                ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white ring-2 ring-purple-200'
+                : 'bg-white dark:bg-gray-800 text-gray-400 border light-border-default hover:text-purple-500'
+                }`}
+            >
+              {isAiLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Sparkles className={`h-5 w-5 ${!isAiMode && 'group-hover:scale-110 transition-transform'}`} />
+              )}
+            </button>
+          )}
         </div>
 
         {/* Status & Category & Filter Button Row - Full Width Row */}

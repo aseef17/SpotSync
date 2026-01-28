@@ -539,4 +539,5 @@ exports.onListDeleted = onDocumentDeleted({
 });
 
 exports.getGoogleMapsList = require("./getGoogleMapsList").getGoogleMapsList;
+exports.askList = require("./aiSearch").askList;
 
