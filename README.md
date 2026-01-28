@@ -34,6 +34,8 @@ A real-time collaborative map app for organizing shared places. Import directly 
 - **Secure Authentication**: Integration with Google OAuth and standard email/password flows.
 - **Real-time Collaboration**: Share lists with specific collaborators and manage permissions.
 - **Google Maps Synchronization**: Import existing saved lists from Google Maps directly into the app.
+- **AI-Powered Search**: Ask natural language questions about your saved places (e.g., "Find brunch spots") using Gemini AI.
+- **Comprehensive Place Data**: Captures detailed info including hours, delivery/dine-in options, accessibility, and service options.
 - **Smart Push Notifications**: Reliable delivery system optimized for both Chrome and Safari.
 - **Design System**: A cohesive, premium dark-mode aesthetic with smooth animations.
 
@@ -53,7 +55,8 @@ A real-time collaborative map app for organizing shared places. Import directly 
     *   **Import**: Paste a Google Maps shared link to automatically scrape and import places.
 4.  **Place Management**:
     *   **Search**: Use the integrated Google Places Autocomplete to find locations.
-    *   **Details**: View place photos, ratings, and address.
+    *   **AI Search**: Ask natural language questions like "Find Italian restaurants" to filter your list.
+    *   **Details**: View place photos, ratings, hours, and service options.
     *   **Status**: Mark places as "To Visit", "Visited", or "Skipped".
 5.  **Collaboration**:
     *   **Invite**: Send invitations by email or username.
@@ -149,7 +152,10 @@ src/
     ```
     Then edit `public/firebase-messaging-sw.js` to include your specific Firebase keys.
 
-5.  Launch development server:
+5.  **Configure Cloud Functions** (optional, for AI Search):
+    See [Cloud Functions Setup](docs/setup/cloud-functions.md) for Gemini AI configuration.
+
+6.  Launch development server:
     ```bash
     npm run dev
     ```
@@ -160,6 +166,7 @@ Comprehensive setup guides for the various integrated services:
 
 - [Firebase Configuration](docs/setup/firebase.md)
 - [Google Maps API Setup](docs/setup/google-maps.md)
+- [Cloud Functions & AI Setup](docs/setup/cloud-functions.md)
 
 ## License
 
