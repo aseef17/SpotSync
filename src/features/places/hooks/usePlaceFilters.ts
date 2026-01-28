@@ -9,16 +9,41 @@ export const usePlaceFilters = (places: Place[]) => {
   const filteredPlaces = useMemo(() => {
     let filtered = [...places];
 
-    // Search query filter
+    // Search query filter - searches across multiple fields
     if (filters.searchQuery) {
       const query = filters.searchQuery.toLowerCase();
-      filtered = filtered.filter(
-        (place) =>
-          place.name.toLowerCase().includes(query) ||
-          place.address.toLowerCase().includes(query) ||
-          place.category?.toLowerCase().includes(query) ||
-          place.notes?.toLowerCase().includes(query)
-      );
+      filtered = filtered.filter((place) => {
+        // Basic fields
+        if (place.name.toLowerCase().includes(query)) return true;
+        if (place.address.toLowerCase().includes(query)) return true;
+        if (place.category?.toLowerCase().includes(query)) return true;
+        if (place.notes?.toLowerCase().includes(query)) return true;
+        
+        // Cuisines (array)
+        if (place.cuisines?.some(c => c.toLowerCase().includes(query))) return true;
+        
+        // Types (array)
+        if (place.types?.some(t => t.toLowerCase().includes(query))) return true;
+        
+        // Status
+        if (place.status?.toLowerCase().includes(query)) return true;
+        if (place.customStatus?.toLowerCase().includes(query)) return true;
+        
+        // Open/Closed status
+        if (query === 'open' && place.openNow === true) return true;
+        if (query === 'closed' && place.openNow === false) return true;
+        
+        // Price level (e.g., "cheap", "expensive", "$", "$$$$")
+        const priceTerms: Record<number, string[]> = {
+          1: ['cheap', 'inexpensive', '$', 'budget'],
+          2: ['moderate', '$$', 'mid'],
+          3: ['expensive', '$$$', 'pricey'],
+          4: ['very expensive', '$$$$', 'luxury', 'fine dining']
+        };
+        if (place.priceLevel && priceTerms[place.priceLevel]?.some(term => term.includes(query))) return true;
+        
+        return false;
+      });
     }
 
     // Status filter
