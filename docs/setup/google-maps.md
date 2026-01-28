@@ -1,6 +1,6 @@
 # Google Maps API Setup
 
-Place Lists integrates with Google Maps for place search, details, and list importing.
+SpotSync integrates with Google Maps for place search, details, and list importing.
 
 ## API Configuration
 

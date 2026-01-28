@@ -1,0 +1,17 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+[security]
+  # These are client-side keys required for the app to function
+  secrets_scan_omit_keys = [
+    "VITE_FIREBASE_API_KEY",
+    "VITE_FIREBASE_AUTH_DOMAIN",
+    "VITE_FIREBASE_PROJECT_ID",
+    "VITE_FIREBASE_STORAGE_BUCKET",
+    "VITE_FIREBASE_MESSAGING_SENDER_ID",
+    "VITE_FIREBASE_APP_ID",
+    "VITE_FIREBASE_VAPID_KEY",
+    "VITE_FIREBASE_MEASUREMENT_ID",
+    "VITE_GOOGLE_MAPS_API_KEY"
+  ]

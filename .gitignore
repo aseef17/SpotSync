@@ -25,3 +25,4 @@ dist-ssr
 
 # Security
 public/firebase-messaging-sw.js
+.env

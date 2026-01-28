@@ -1,6 +1,6 @@
 # Firebase Configuration
 
-Follow these steps to set up the Firebase backend for Place Lists.
+Follow these steps to set up the Firebase backend for SpotSync.
 
 ## Project Setup
 

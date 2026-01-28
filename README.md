@@ -122,8 +122,8 @@ src/
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/your-username/place-lists.git
-   cd place-lists
+   git clone https://github.com/aseef17/SpotSync.git
+   cd spot-sync
    ```
 
 2. Install dependencies:
@@ -142,10 +142,17 @@ src/
    VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key
    ```
 
-4. Launch development server:
-   ```bash
-   npm run dev
-   ```
+4.  **Configure Service Worker**:
+    Copy the example service worker and update it with your Firebase config:
+    ```bash
+    cp public/firebase-messaging-sw.example.js public/firebase-messaging-sw.js
+    ```
+    Then edit `public/firebase-messaging-sw.js` to include your specific Firebase keys.
+
+5.  Launch development server:
+    ```bash
+    npm run dev
+    ```
 
 ## Detailed Documentation
 
