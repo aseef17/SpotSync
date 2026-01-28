@@ -8,6 +8,7 @@ interface MobileBottomSheetProps {
     snapPoints?: (number | string)[]; // e.g. [120, '25%', '50%', '90%']
     defaultSnap?: number;
     snapIndex?: number; // Optional controlled snap index
+    onHeightChange?: (height: number) => void; // Callback when height changes
 }
 
 export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
@@ -16,6 +17,7 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
     snapPoints = [120, '25%', '50%', '90%'],
     defaultSnap = 1,
     snapIndex,
+    onHeightChange,
 }) => {
     // Convert snap points to pixels
     const getPixelSnaps = useCallback(() => {
@@ -64,6 +66,11 @@ export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
             return () => clearTimeout(timer);
         }
     }, [snaps, defaultSnap]);
+
+    // Notify parent of height changes
+    useEffect(() => {
+        onHeightChange?.(currentHeight);
+    }, [currentHeight, onHeightChange]);
 
     const [prevSnapIndex, setPrevSnapIndex] = useState<number | undefined>(snapIndex);
 

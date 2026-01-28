@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Users, Edit, Plus, Search } from 'lucide-react';
+import { ArrowLeft, Users, Edit, Plus, Search, X, Sparkles } from 'lucide-react';
 import { MapView } from '@/features/maps/components/MapView';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
+import { PlaceService } from '@/features/places/api/placeService';
+import { useToast } from '@/hooks/useToast';
 import { MobileBottomSheet } from '@/components/ui/MobileBottomSheet';
 import { PlaceFilters } from '@/features/places/components/PlaceFilters';
 import { MobilePlaceCard } from '@/features/places/components/MobilePlaceCard';
@@ -52,6 +54,59 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
 }) => {
     const { user } = useAuth();
     const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
+
+    const { toast } = useToast();
+    const [isAiMode, setIsAiMode] = useState(false);
+    const [isAiSearching, setIsAiSearching] = useState(false);
+    const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
+    const [bottomSheetHeight, setBottomSheetHeight] = useState(120);
+
+    // Filter places based on AI results if active
+    // When AI filter is active, show all AI-matched places regardless of other filters
+    const effectiveFilteredPlaces = React.useMemo(() => {
+        if (aiMatchedIds === null) return filteredPlaces;
+        // Use full places array to bypass other filters when AI is active
+        const matched = places.filter(p => aiMatchedIds.includes(p.id));
+
+        return matched;
+    }, [places, filteredPlaces, aiMatchedIds]);
+
+    const handleAiSearchSubmit = async (query: string) => {
+        if (!query.trim()) return;
+
+        setIsAiSearching(true);
+        // Toast with loading spinner? Or just rely on the PlacesFilter input staying present?
+        // We'll show a simple toast for now or use isAiSearching to show loading state in PlacesFilter if we passed it down.
+        // For now, let's keep it simple.
+
+        try {
+            const result = await PlaceService.askList(list.id, query);
+            if (result.placeIds.length > 0) {
+                setAiMatchedIds(result.placeIds);
+                toast.success(`Found ${result.placeIds.length} matches!`);
+            } else {
+                toast.error("No matches found for that query.");
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error("Failed to ask AI.");
+        } finally {
+            setIsAiSearching(false);
+        }
+    };
+
+    const clearAiFilter = () => {
+        setAiMatchedIds(null);
+        setIsAiMode(false);
+    };
+
+    // Wrapper that clears AI filter when exiting AI mode
+    const handleAiModeChange = (enabled: boolean) => {
+        setIsAiMode(enabled);
+        if (!enabled) {
+            setAiMatchedIds(null);  // Auto-clear filter when exiting AI mode
+        }
+    };
 
     const {
         isMapSearching,
@@ -149,22 +204,26 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
                     ]}
                     customStatuses={list.customStatuses}
                     totalPlaces={places.length}
-                    filteredCount={filteredPlaces.length}
+                    filteredCount={effectiveFilteredPlaces.length}
                     viewMode="list"
                     onViewModeChange={() => { }}
                     hideViewToggle={true}
+                    onAiSearch={handleAiSearchSubmit}
+                    isAiMode={isAiMode}
+                    onAiModeChange={handleAiModeChange}
+                    isAiLoading={isAiSearching}
                 />
             )}
 
             <div className="space-y-3 pb-20">
-                {filteredPlaces.length === 0 ? (
+                {effectiveFilteredPlaces.length === 0 ? (
                     <div className="text-center py-12">
                         <p className={themeColors.text.secondary}>
                             {places.length === 0 ? 'No places yet' : 'No places match your filters'}
                         </p>
                     </div>
                 ) : (
-                    filteredPlaces.map((place) => (
+                    effectiveFilteredPlaces.map((place) => (
                         <MobilePlaceCard
                             key={place.id}
                             place={place}
@@ -205,9 +264,14 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
 
     return (
         <div className="h-[100dvh] w-full flex flex-col relative overflow-hidden">
+            {/* AI Mode Highlight Border */}
+            {isAiMode && (
+                <div className="absolute inset-0 z-[9999] pointer-events-none border-[6px] border-purple-500/30 transition-all duration-300" />
+            )}
+
             <div className="absolute inset-0 z-0">
                 <MapView
-                    places={filteredPlaces}
+                    places={effectiveFilteredPlaces}
                     onPlaceClick={onPlaceClick}
                     markerIcon={list.icon}
                     markerColor={list.color}
@@ -219,14 +283,32 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
             </div>
 
             {!selectedPlace && (
-                <div className="absolute top-4 left-4 z-10">
-                    <button
-                        onClick={() => setIsMapSearching(true)}
-                        className="p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border light-border-default text-gray-700 dark:text-gray-200 transition-transform active:scale-95"
-                    >
-                        <Search className="h-6 w-6" />
-                    </button>
-                </div>
+                <>
+                    <div className="absolute top-4 left-4 z-10 flex flex-col gap-3">
+                        <button
+                            onClick={() => setIsMapSearching(true)}
+                            className="p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border light-border-default text-gray-700 dark:text-gray-200 transition-transform active:scale-95"
+                        >
+                            <Search className="h-6 w-6" />
+                        </button>
+                    </div>
+
+                    {aiMatchedIds !== null && (
+                        <div
+                            className="absolute left-1/2 transform -translate-x-1/2 z-20 w-auto transition-all duration-300"
+                            style={{ bottom: bottomSheetHeight + 20 }}
+                        >
+                            <button
+                                onClick={clearAiFilter}
+                                className="px-6 py-3 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 text-white shadow-xl flex items-center gap-3 active:scale-95 transition-all animate-in slide-in-from-bottom-4 fade-in"
+                            >
+                                <Sparkles className="h-4 w-4" />
+                                <span className="font-semibold">Clear AI Filter ({aiMatchedIds.length})</span>
+                                <X className="h-4 w-4 opacity-75" />
+                            </button>
+                        </div>
+                    )}
+                </>
             )}
 
             <AnimatePresence>
@@ -259,6 +341,7 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
                 snapPoints={snapPoints}
                 defaultSnap={1}
                 snapIndex={forcedSnap}
+                onHeightChange={setBottomSheetHeight}
             >
                 <AnimatePresence mode="wait">
                     <motion.div

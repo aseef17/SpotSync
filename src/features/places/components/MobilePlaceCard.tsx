@@ -2,11 +2,11 @@ import React from 'react';
 import { Star } from 'lucide-react';
 import { themeColors } from '@/styles/colors';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
+import { formatCategoryName } from '@/constants/placeCategories';
 import {
     formatPrice,
     getPlaceAttribution,
     getTodayHoursText,
-    getCategoryDisplayText,
     formatPlaceDistance,
 } from '@/features/places/utils/placeHelpers';
 import type { Place } from '@/features/places/types/place';
@@ -26,7 +26,7 @@ export const MobilePlaceCard: React.FC<MobilePlaceCardProps> = ({
     onClick,
 }) => {
     const hoursText = getTodayHoursText(place);
-    const categoryText = getCategoryDisplayText(place);
+    const categoryText = place.category ? formatCategoryName(place.category) : undefined;
     const distanceText = formatPlaceDistance(place, userLocation);
     const photos = place.photoUrls || [];
 
@@ -69,6 +69,12 @@ export const MobilePlaceCard: React.FC<MobilePlaceCardProps> = ({
                         <span className="truncate max-w-[150px] capitalize">{categoryText}</span>
                     </>
                 )}
+                {distanceText && (
+                    <>
+                        <span>·</span>
+                        <span className={themeColors.text.secondary}>{distanceText}</span>
+                    </>
+                )}
             </div>
 
             {/* Cuisine Chips */}
@@ -98,13 +104,6 @@ export const MobilePlaceCard: React.FC<MobilePlaceCardProps> = ({
 
                 {hoursText && (
                     <span className={themeColors.text.secondary}>{hoursText}</span>
-                )}
-
-                {distanceText && (
-                    <>
-                        <span className={themeColors.text.secondary}>·</span>
-                        <span className={themeColors.text.secondary}>{distanceText}</span>
-                    </>
                 )}
             </div>
 

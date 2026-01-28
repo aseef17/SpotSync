@@ -167,7 +167,10 @@ export const MobilePlaceDetailHeader: React.FC<MobilePlaceDetailHeaderProps> = (
             {/* Add to List Button for Previews */}
             {place.isPreview && (
                 <button
-                    onClick={() => onAddExternalPlace?.(place)}
+                    onClick={() => {
+                        onAddExternalPlace?.(place);
+                        onClose();
+                    }}
                     className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-md active:scale-[0.98]"
                 >
                     <Plus className="h-5 w-5" />
@@ -523,7 +526,10 @@ export const MobilePlaceDetailContent: React.FC<MobilePlaceDetailContentProps> =
             <div className="pt-2">
                 {place.isPreview ? (
                     <button
-                        onClick={() => onAddExternalPlace?.(place)}
+                        onClick={() => {
+                            onAddExternalPlace?.(place);
+                            onClose();
+                        }}
                         className="w-full py-3 rounded-lg bg-blue-600 text-white font-bold text-sm hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-lg"
                     >
                         <Plus className="h-4 w-4" />
