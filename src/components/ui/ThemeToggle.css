@@ -1,0 +1,21 @@
+.theme-toggle-button {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  background-color: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.theme-toggle-button:hover {
+  background-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+.theme-toggle-button:active {
+  transform: scale(0.95);
+}

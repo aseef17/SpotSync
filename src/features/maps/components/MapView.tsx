@@ -1,0 +1,457 @@
+/// <reference types="google.maps" />
+import React, { useEffect, useState, useRef } from 'react';
+import { createPortal } from 'react-dom';
+import * as Icons from 'lucide-react';
+import {
+  APIProvider,
+  Map,
+  AdvancedMarker,
+  useMap,
+  InfoWindow,
+} from '@vis.gl/react-google-maps';
+import type { Place } from '@/features/places/types/place';
+import { getColorByName } from '@/constants/mapIcons';
+import { getIconForCategory, getCategoryColor } from '@/constants/placeCategories';
+import { useTheme } from '@/hooks/useTheme';
+import { themeColors } from '@/styles/colors';
+
+interface MapViewProps {
+  places: Place[];
+  onPlaceClick: (place: Place) => void;
+  markerIcon?: string;
+  markerColor?: string;
+  markerSize?: number;
+  className?: string;
+  style?: React.CSSProperties;
+  highlightedPlaceId?: string;
+  onLayerMenuOpen?: (isOpen: boolean) => void;
+  onAddExternalPlace?: (place: Partial<Place>) => void;
+}
+
+const defaultCenter = {
+  lat: 40.7128,
+  lng: -74.006,
+};
+
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+
+// Helper to robustly get coordinates from a Place object
+const getPlaceCoords = (place: Place): { lat: number, lng: number } | null => {
+  const lat = place.lat !== undefined && place.lat !== null ? Number(place.lat) : (place.location?.lat !== undefined ? Number(place.location.lat) : null);
+  const lng = place.lng !== undefined && place.lng !== null ? Number(place.lng) : (place.location?.lng !== undefined ? Number(place.location.lng) : null);
+
+  if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+    return { lat, lng };
+  }
+  return null;
+};
+
+const MapBoundsFitter: React.FC<{ places: Place[], highlightedPlaceId?: string }> = ({ places, highlightedPlaceId }) => {
+  const map = useMap();
+  const lastPlacesCount = useRef(0);
+
+  // Fit bounds when places change
+  useEffect(() => {
+    if (!map || places.length === 0) return;
+
+    // Only auto-fit if the number of places changed from 0,
+    // or if we explicitly don't have a highlighted place
+    const shouldFit = (lastPlacesCount.current === 0 && places.length > 0) || !highlightedPlaceId;
+
+    if (shouldFit) {
+      const timeoutId = setTimeout(() => {
+        const bounds = new google.maps.LatLngBounds();
+        let validPlaces = 0;
+
+        places.forEach((place) => {
+          const coords = getPlaceCoords(place);
+          if (coords) {
+            bounds.extend(coords);
+            validPlaces++;
+          }
+        });
+
+        if (validPlaces > 0) {
+          map.fitBounds(bounds, { top: 50, right: 50, bottom: 50, left: 50 });
+        }
+      }, 100);
+
+      lastPlacesCount.current = places.length;
+      return () => clearTimeout(timeoutId);
+    }
+
+    lastPlacesCount.current = places.length;
+  }, [map, places, highlightedPlaceId]);
+
+  // Highlight/Select Pan Effect
+  useEffect(() => {
+    if (!map || !highlightedPlaceId) return;
+
+    const place = places.find(p => p.id === highlightedPlaceId);
+    if (place) {
+      const coords = getPlaceCoords(place);
+      if (coords) {
+        map.panTo(coords);
+        map.setZoom(16); // "Zoomed a bit"
+      }
+    }
+  }, [map, highlightedPlaceId, places]);
+
+  return null;
+};
+
+const LocationButton = () => {
+  const map = useMap();
+  const [loading, setLoading] = useState(false);
+
+  const handleLocate = () => {
+    if (!map) return;
+    setLoading(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          const pos = {
+            lat: position.coords.latitude,
+            lng: position.coords.longitude,
+          };
+          map.panTo(pos);
+          map.setZoom(15);
+          setLoading(false);
+        },
+        () => {
+          setLoading(false);
+        },
+        { enableHighAccuracy: true }
+      );
+    } else {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <button
+      onClick={handleLocate}
+      className={`absolute bottom-36 right-4 bg-white dark:bg-gray-800 p-3 rounded-full shadow-md z-10 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none ${themeColors.text.primary} transition-colors`}
+      aria-label="Current Location"
+      style={{ zIndex: 5 }}
+    >
+      <Icons.Crosshair className={`h-6 w-6 ${loading ? 'animate-spin' : ''}`} />
+    </button>
+  );
+};
+
+const MapLayersControl: React.FC<{ onOpenChange?: (isOpen: boolean) => void }> = ({ onOpenChange }) => {
+  const map = useMap();
+  const [isOpen, setIsOpen] = useState(false);
+  const [mapType, setMapType] = useState('roadmap');
+  const [activeLayers, setActiveLayers] = useState<Set<string>>(new Set());
+
+  const trafficLayerRef = useRef<google.maps.TrafficLayer | null>(null);
+  const transitLayerRef = useRef<google.maps.TransitLayer | null>(null);
+  const bikeLayerRef = useRef<google.maps.BicyclingLayer | null>(null);
+
+  useEffect(() => {
+    onOpenChange?.(isOpen);
+  }, [isOpen, onOpenChange]);
+
+  useEffect(() => {
+    if (!map) return;
+    map.setMapTypeId(mapType);
+  }, [map, mapType]);
+
+  useEffect(() => {
+    if (!map) return;
+
+    if (activeLayers.has('traffic')) {
+      if (!trafficLayerRef.current) trafficLayerRef.current = new google.maps.TrafficLayer();
+      trafficLayerRef.current.setMap(map);
+    } else {
+      trafficLayerRef.current?.setMap(null);
+    }
+
+    if (activeLayers.has('transit')) {
+      if (!transitLayerRef.current) transitLayerRef.current = new google.maps.TransitLayer();
+      transitLayerRef.current.setMap(map);
+    } else {
+      transitLayerRef.current?.setMap(null);
+    }
+
+    if (activeLayers.has('bicycling')) {
+      if (!bikeLayerRef.current) bikeLayerRef.current = new google.maps.BicyclingLayer();
+      bikeLayerRef.current.setMap(map);
+    } else {
+      bikeLayerRef.current?.setMap(null);
+    }
+  }, [map, activeLayers]);
+
+  const toggleLayer = (layer: string) => {
+    const next = new Set(activeLayers);
+    if (next.has(layer)) next.delete(layer);
+    else next.add(layer);
+    setActiveLayers(next);
+  };
+
+  return (
+    <>
+      <button
+        onClick={() => setIsOpen(true)}
+        className={`absolute top-4 right-4 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-md z-10 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none ${themeColors.text.primary} transition-colors`}
+        aria-label="Map Layers"
+      >
+        <Icons.Layers className="h-6 w-6" />
+      </button>
+
+      {isOpen && createPortal(
+        <div className="fixed inset-0 z-[9999] isolate">
+          <div
+            className="absolute inset-0 bg-black/20 backdrop-blur-[1px]"
+            onClick={() => setIsOpen(false)}
+          />
+          <div className="absolute inset-x-0 bottom-0 bg-white dark:bg-gray-900 rounded-t-2xl shadow-xl border-t border-gray-200 dark:border-gray-800 animate-in slide-in-from-bottom duration-300">
+            <div className="p-4 space-y-6 pb-8">
+              <div className="flex items-center justify-between">
+                <h3 className={`text-lg font-semibold ${themeColors.text.primary}`}>Map type</h3>
+                <button onClick={() => setIsOpen(false)} className={`p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 ${themeColors.text.secondary}`}>
+                  <Icons.X className="h-5 w-5" />
+                </button>
+              </div>
+              <div className="flex gap-4">
+                {[
+                  { id: 'roadmap', label: 'Default', icon: Icons.Map },
+                  { id: 'satellite', label: 'Satellite', icon: Icons.Globe },
+                  { id: 'terrain', label: 'Terrain', icon: Icons.Mountain },
+                ].map((type) => (
+                  <button
+                    key={type.id}
+                    onClick={() => setMapType(type.id)}
+                    className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${mapType === type.id
+                      ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
+                      : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
+                      }`}
+                  >
+                    <type.icon className="h-8 w-8" />
+                    <span className="text-sm font-medium">{type.label}</span>
+                  </button>
+                ))}
+              </div>
+              <div>
+                <h4 className={`text-sm font-medium ${themeColors.text.secondary} mb-3`}>Map details</h4>
+                <div className="flex gap-4">
+                  {[
+                    { id: 'transit', label: 'Transit', icon: Icons.Train },
+                    { id: 'traffic', label: 'Traffic', icon: Icons.Car },
+                    { id: 'bicycling', label: 'Biking', icon: Icons.Bike },
+                  ].map((layer) => (
+                    <button
+                      key={layer.id}
+                      onClick={() => toggleLayer(layer.id)}
+                      className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${activeLayers.has(layer.id)
+                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
+                        : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
+                        }`}
+                    >
+                      <layer.icon className="h-8 w-8" />
+                      <span className="text-sm font-medium">{layer.label}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+    </>
+  );
+};
+
+export const MapView: React.FC<MapViewProps> = ({
+  places,
+  onPlaceClick,
+  markerIcon,
+  markerColor,
+  markerSize,
+  className = '',
+  style = {},
+  highlightedPlaceId,
+  onLayerMenuOpen,
+  onAddExternalPlace,
+}) => {
+  const { theme } = useTheme();
+  const [zoom, setZoom] = useState(12);
+  const [selectedPoi, setSelectedPoi] = useState<{
+    placeId: string;
+    name: string;
+    location: google.maps.LatLng;
+  } | null>(null);
+
+  const map = useMap();
+
+  useEffect(() => {
+    if (!map) return;
+
+    // Use the native google maps 'click' event which handles POIs
+    const clickListener = map.addListener('click', (e: google.maps.MapMouseEvent) => {
+      // If the event has a placeId, it's a POI
+      if ('placeId' in e && e.placeId) {
+        // e.stop(); // This prevents the default Google InfoWindow
+
+        setSelectedPoi({
+          placeId: e.placeId as string,
+          name: (e as { name?: string }).name || 'Place',
+          location: e.latLng!,
+        });
+      }
+    });
+
+    return () => {
+      google.maps.event.removeListener(clickListener);
+    };
+  }, [map]);
+
+  // Calculate center using robust coord helper
+  const center = React.useMemo(() => {
+    const validCoords = places.map(getPlaceCoords).filter((c): c is { lat: number, lng: number } => !!c);
+
+    if (validCoords.length === 0) return defaultCenter;
+
+    return {
+      lat: validCoords.reduce((sum, p) => sum + p.lat, 0) / validCoords.length,
+      lng: validCoords.reduce((sum, p) => sum + p.lng, 0) / validCoords.length,
+    };
+  }, [places]);
+
+  if (!GOOGLE_MAPS_API_KEY) {
+    return (
+      <div className="flex items-center justify-center h-96 text-center p-4">
+        <p className="text-red-600 font-medium">
+          Missing Google Maps API Key.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`w-full h-full ${className}`} style={style}>
+      <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
+        <Map
+          defaultCenter={center}
+          defaultZoom={places.length > 0 ? 12 : 10}
+          mapId="DEMO_MAP_ID"
+          style={{ width: '100%', height: '100%' }}
+          gestureHandling={'greedy'}
+          disableDefaultUI={true}
+          zoomControl={false}
+          streetViewControl={false}
+          mapTypeControl={false}
+          fullscreenControl={false}
+          onZoomChanged={(ev) => setZoom(ev.detail.zoom)}
+          colorScheme={theme === 'dark' ? 'DARK' : 'LIGHT'}
+          onClick={() => setSelectedPoi(null)}
+        >
+          {selectedPoi && (
+            <InfoWindow
+              position={selectedPoi.location}
+              onCloseClick={() => setSelectedPoi(null)}
+              headerDisabled={true}
+            >
+              <div className="p-1 min-w-[200px]">
+                <div className="flex justify-between items-start mb-2">
+                  <h3 className="font-bold text-sm text-gray-900 dark:text-white pr-6">
+                    {selectedPoi.name}
+                  </h3>
+                </div>
+
+                <div className="flex flex-col gap-2 mt-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (onAddExternalPlace) {
+                        onAddExternalPlace({
+                          googlePlaceId: selectedPoi.placeId,
+                          name: selectedPoi.name,
+                          location: {
+                            lat: selectedPoi.location.lat(),
+                            lng: selectedPoi.location.lng(),
+                          },
+                          status: 'not_visited',
+                        });
+                      }
+                      setSelectedPoi(null);
+                    }}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-colors shadow-sm"
+                  >
+                    <Icons.Plus className="h-3 w-3" />
+                    Add to List
+                  </button>
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedPoi.name)}&query_place_id=${selectedPoi.placeId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-1.5 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-md text-xs font-medium transition-colors"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <Icons.ExternalLink className="h-3 w-3" />
+                    View on Maps
+                  </a>
+                </div>
+              </div>
+            </InfoWindow>
+          )}
+          {places.map((place) => {
+            const coords = getPlaceCoords(place);
+            if (!coords) return null;
+
+            const isHighlighted = place.id === highlightedPlaceId;
+            let size = markerSize || 36;
+            if (isHighlighted) size = 48;
+
+            const iconSizeNum = Math.round(size * 0.5);
+            const isAutoIcon = !markerIcon || markerIcon === 'AUTO' || markerIcon === 'MapPin';
+            const isAutoColor = !markerColor || markerColor === 'AUTO';
+
+            const iconName = (isAutoIcon && place.category)
+              ? getIconForCategory(place.category)
+              : (markerIcon !== 'AUTO' ? markerIcon : 'MapPin');
+
+            const colorName = isHighlighted ? 'Red' : ((isAutoColor && place.category)
+              ? getCategoryColor(place.category)
+              : (markerColor !== 'AUTO' ? markerColor : 'Blue'));
+
+            const PlaceIcon = (Icons[iconName as keyof typeof Icons] || Icons.MapPin) as React.ElementType;
+            const placeColorObj = getColorByName(colorName || 'Blue');
+
+            return (
+              <AdvancedMarker
+                key={place.id}
+                position={coords}
+                onClick={() => onPlaceClick(place)}
+                collisionBehavior="OPTIONAL_AND_HIDES_LOWER_PRIORITY"
+                style={{ overflow: 'visible' }}
+                zIndex={isHighlighted ? 999 : undefined}
+              >
+                <div className="relative flex flex-col items-center group">
+                  <div
+                    className={`rounded-full flex items-center justify-center shadow-md border-2 ${themeColors.map.markerBorder} ${placeColorObj.bg} text-white transition-transform ${isHighlighted ? 'scale-110 ring-4 ring-white ring-opacity-50' : 'group-hover:scale-110'}`}
+                    style={{ width: size, height: size }}
+                  >
+                    <PlaceIcon size={iconSizeNum} strokeWidth={2.5} />
+                  </div>
+
+                  {(zoom >= 14 || isHighlighted) && (
+                    <div className={`absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded shadow text-xs font-medium whitespace-nowrap pointer-events-none z-50 ${themeColors.map.label} ${isHighlighted ? 'font-bold text-sm' : ''}`}>
+                      {place.name}
+                    </div>
+                  )}
+                </div>
+              </AdvancedMarker>
+            );
+          })}
+          <MapBoundsFitter places={places} highlightedPlaceId={highlightedPlaceId} />
+          <LocationButton />
+          <MapLayersControl onOpenChange={onLayerMenuOpen} />
+        </Map>
+      </APIProvider>
+    </div>
+  );
+};
