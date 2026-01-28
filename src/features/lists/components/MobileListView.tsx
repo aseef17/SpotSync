@@ -72,6 +72,14 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
     }, []);
 
     const onSelectSearchResult = async (result: LegacyGooglePlace) => {
+        const existingPlace = places.find(p => p.googlePlaceId === result.place_id);
+
+        if (existingPlace) {
+            onPlaceClick(existingPlace);
+            clearSearch();
+            return;
+        }
+
         const previewPlace = await handleSelectSearchResult(result);
         if (previewPlace) {
             onPlaceClick(previewPlace);
