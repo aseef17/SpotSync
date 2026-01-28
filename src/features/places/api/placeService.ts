@@ -157,8 +157,8 @@ export class PlaceService {
       const places = querySnapshot.docs.map((doc) => {
         const data = doc.data();
         return {
-          id: doc.id,
           ...data,
+          id: doc.id,  // Must come after spread to override any stored 'id' field
         } as Place;
       });
       // Sort client-side to avoid requiring a composite Firestore index for (where + orderBy)
@@ -283,11 +283,11 @@ export class PlaceService {
           const doc = querySnapshot.docs[0];
           const data = doc.data();
           return { 
-            id: doc.id,
+            ...data,
+            id: doc.id,  // Must come after spread to override any stored 'id' field
             name: typeof data.name === 'string' ? data.name : 'Unknown',
             address: typeof data.address === 'string' ? data.address : '',
             status: this.isPlaceStatus(data.status) ? data.status : 'not_visited',
-            ...data 
           } as Place;
         }
       }
@@ -454,6 +454,21 @@ export class PlaceService {
     } catch (error) {
       logger.error('Error resolving place:', error);
       return null;
+    }
+  }
+
+  static async askList(listId: string, query: string): Promise<{ placeIds: string[] }> {
+    try {
+      // Lazy import to avoid circular dependencies if any
+      const { httpsCallable } = await import('firebase/functions'); 
+      const { functions } = await import('@/lib/firebase');
+      
+      const askListFn = httpsCallable<{ listId: string; query: string }, { placeIds: string[] }>(functions, 'askList');
+      const result = await askListFn({ listId, query });
+      return result.data;
+    } catch (error) {
+      logger.error('Error asking list:', error);
+      throw error;
     }
   }
 }

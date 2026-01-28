@@ -332,10 +332,10 @@ export const Dashboard: React.FC = () => {
                 {lists.map((list) => (
                   <motion.div
                     key={list.id}
-                    variants={{
-                      hidden: { opacity: 0, scale: 0.95 },
-                      visible: { opacity: 1, scale: 1 }
-                    }}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.2 }}
                   >
                     <Link
                       to={`/list/${list.id}`}
