@@ -56,7 +56,12 @@ interface GooglePlace {
   servesLunch?: boolean;
   servesDinner?: boolean;
   servesBrunch?: boolean;
-  wheelchairAccessibleEntrance?: boolean;
+  accessibilityOptions?: {
+    wheelchairAccessibleEntrance?: boolean;
+    wheelchairAccessibleParking?: boolean;
+    wheelchairAccessibleRestroom?: boolean;
+    wheelchairAccessibleSeating?: boolean;
+  };
 }
 
 interface GooglePlacesSearchResponse {
@@ -132,7 +137,7 @@ export class GoogleMapsService {
 
     try {
       const response = await fetch(
-        `https://places.googleapis.com/v1/places/${placeId}?fields=id,displayName,formattedAddress,location,rating,userRatingCount,priceLevel,photos,types,primaryType,nationalPhoneNumber,websiteUri,googleMapsUri,businessStatus,currentOpeningHours&key=${this.apiKey}`
+        `https://places.googleapis.com/v1/places/${placeId}?fields=id,displayName,formattedAddress,location,rating,userRatingCount,priceLevel,photos,types,primaryType,nationalPhoneNumber,websiteUri,googleMapsUri,businessStatus,currentOpeningHours,delivery,dineIn,takeout,curbsidePickup,reservable,servesBeer,servesWine,servesVegetarianFood,servesBreakfast,servesLunch,servesDinner,servesBrunch,accessibilityOptions&key=${this.apiKey}`
       );
 
       if (!response.ok) {
@@ -185,7 +190,7 @@ export class GoogleMapsService {
         serves_lunch: data.servesLunch,
         serves_dinner: data.servesDinner,
         serves_brunch: data.servesBrunch,
-        wheelchair_accessible_entrance: data.wheelchairAccessibleEntrance,
+        wheelchair_accessible_entrance: data.accessibilityOptions?.wheelchairAccessibleEntrance,
       };
     } catch (error) {
       logger.error('Failed to get place details:', error);
@@ -223,7 +228,7 @@ export class GoogleMapsService {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': this.apiKey,
           'X-Goog-FieldMask':
-            'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.types,places.primaryType,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.photos,places.businessStatus,places.userRatingCount,places.currentOpeningHours',
+            'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.types,places.primaryType,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.photos,places.businessStatus,places.userRatingCount,places.currentOpeningHours,places.delivery,places.dineIn,places.takeout,places.curbsidePickup,places.reservable,places.servesBeer,places.servesWine,places.servesVegetarianFood,places.servesBreakfast,places.servesLunch,places.servesDinner,places.servesBrunch,places.accessibilityOptions',
         },
         body: JSON.stringify(body),
       });
@@ -280,7 +285,7 @@ export class GoogleMapsService {
         serves_lunch: p.servesLunch,
         serves_dinner: p.servesDinner,
         serves_brunch: p.servesBrunch,
-        wheelchair_accessible_entrance: p.wheelchairAccessibleEntrance,
+        wheelchair_accessible_entrance: p.accessibilityOptions?.wheelchairAccessibleEntrance,
       }));
     } catch (error) {
       logger.error('Places API search failed:', error);

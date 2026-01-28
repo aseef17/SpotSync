@@ -241,6 +241,22 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
                         lng: details.geometry.location.lng() 
                     };
                 }
+
+                // Enrich Category & Cuisines
+                if (details.category) enriched.category = details.category;
+                if (details.types) enriched.types = details.types;
+                if (details.cuisines) enriched.cuisines = details.cuisines;
+                if (details.opening_hours?.weekday_text) enriched.openingHours = details.opening_hours.weekday_text;
+
+                // Enrich Service Options
+                if (details.delivery !== undefined) enriched.delivery = details.delivery;
+                if (details.dine_in !== undefined) enriched.dineIn = details.dine_in;
+                if (details.takeout !== undefined) enriched.takeout = details.takeout;
+                if (details.reservable !== undefined) enriched.reservable = details.reservable;
+                if (details.serves_beer !== undefined) enriched.servesBeer = details.serves_beer;
+                if (details.serves_wine !== undefined) enriched.servesWine = details.serves_wine;
+                if (details.serves_vegetarian_food !== undefined) enriched.servesVegetarianFood = details.serves_vegetarian_food;
+                if (details.wheelchair_accessible_entrance !== undefined) enriched.wheelchairAccessible = details.wheelchair_accessible_entrance;
           }
           return enriched;
         });
@@ -295,7 +311,19 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
           rating: placeData.rating,
           userRatingsTotal: placeData.userRatingsTotal,
           priceLevel: placeData.priceLevel,
-          photoUrls: placeData.photoUrls
+          photoUrls: placeData.photoUrls,
+          category: placeData.category,
+          types: placeData.types,
+          cuisines: placeData.cuisines,
+          openingHours: placeData.openingHours,
+          delivery: placeData.delivery,
+          dineIn: placeData.dineIn,
+          takeout: placeData.takeout,
+          reservable: placeData.reservable,
+          servesBeer: placeData.servesBeer,
+          servesWine: placeData.servesWine,
+          servesVegetarianFood: placeData.servesVegetarianFood,
+          wheelchairAccessible: placeData.wheelchairAccessible
         };
 
         (Object.keys(placeToSave) as Array<keyof typeof placeToSave>).forEach(key => {

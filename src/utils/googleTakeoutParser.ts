@@ -17,6 +17,18 @@ export interface ParsedPlace {
   userRatingsTotal?: number;
   priceLevel?: number;
   photoUrls?: string[];
+  category?: string;
+  types?: string[];
+  cuisines?: string[];
+  openingHours?: string[];
+  delivery?: boolean;
+  dineIn?: boolean;
+  takeout?: boolean;
+  reservable?: boolean;
+  servesBeer?: boolean;
+  servesWine?: boolean;
+  servesVegetarianFood?: boolean;
+  wheelchairAccessible?: boolean;
 }
 
 interface GeoJSONFeature {
