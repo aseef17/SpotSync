@@ -77,9 +77,6 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
     if (!query.trim()) return;
 
     setIsAiSearching(true);
-    // Toast with loading spinner? Or just rely on the PlacesFilter input staying present?
-    // We'll show a simple toast for now or use isAiSearching to show loading state in PlacesFilter if we passed it down.
-    // For now, let's keep it simple.
 
     try {
       const result = await PlaceService.askList(list.id, query);
@@ -226,7 +223,7 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
           totalPlaces={places.length}
           filteredCount={effectiveFilteredPlaces.length}
           viewMode="list"
-          onViewModeChange={() => {}}
+          onViewModeChange={() => { }}
           hideViewToggle={true}
           onAiSearch={handleAiSearchSubmit}
           isAiMode={isAiMode}

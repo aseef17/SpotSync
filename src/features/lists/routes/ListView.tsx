@@ -78,9 +78,6 @@ export const ListView: React.FC = () => {
           // After full reload, try to find the selected place in the new list to update its data
           setSelectedPlace((prev) => {
             if (!prev) return null;
-            // Note: places is from the outer scope, but after loadListData completes,
-            // the next render would have the new places.
-            // For immediate sync, we might need more effort, but updatePlace(id) is better.
             return prev;
           });
         });
