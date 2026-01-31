@@ -288,7 +288,7 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
     <div className="h-[100dvh] w-full flex flex-col relative overflow-hidden">
       {/* AI Mode Highlight Border */}
       {isAiMode && (
-        <div className="absolute inset-0 z-[9999] pointer-events-none border-[6px] border-purple-500/30 transition-all duration-300" />
+        <div className="absolute inset-0 z-[9999] pointer-events-none shadow-[inset_0_0_80px_rgba(168,85,247,0.4)] transition-all duration-300" />
       )}
 
       <div className="absolute inset-0 z-0">
