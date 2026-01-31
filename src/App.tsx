@@ -1,3 +1,4 @@
+import { Toaster } from 'sonner';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider } from '@/features/auth/context/AuthContext';
 import { NotificationProvider } from '@/features/notifications/context';
@@ -15,6 +16,7 @@ function App() {
             <ThemeProvider>
               <div className="min-h-screen light-bg-app transition-colors">
                 <ThemeLoader />
+                <Toaster position="top-center" richColors />
                 <AppRoutes />
               </div>
             </ThemeProvider>
