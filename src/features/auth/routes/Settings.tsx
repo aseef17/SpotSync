@@ -35,6 +35,12 @@ export const Settings: React.FunctionComponent = () => {
   } = useProfile();
 
   const handleSaveProfile = async () => {
+    // Check if values actually changed
+    if (user && displayName === user.displayName && username === user.username) {
+      toast.info('No changes to save');
+      return;
+    }
+
     try {
       await saveProfile();
       toast.success('Profile updated successfully');

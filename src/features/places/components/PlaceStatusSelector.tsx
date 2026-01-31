@@ -125,19 +125,26 @@ export const PlaceStatusSelector: React.FunctionComponent<PlaceStatusSelectorPro
           onClick={(e) => e.stopPropagation()}
         >
           <div className="py-1">
-            {allStatuses.map((status) => (
-              <button
-                key={`${status.value}-${status.customValue || ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleStatusChange(status.value, status.customValue);
-                }}
-                className="w-full px-3 py-2 text-left text-sm light-text-primary hover:light-bg-app flex items-center"
-              >
-                <span className="mr-2">{status.icon}</span>
-                {status.label}
-              </button>
-            ))}
+            {allStatuses
+              .filter(
+                (status) =>
+                  // Filter out the current status (both standard and custom)
+                  status.value !== place.status ||
+                  (status.value === 'custom' && status.customValue !== place.customStatus)
+              )
+              .map((status) => (
+                <button
+                  key={`${status.value}-${status.customValue || ''}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleStatusChange(status.value, status.customValue);
+                  }}
+                  className="w-full px-3 py-2 text-left text-sm light-text-primary hover:light-bg-app flex items-center"
+                >
+                  <span className="mr-2">{status.icon}</span>
+                  {status.label}
+                </button>
+              ))}
 
             <div className="border-t light-border-default mt-1 pt-1">
               {showCustomInput ? (

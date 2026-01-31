@@ -55,6 +55,23 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // Check if anything actually changed when editing
+    if (editingList) {
+      const hasChanges =
+        listName !== editingList.name ||
+        listDescription !== (editingList.description || '') ||
+        listIcon !== editingList.icon ||
+        listColor !== editingList.color ||
+        listIconSize !== editingList.iconSize ||
+        isPublic !== editingList.isPublic;
+
+      if (!hasChanges) {
+        onClose();
+        return;
+      }
+    }
+
     await onSave({
       name: listName,
       description: listDescription,
