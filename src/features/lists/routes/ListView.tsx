@@ -19,6 +19,7 @@ import { ListService } from '@/features/lists/api/listService';
 import { PlaceService } from '@/features/places/api/placeService';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { PlaceSearchModal } from '@/features/places/components/PlaceSearchModal';
+import { createPlaceFromGoogleDetails } from '@/features/places/utils/placeFactory';
 import { PlaceStatusSelector } from '@/features/places/components/PlaceStatusSelector';
 import { PlaceDetailsModal } from '@/features/places/components/PlaceDetailsModal';
 import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
@@ -181,47 +182,35 @@ export const ListView: React.FunctionComponent = () => {
           throw new Error('Failed to fetch place details');
         }
 
-        const converted = GoogleMapsService.convertGooglePlaceToPlace(fullDetails, listId!);
-        const finalPlaceData: Partial<Place> = { ...converted, ...placeData };
-
-        // CRITICAL: Strip UI flags and temporary IDs before saving
-        // Otherwise 'isPreview: true' persists to DB and causes UI to show 'Add' button for existing places
-        if ('isPreview' in finalPlaceData) {
-          delete finalPlaceData.isPreview;
-        }
-        if (finalPlaceData.id && finalPlaceData.id.startsWith('temp-')) {
-          delete finalPlaceData.id;
-        }
-
-        // Create temporary place for optimistic UI
+        // Use factory for consistent creation
         const tempId = `temp-${Date.now()}`;
         const clientId = tempId;
 
-        const optimisticPlace = {
-          ...finalPlaceData,
-          id: tempId,
-          clientId,
-          listId,
-          addedBy: user.id || 'anonymous',
-          status: 'not_visited',
-          addedAt: new Date(),
-          updatedAt: new Date(),
-        } as Place;
+        // Clean placeData of temporary/preview artifacts
+        const { id: _pid, isPreview: _prev, clientId: _cid, ...cleanOverrides } = placeData;
+
+        const optimisticPlace = createPlaceFromGoogleDetails(
+          fullDetails,
+          listId!,
+          user.id || 'anonymous',
+          {
+            ...cleanOverrides,
+            id: tempId,
+            clientId,
+            status: 'not_visited',
+            addedAt: new Date(),
+            updatedAt: new Date(),
+          }
+        );
 
         handlePlaceAdded(optimisticPlace);
         setSelectedPlace(null); // Close detail view immediately
 
         triggerAction(
           async () => {
-            const newPlace = {
-              ...finalPlaceData,
-              listId,
-              addedBy: user.id || 'anonymous',
-              status: 'not_visited',
-              addedAt: new Date(),
-              updatedAt: new Date(),
-              clientId,
-            } as Omit<Place, 'id'>;
+            // Strip temporary ID for creation
+            const { id: _tempId, ...newPlaceProps } = optimisticPlace;
+            const newPlace = newPlaceProps as Omit<Place, 'id'>;
 
             const realId = await PlaceService.createPlace(listId, newPlace);
 

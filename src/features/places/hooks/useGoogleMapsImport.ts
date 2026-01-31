@@ -8,6 +8,12 @@ import type { Place } from '@/features/places/types/place';
 import { parseGoogleMapsUrl, extractPlaceIdFromUrl } from '@/utils/googleMapsUrlParser';
 import { logger } from '@/utils/logger';
 import { useToast } from '@/hooks/useToast';
+import { createPlaceFromGoogleDetails } from '@/features/places/utils/placeFactory';
+import type { LegacyGooglePlace } from '@/features/places/api/googleMapsService';
+
+interface EnrichedPlace extends ParsedPlace {
+  rawDetails?: LegacyGooglePlace;
+}
 
 export const useGoogleMapsImport = (existingLists: { id: string; name: string }[] = []) => {
   const { user } = useAuth();
@@ -15,15 +21,15 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
   const [file, setFile] = useState<File | null>(null);
   const [parsing, setParsing] = useState(false);
   const [resolving, setResolving] = useState(false);
-  const [placesFound, setPlacesFound] = useState<ParsedPlace[]>([]);
+  const [placesFound, setPlacesFound] = useState<EnrichedPlace[]>([]);
   const [progress, setProgress] = useState(0);
   const [importStatus, setImportStatus] = useState<{
     success: number;
     failed: number;
     skipped: number;
   }>({ success: 0, failed: 0, skipped: 0 });
-  const [skippedPlaces, setSkippedPlaces] = useState<ParsedPlace[]>([]);
-  const [failedPlaces, setFailedPlaces] = useState<ParsedPlace[]>([]);
+  const [skippedPlaces, setSkippedPlaces] = useState<EnrichedPlace[]>([]);
+  const [failedPlaces, setFailedPlaces] = useState<EnrichedPlace[]>([]);
 
   const [targetListId, setTargetListId] = useState<string>('new');
   const [newListName, setNewListName] = useState('');
@@ -77,7 +83,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
 
       logger.debug('Parsed result:', result);
 
-      const parsed: ParsedPlace[] = result.places.map((p) => ({
+      const parsed: EnrichedPlace[] = result.places.map((p) => ({
         title: p.name,
         address: p.address,
         location: p.location,
@@ -110,7 +116,6 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
     let failedCount = 0;
 
     try {
-      // 1. Determine Target List
       let listId = targetListId;
       if (listId === 'new') {
         listId = await ListService.createList(
@@ -126,12 +131,10 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
         );
       }
 
-      // 2. Build Existing Map
       logger.info(`Checking for duplicates in list ${listId}...`);
       const listPlaces = await PlaceService.getListPlaces(listId);
       const existingMap = new Map<string, boolean>();
 
-      // Internal Dedupe Set (to avoid duplicates within the import batch itself)
       const batchMap = new Set<string>();
 
       listPlaces.forEach((p) => {
@@ -142,9 +145,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
         if (name && !addr) existingMap.set(`${name}|`, true);
       });
 
-      // 3. Pre-Enrichment Filter
       const uniquePlaces = placesFound.filter((p) => {
-        // Internal Batch Dedupe
         const pAddr = p.address ? p.address.toLowerCase().trim() : '';
         const pName = p.title.toLowerCase().trim();
         const batchKey = p.googlePlaceId || `${pName}|${pAddr}`;
@@ -155,7 +156,6 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
         }
         batchMap.add(batchKey);
 
-        // Existing List Dedupe
         if (p.googlePlaceId && existingMap.has(p.googlePlaceId)) {
           setSkippedPlaces((prev) => [...prev, p]);
           return false;
@@ -187,11 +187,10 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
         return;
       }
 
-      // 4. Data Enrichment & Post-Enrichment Dedupe
       logger.info(`Enriching ${uniquePlaces.length} places...`);
       setEnriching(true);
 
-      const placesToImport: ParsedPlace[] = [];
+      const placesToImport: EnrichedPlace[] = [];
 
       const BATCH_SIZE = 5;
       for (let i = 0; i < uniquePlaces.length; i += BATCH_SIZE) {
@@ -203,8 +202,6 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
           const enriched = { ...place };
           let details = null;
 
-          // ... (Existing enrichment logic) ...
-          // Strategy 1: Try ID
           if (enriched.googlePlaceId) {
             try {
               details = await GoogleMapsService.getPlaceDetails(enriched.googlePlaceId);
@@ -213,7 +210,6 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
             }
           }
 
-          // Strategy 2: Fallback Search
           if (!details && enriched.title) {
             try {
               const results = await GoogleMapsService.searchPlaces(
@@ -230,56 +226,26 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
           }
 
           if (details) {
+            enriched.rawDetails = details;
+
+            if (details.formatted_address) enriched.address = details.formatted_address;
+            if (details.name) enriched.title = details.name;
+
             if (details.formatted_phone_number)
               enriched.phoneNumber = details.formatted_phone_number;
             if (details.website) enriched.website = details.website;
             if (details.rating) enriched.rating = details.rating;
-            if (details.user_ratings_total) enriched.userRatingsTotal = details.user_ratings_total;
-            if (details.price_level) enriched.priceLevel = details.price_level;
-            if (details.photos?.length) {
-              enriched.photoUrls = details.photos.map((p) =>
-                p.getUrl({ maxWidth: 400, maxHeight: 300 })
-              );
-            }
-            if (!enriched.address && details.formatted_address)
-              enriched.address = details.formatted_address;
-            if (!enriched.location && details.geometry?.location) {
-              enriched.location = {
-                lat: details.geometry.location.lat(),
-                lng: details.geometry.location.lng(),
-              };
-            }
-
-            // Enrich Category & Cuisines
-            if (details.category) enriched.category = details.category;
-            if (details.types) enriched.types = details.types;
-            if (details.cuisines) enriched.cuisines = details.cuisines;
-            if (details.opening_hours?.weekday_text)
-              enriched.openingHours = details.opening_hours.weekday_text;
-
-            // Enrich Service Options
-            if (details.delivery !== undefined) enriched.delivery = details.delivery;
-            if (details.dine_in !== undefined) enriched.dineIn = details.dine_in;
-            if (details.takeout !== undefined) enriched.takeout = details.takeout;
-            if (details.reservable !== undefined) enriched.reservable = details.reservable;
-            if (details.serves_beer !== undefined) enriched.servesBeer = details.serves_beer;
-            if (details.serves_wine !== undefined) enriched.servesWine = details.serves_wine;
-            if (details.serves_vegetarian_food !== undefined)
-              enriched.servesVegetarianFood = details.serves_vegetarian_food;
-            if (details.wheelchair_accessible_entrance !== undefined)
-              enriched.wheelchairAccessible = details.wheelchair_accessible_entrance;
           }
           return enriched;
         });
 
         const batchResults = await Promise.all(batchPromises);
 
-        // Post-Enrichment Dedupe: Check if the discovered ID already exists
         batchResults.forEach((enriched) => {
           if (enriched.googlePlaceId && existingMap.has(enriched.googlePlaceId)) {
             skippedCount++;
             setSkippedPlaces((prev) => [...prev, enriched]);
-            return; // Skip duplicate
+            return;
           }
           placesToImport.push(enriched);
         });
@@ -311,9 +277,20 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
           addedBy: user.id,
         };
 
-        const placeToSave = {
+        if (placeData.rawDetails) {
+          const factoryPlace = createPlaceFromGoogleDetails(placeData.rawDetails, listId, user.id, {
+            notes: placeData.comment,
+            clientId: `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          });
+
+          const { id: _id, addedAt: _addedAt, updatedAt: _updatedAt, ...rest } = factoryPlace;
+          return rest;
+        }
+
+        const placeToSave: any = {
           ...basePlace,
           listId,
+          clientId: `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           location: placeData.location,
           notes: placeData.comment,
           googlePlaceId: placeData.googlePlaceId || placeData.placeId,
@@ -327,6 +304,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
           types: placeData.types,
           cuisines: placeData.cuisines,
           openingHours: placeData.openingHours,
+          openNow: placeData.openNow,
           delivery: placeData.delivery,
           dineIn: placeData.dineIn,
           takeout: placeData.takeout,
@@ -352,11 +330,8 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       successCount = result.successCount;
       failedCount = result.failedCount;
 
-      // Identify failed items based on returned error indices
       if (result.errors && result.errors.length > 0) {
         const failures = result.errors.map((err) => {
-          // Map the index back to the source array (placesToImport)
-          // placesToCreate was mapped 1:1 from placesToImport
           return placesToImport[err.index];
         });
         setFailedPlaces(failures);

@@ -59,7 +59,7 @@ export class ListService {
         updatedAt: new Date(),
         createdBy: ownerId,
         updatedBy: ownerId,
-        clientId,
+        ...(clientId ? { clientId } : {}),
       };
 
       // Only add description if it's provided and not empty

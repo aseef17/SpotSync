@@ -21,6 +21,7 @@ export interface ParsedPlace {
   types?: string[];
   cuisines?: string[];
   openingHours?: string[];
+  openNow?: boolean;
   delivery?: boolean;
   dineIn?: boolean;
   takeout?: boolean;

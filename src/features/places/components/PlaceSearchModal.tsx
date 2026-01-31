@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { PlaceService } from '@/features/places/api/placeService';
 import { extractCuisines } from '@/constants/placeCategories';
+import { createPlaceFromGoogleDetails } from '@/features/places/utils/placeFactory';
 import { getCategoryDisplayText } from '@/features/places/utils/placeHelpers';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { themeColors, colors } from '@/styles/colors';
@@ -146,40 +147,38 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
         return;
       }
 
-      // Convert Google Place to our Place format
-      const placeData = GoogleMapsService.convertGooglePlaceToPlace(fullDetails, listId);
-
-      // Add the place to the list with the current user ID
-      // placeData already omits id/addedAt/updatedAt so we can use it directly
       // Create temporary place for optimistic UI
       const tempId = `temp-${Date.now()}`;
       // Use tempId as stable clientId for React keys -> ensures no unmounting when ID changes
       const clientId = tempId;
 
-      const newPlaceData = {
-        ...placeData,
-        id: tempId,
-        clientId,
-        addedBy: user.id || 'anonymous',
-        status: 'not_visited',
-        addedAt: new Date(),
-        updatedAt: new Date(),
-      } as Place;
+      const newPlaceData = createPlaceFromGoogleDetails(
+        fullDetails,
+        listId,
+        user.id || 'anonymous',
+        {
+          id: tempId,
+          clientId,
+          addedBy: user.id || 'anonymous',
+          addedAt: new Date(),
+          updatedAt: new Date(),
+        }
+      );
 
       onPlaceAdded(newPlaceData);
       onClose();
 
       triggerAction(
         async () => {
-          const apiPayload = {
-            ...placeData,
-            listId,
-            addedBy: user.id,
-            status: 'not_visited' as const,
-            clientId,
-          } as Omit<Place, 'id' | 'addedAt' | 'updatedAt'>;
+          // Strip IDs and timestamps for creation
+          const {
+            id: _id,
+            addedAt: _addedAt,
+            updatedAt: _updatedAt,
+            ...placePayload
+          } = newPlaceData;
 
-          const realId = await PlaceService.createPlace(listId, apiPayload);
+          const realId = await PlaceService.createPlace(listId, placePayload);
 
           onReplaceId?.(tempId, realId);
 

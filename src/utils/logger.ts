@@ -12,7 +12,11 @@ export const logger = {
     try {
       // Log to Google Analytics
       logEvent(analytics, 'exception', {
-        description: `${message} ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`.substring(0, 100), // Limit length
+        description:
+          `${message} ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`.substring(
+            0,
+            100
+          ), // Limit length
         fatal: false,
       });
     } catch (e) {

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
-import type { Place } from '@/features/places/types/place';
 import type { LegacyGooglePlace } from '@/features/places/api/googleMapsService';
 import { logger } from '@/utils/logger';
+import { createPlaceFromGoogleDetails } from '@/features/places/utils/placeFactory';
 
 interface UseMapSearchProps {
   listId: string;
@@ -53,16 +53,12 @@ export const useMapSearch = ({ listId, userLocation, currentUserId }: UseMapSear
     try {
       const details = await GoogleMapsService.getPlaceDetails(result.place_id);
       if (details) {
-        const place = GoogleMapsService.convertGooglePlaceToPlace(details, listId);
-        const previewPlace: Place = {
-          ...place,
+        const previewPlace = createPlaceFromGoogleDetails(details, listId, currentUserId || '', {
           id: `temp-${result.place_id}`,
-          addedBy: currentUserId || '',
-          addedAt: new Date(),
-          updatedAt: new Date(),
-          status: 'not_visited',
+          clientId: `temp-${result.place_id}`,
           isPreview: true,
-        };
+          status: 'not_visited',
+        });
         return previewPlace;
       }
     } catch (err) {
