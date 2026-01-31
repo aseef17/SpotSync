@@ -14,8 +14,8 @@ export interface NotificationPayload {
 export class NotificationService {
   static async requestPermission(userId: string): Promise<boolean> {
     if (!messaging) {
-        logger.warn('Firebase Messaging not supported');
-        return false;
+      logger.warn('Firebase Messaging not supported');
+      return false;
     }
 
     try {
@@ -37,24 +37,25 @@ export class NotificationService {
   static async getFCMToken(messaging: Messaging): Promise<string | null> {
     try {
       if ('serviceWorker' in navigator) {
-          // Explicitly register the service worker to ensure it's installed and updated
-          const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-          
-          const token = await getToken(messaging, {
-            vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
-            serviceWorkerRegistration: registration
-          });
-          
-          if (token) {
-            logger.info('FCM Token successfully retrieved:', token);
-            return token;
-          } else {
-            logger.warn('FCM Token retrieval returned null. Check VAPID key and messaging permissions.');
-            return null;
-          }
-      } else {
-          logger.error('Service Workers are not supported in this browser environment.');
+        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+
+        const token = await getToken(messaging, {
+          vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
+          serviceWorkerRegistration: registration,
+        });
+
+        if (token) {
+          logger.info('FCM Token successfully retrieved:', token);
+          return token;
+        } else {
+          logger.warn(
+            'FCM Token retrieval returned null. Check VAPID key and messaging permissions.'
+          );
           return null;
+        }
+      } else {
+        logger.error('Service Workers are not supported in this browser environment.');
+        return null;
       }
     } catch (error) {
       logger.error('FCM Token Error: An error occurred while retrieving token:', error);
@@ -66,7 +67,8 @@ export class NotificationService {
     try {
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, {
-        fcmTokens: arrayUnion(token)
+        fcmTokens: arrayUnion(token),
+        notificationsDisabled: false,
       });
       logger.info(`FCM Token successfully synced to users/${userId}`);
     } catch (error) {
@@ -74,31 +76,40 @@ export class NotificationService {
     }
   }
 
+  static async removeTokenFromUser(userId: string): Promise<void> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        fcmTokens: [],
+        notificationsDisabled: true,
+      });
+      logger.info(`FCM Tokens successfully removed from users/${userId}`);
+    } catch (error) {
+      logger.error(`FCM Removal Error: Failed to remove tokens from users/${userId}:`, error);
+    }
+  }
+
   static onMessageListener(callback?: (payload: NotificationPayload) => void) {
     if (!messaging) return;
     return onMessage(messaging, (payload) => {
       logger.debug('Foreground message received:', payload);
-      
-      // Extract title/body from notification OR data
+
       const title = payload.notification?.title || payload.data?.title;
       const body = payload.notification?.body || payload.data?.body;
-      
-      // Call the callback if provided (e.g., to show a Toast)
+
       if (callback && title && body) {
-          // Construct a normalized payload for the callback
-          callback({
-            notification: { title, body },
-            data: payload.data
-          });
+        callback({
+          notification: { title, body },
+          data: payload.data,
+        });
       }
 
-      // Also try to show a browser notification if possible, though mostly blocked in foreground
       if (title && body) {
-          try {
-             new Notification(title, { body });
-          } catch {
-             // Ignore if blocked
-          }
+        try {
+          new Notification(title, { body });
+        } catch {
+          // Ignore notification errors
+        }
       }
     });
   }

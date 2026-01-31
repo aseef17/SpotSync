@@ -17,15 +17,12 @@ import type { Place, PlaceStatus } from '@/features/places/types/place';
 import { logger } from '@/utils/logger';
 import { toMilliseconds } from '@/utils/date';
 
-
-
 export class PlaceService {
   static async createPlace(
     listId: string,
     placeData: Omit<Place, 'id' | 'addedAt' | 'updatedAt'>
   ): Promise<string> {
     try {
-      // Check for duplicates using plus code or googlePlaceId
       if (placeData.plusCode || placeData.googlePlaceId) {
         const existingPlace = await this.findDuplicatePlace(listId, placeData);
         if (existingPlace) {
@@ -36,7 +33,7 @@ export class PlaceService {
       const placeRef = doc(collection(db, 'places'));
       const newPlace: Omit<Place, 'id'> = {
         ...placeData,
-        listId,  // Crucial: Add listId to the document so we can query/delete it later
+        listId,
         addedAt: new Date(),
         updatedAt: new Date(),
       };
@@ -44,7 +41,6 @@ export class PlaceService {
       await setDoc(placeRef, newPlace);
       const placeId = placeRef.id;
 
-      // Update the list's places array to include this new place ID
       await updateDoc(doc(db, 'lists', listId), {
         places: arrayUnion(placeId),
         updatedAt: new Date(),
@@ -65,20 +61,23 @@ export class PlaceService {
   static async bulkCreatePlaces(
     listId: string,
     placesData: Array<Omit<Place, 'id' | 'addedAt' | 'updatedAt'>>
-  ): Promise<{ successCount: number; failedCount: number; errors: Array<{ index: number; error: string }> }> {
+  ): Promise<{
+    successCount: number;
+    failedCount: number;
+    errors: Array<{ index: number; error: string }>;
+  }> {
     const BATCH_SIZE = 500;
     let successCount = 0;
     let failedCount = 0;
     const errors: Array<{ index: number; error: string }> = [];
 
     try {
-      // Process in chunks of 500 (Firestore batch limit)
+      // Process in chunks of 500
       for (let i = 0; i < placesData.length; i += BATCH_SIZE) {
         const chunk = placesData.slice(i, Math.min(i + BATCH_SIZE, placesData.length));
         const batch = writeBatch(db);
         const placeIds: string[] = [];
 
-        // Add all places in this chunk to the batch
         for (let j = 0; j < chunk.length; j++) {
           const placeData = chunk[j];
           const placeRef = doc(collection(db, 'places'));
@@ -93,28 +92,26 @@ export class PlaceService {
           placeIds.push(placeRef.id);
         }
 
-        // Update the list's places array with all new place IDs
         const listRef = doc(db, 'lists', listId);
         batch.update(listRef, {
           places: arrayUnion(...placeIds),
           updatedAt: new Date(),
         });
 
-        // Commit the batch
         try {
           await batch.commit();
           successCount += chunk.length;
           logger.info(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: Added ${chunk.length} places`);
         } catch (batchError) {
-           logger.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed:`, batchError);
-           failedCount += chunk.length;
-           // Record errors for all items in this failed chunk
-           for (let k = 0; k < chunk.length; k++) {
-             errors.push({ 
-               index: i + k, 
-               error: batchError instanceof Error ? batchError.message : 'Batch commit failed' 
-             });
-           }
+          logger.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed:`, batchError);
+          failedCount += chunk.length;
+
+          for (let k = 0; k < chunk.length; k++) {
+            errors.push({
+              index: i + k,
+              error: batchError instanceof Error ? batchError.message : 'Batch commit failed',
+            });
+          }
         }
       }
 
@@ -130,12 +127,12 @@ export class PlaceService {
       const placeDoc = await getDoc(doc(db, 'places', placeId));
       const data = placeDoc.data();
       if (placeDoc.exists() && data) {
-        return { 
-          id: placeDoc.id, 
+        return {
+          id: placeDoc.id,
           name: typeof data.name === 'string' ? data.name : 'Unknown',
           address: typeof data.address === 'string' ? data.address : '',
           status: this.isPlaceStatus(data.status) ? data.status : 'not_visited',
-          ...data 
+          ...data,
         } as Place;
       }
       return null;
@@ -158,11 +155,10 @@ export class PlaceService {
         const data = doc.data();
         return {
           ...data,
-          id: doc.id,  // Must come after spread to override any stored 'id' field
+          id: doc.id,
         } as Place;
       });
-      // Sort client-side to avoid requiring a composite Firestore index for (where + orderBy)
-      // Firestore will return an empty snapshot quickly when there are no places.
+      // Sort client-side desc
       return places.sort((a, b) => {
         const aTime = toMilliseconds(a.addedAt);
         const bTime = toMilliseconds(b.addedAt);
@@ -174,18 +170,22 @@ export class PlaceService {
     }
   }
 
-  static async updatePlace(placeId: string, updates: Partial<Place>, userId?: string): Promise<void> {
-  try {
-    const updateData: Partial<Place> & { updatedAt: Date; updatedBy?: string } = {
-      ...updates,
-      updatedAt: new Date(),
-    };
-    
-    if (userId) {
-      updateData.updatedBy = userId;
-    }
-    
-    await updateDoc(doc(db, 'places', placeId), updateData);
+  static async updatePlace(
+    placeId: string,
+    updates: Partial<Place>,
+    userId?: string
+  ): Promise<void> {
+    try {
+      const updateData: Partial<Place> & { updatedAt: Date; updatedBy?: string } = {
+        ...updates,
+        updatedAt: new Date(),
+      };
+
+      if (userId) {
+        updateData.updatedBy = userId;
+      }
+
+      await updateDoc(doc(db, 'places', placeId), updateData);
     } catch (error) {
       logger.error('Error updating place:', error);
       throw error;
@@ -193,56 +193,54 @@ export class PlaceService {
   }
 
   static async deletePlace(placeId: string, listId: string, userId?: string): Promise<void> {
-  try {
-    // Mark who deleted the place before deletion (for Cloud Function notification)
-    if (userId) {
-      await updateDoc(doc(db, 'places', placeId), {
-        deletedBy: userId,
-        deletedAt: new Date(),
+    try {
+      if (userId) {
+        await updateDoc(doc(db, 'places', placeId), {
+          deletedBy: userId,
+          deletedAt: new Date(),
+        });
+      }
+
+      await updateDoc(doc(db, 'lists', listId), {
+        places: arrayRemove(placeId),
+        updatedAt: new Date(),
       });
+
+      await deleteDoc(doc(db, 'places', placeId));
+    } catch (error) {
+      logger.error('Error deleting place:', error);
+      throw error;
     }
-    
-    // Remove place from list's places array
-    await updateDoc(doc(db, 'lists', listId), {
-      places: arrayRemove(placeId),
-      updatedAt: new Date(),
-    });
-    // Delete the place document itself
-    await deleteDoc(doc(db, 'places', placeId));
-  } catch (error) {
-    logger.error('Error deleting place:', error);
-    throw error;
   }
-}
 
   static async updatePlaceStatus(
-  placeId: string,
-  status: PlaceStatus,
-  userId?: string,
-  customValue?: string
-): Promise<void> {
-  try {
-    const updates: Partial<Place> & { updatedAt: Date; updatedBy?: string } = {
-      status,
-      updatedAt: new Date(),
-    };
+    placeId: string,
+    status: PlaceStatus,
+    userId?: string,
+    customValue?: string
+  ): Promise<void> {
+    try {
+      const updates: Partial<Place> & { updatedAt: Date; updatedBy?: string } = {
+        status,
+        updatedAt: new Date(),
+      };
 
-    // Only include customStatus if it's provided, otherwise omit it
-    if (customValue !== undefined) {
-      updates.customStatus = customValue;
+      // Only include customStatus if it's provided, otherwise omit it
+      if (customValue !== undefined) {
+        updates.customStatus = customValue;
+      }
+
+      // Only include updatedBy if userId is provided
+      if (userId) {
+        updates.updatedBy = userId;
+      }
+
+      await updateDoc(doc(db, 'places', placeId), updates);
+    } catch (error) {
+      logger.error('Error updating place status:', error);
+      throw error;
     }
-
-    // Only include updatedBy if userId is provided
-    if (userId) {
-      updates.updatedBy = userId;
-    }
-
-    await updateDoc(doc(db, 'places', placeId), updates);
-  } catch (error) {
-    logger.error('Error updating place status:', error);
-    throw error;
   }
-}
 
   static async findDuplicatePlace(
     listId: string,
@@ -282,9 +280,9 @@ export class PlaceService {
         if (!querySnapshot.empty) {
           const doc = querySnapshot.docs[0];
           const data = doc.data();
-          return { 
+          return {
             ...data,
-            id: doc.id,  // Must come after spread to override any stored 'id' field
+            id: doc.id, // Must come after spread to override any stored 'id' field
             name: typeof data.name === 'string' ? data.name : 'Unknown',
             address: typeof data.address === 'string' ? data.address : '',
             status: this.isPlaceStatus(data.status) ? data.status : 'not_visited',
@@ -371,13 +369,13 @@ export class PlaceService {
           let level = p.priceLevel;
           if (typeof level === 'string') {
             const priceMap: Record<string, number> = {
-              'PRICE_LEVEL_FREE': 0,
-              'PRICE_LEVEL_INEXPENSIVE': 1,
-              'PRICE_LEVEL_MODERATE': 2,
-              'PRICE_LEVEL_EXPENSIVE': 3,
-              'PRICE_LEVEL_VERY_EXPENSIVE': 4,
+              PRICE_LEVEL_FREE: 0,
+              PRICE_LEVEL_INEXPENSIVE: 1,
+              PRICE_LEVEL_MODERATE: 2,
+              PRICE_LEVEL_EXPENSIVE: 3,
+              PRICE_LEVEL_VERY_EXPENSIVE: 4,
             };
-            level = typeof level === 'string' ? priceMap[level] ?? 0 : 0;
+            level = typeof level === 'string' ? (priceMap[level] ?? 0) : 0;
           }
           return (level ?? 0) === filters.priceLevel;
         });
@@ -390,9 +388,11 @@ export class PlaceService {
     }
   }
 
-  static async resolvePlaceFromDetails(
-    place: { title: string; address?: string; location?: { lat: number; lng: number } }
-  ): Promise<{ placeId: string; location?: { lat: number; lng: number } } | null> {
+  static async resolvePlaceFromDetails(place: {
+    title: string;
+    address?: string;
+    location?: { lat: number; lng: number };
+  }): Promise<{ placeId: string; location?: { lat: number; lng: number } } | null> {
     try {
       // Ensure Google Maps API is loaded
       if (!window.google || !window.google.maps || !window.google.maps.places) {
@@ -409,9 +409,9 @@ export class PlaceService {
           fields: ['place_id', 'geometry'],
           locationBias: place.location
             ? new window.google.maps.Circle({
-              center: place.location,
-              radius: 500, // 500m bias
-            })
+                center: place.location,
+                radius: 500, // 500m bias
+              })
             : undefined,
         };
 
@@ -426,28 +426,40 @@ export class PlaceService {
               placeId: results[0].place_id,
               location: results[0].geometry?.location
                 ? {
-                  lat: results[0].geometry.location.lat(),
-                  lng: results[0].geometry.location.lng(),
-                }
+                    lat: results[0].geometry.location.lat(),
+                    lng: results[0].geometry.location.lng(),
+                  }
                 : undefined,
             });
           } else {
             // If FindPlaceFromQuery fails, try TextSearch as fallback (more expensive but broader)
-             const textSearchRequest: google.maps.places.TextSearchRequest = {
-                query,
-                 location: place.location ? { lat: place.location.lat, lng: place.location.lng } : undefined,
-                 radius: 1000
-             };
-              service.textSearch(textSearchRequest, (tsResults, tsStatus) => {
-                   if (tsStatus === window.google.maps.places.PlacesServiceStatus.OK && tsResults && tsResults.length > 0 && tsResults[0].place_id) {
-                        resolve({
-                            placeId: tsResults[0].place_id!,
-                             location: tsResults[0].geometry?.location ? { lat: tsResults[0].geometry.location.lat(), lng: tsResults[0].geometry.location.lng() } : undefined
-                        });
-                   } else {
-                       resolve(null);
-                   }
-              })
+            const textSearchRequest: google.maps.places.TextSearchRequest = {
+              query,
+              location: place.location
+                ? { lat: place.location.lat, lng: place.location.lng }
+                : undefined,
+              radius: 1000,
+            };
+            service.textSearch(textSearchRequest, (tsResults, tsStatus) => {
+              if (
+                tsStatus === window.google.maps.places.PlacesServiceStatus.OK &&
+                tsResults &&
+                tsResults.length > 0 &&
+                tsResults[0].place_id
+              ) {
+                resolve({
+                  placeId: tsResults[0].place_id!,
+                  location: tsResults[0].geometry?.location
+                    ? {
+                        lat: tsResults[0].geometry.location.lat(),
+                        lng: tsResults[0].geometry.location.lng(),
+                      }
+                    : undefined,
+                });
+              } else {
+                resolve(null);
+              }
+            });
           }
         });
       });
@@ -460,10 +472,13 @@ export class PlaceService {
   static async askList(listId: string, query: string): Promise<{ placeIds: string[] }> {
     try {
       // Lazy import to avoid circular dependencies if any
-      const { httpsCallable } = await import('firebase/functions'); 
+      const { httpsCallable } = await import('firebase/functions');
       const { functions } = await import('@/lib/firebase');
-      
-      const askListFn = httpsCallable<{ listId: string; query: string }, { placeIds: string[] }>(functions, 'askList');
+
+      const askListFn = httpsCallable<{ listId: string; query: string }, { placeIds: string[] }>(
+        functions,
+        'askList'
+      );
       const result = await askListFn({ listId, query });
       return result.data;
     } catch (error) {

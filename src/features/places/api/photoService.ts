@@ -14,7 +14,6 @@ export class PhotoService {
       const img = new Image();
 
       img.onload = () => {
-        // Calculate new dimensions while maintaining aspect ratio
         let { width, height } = img;
 
         if (width > maxWidth) {
@@ -25,7 +24,6 @@ export class PhotoService {
         canvas.width = width;
         canvas.height = height;
 
-        // Draw and compress
         ctx?.drawImage(img, 0, 0, width, height);
 
         canvas.toBlob(
@@ -37,7 +35,7 @@ export class PhotoService {
               });
               resolve(compressedFile);
             } else {
-              resolve(file); // Fallback to original if compression fails
+              resolve(file);
             }
           },
           'image/jpeg',
@@ -51,7 +49,6 @@ export class PhotoService {
 
   static async uploadPhoto(file: File, path: string): Promise<string> {
     try {
-      // Compress the image first
       const compressedFile = await this.compressImage(file);
 
       const storageRef = ref(storage, path);
@@ -83,7 +80,6 @@ export class PhotoService {
 
   static async deletePhoto(url: string): Promise<void> {
     try {
-      // Extract the path from the Firebase Storage URL
       const urlParts = url.split('/o/')[1];
       if (!urlParts) throw new Error('Invalid Firebase Storage URL');
 
@@ -98,7 +94,6 @@ export class PhotoService {
   }
 
   static validateImageFile(file: File): { valid: boolean; error?: string } {
-    // Check file type
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
     if (!allowedTypes.includes(file.type)) {
       return {
@@ -107,7 +102,6 @@ export class PhotoService {
       };
     }
 
-    // Check file size (max 10MB)
     const maxSize = 10 * 1024 * 1024; // 10MB
     if (file.size > maxSize) {
       return {
@@ -126,16 +120,13 @@ export class PhotoService {
       const img = new Image();
 
       img.onload = () => {
-        // Create square thumbnail
         canvas.width = size;
         canvas.height = size;
 
-        // Calculate crop area for square thumbnail
         const minDimension = Math.min(img.width, img.height);
         const x = (img.width - minDimension) / 2;
         const y = (img.height - minDimension) / 2;
 
-        // Draw cropped image
         ctx?.drawImage(img, x, y, minDimension, minDimension, 0, 0, size, size);
 
         canvas.toBlob(
