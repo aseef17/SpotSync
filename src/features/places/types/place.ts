@@ -2,6 +2,7 @@ export type PlaceStatus = 'not_visited' | 'visited' | 'not_going' | 'custom';
 
 export interface Place {
   id: string;
+  clientId?: string; // Stable ID for UI key tracking to prevent remounts during optimistic updates
   listId: string;
   googlePlaceId?: string;
   name: string;

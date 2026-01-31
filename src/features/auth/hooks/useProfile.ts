@@ -8,8 +8,6 @@ export const useProfile = () => {
 
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
   const [collaboratorNotifications, setCollaboratorNotifications] = useState(true);
   const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
   const [checkingUsername, setCheckingUsername] = useState(false);
@@ -63,19 +61,14 @@ export const useProfile = () => {
   const saveProfile = async () => {
     if (!firebaseUser) return;
 
-    setLoading(true);
     try {
       await UserService.updateUser(firebaseUser.uid, {
         displayName,
         username,
       });
-      setSaveSuccess(true);
-      setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error) {
       logger.error('Failed to update profile:', error);
       throw error;
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -94,8 +87,6 @@ export const useProfile = () => {
     setDisplayName,
     username,
     setUsername,
-    loading,
-    saveSuccess,
     collaboratorNotifications,
     setCollaboratorNotifications: setNotificationsEnabled,
     usernameAvailable,

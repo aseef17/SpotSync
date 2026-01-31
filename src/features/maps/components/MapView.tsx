@@ -51,9 +51,12 @@ const MapBoundsFitter: React.FunctionComponent<{
   useEffect(() => {
     if (!map || places.length === 0) return;
 
-    const shouldFit = (lastPlacesCount.current === 0 && places.length > 0) || !highlightedPlaceId;
+    // Only auto-fit bounds if the number of places has changed (e.g., loaded, added, removed)
+    // accessible via initial load (0 -> N) or modification (N -> M)
+    // preventing refit on updates (N -> N) like ID swaps or detail edits
+    const shouldFit = lastPlacesCount.current !== places.length;
 
-    if (shouldFit) {
+    if (shouldFit && !highlightedPlaceId) {
       const timeoutId = setTimeout(() => {
         const bounds = new google.maps.LatLngBounds();
         let validPlaces = 0;

@@ -13,7 +13,13 @@ export const ToastProvider: React.FunctionComponent<{ children: ReactNode }> = (
   }, []);
 
   const addToast = useCallback(
-    (type: ToastType, message: string, title?: string, duration = 5000) => {
+    (
+      type: ToastType,
+      message: string,
+      title?: string,
+      duration = 5000,
+      action?: { label: string; onClick: () => void | Promise<void> }
+    ) => {
       // Adapter to map our types to sonner
       const options = {
         duration,
@@ -25,7 +31,7 @@ export const ToastProvider: React.FunctionComponent<{ children: ReactNode }> = (
       const sonnerOptions = {
         ...options,
         description: subText,
-        action: {
+        action: action || {
           label: 'Dismiss',
           onClick: () => {
             // Sonner automatically dismisses on action click

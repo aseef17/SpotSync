@@ -6,14 +6,30 @@ export const useToast = () => {
 
   const toast = useMemo(
     () => ({
-      success: (message: string, title?: string, duration?: number) =>
-        addToast('success', message, title, duration),
-      error: (message: string, title?: string, duration?: number) =>
-        addToast('error', message, title, duration),
-      info: (message: string, title?: string, duration?: number) =>
-        addToast('info', message, title, duration),
-      warning: (message: string, title?: string, duration?: number) =>
-        addToast('warning', message, title, duration),
+      success: (
+        message: string,
+        title?: string,
+        duration?: number,
+        action?: { label: string; onClick: () => void | Promise<void> }
+      ) => addToast('success', message, title, duration, action),
+      error: (
+        message: string,
+        title?: string,
+        duration?: number,
+        action?: { label: string; onClick: () => void | Promise<void> }
+      ) => addToast('error', message, title, duration, action),
+      info: (
+        message: string,
+        title?: string,
+        duration?: number,
+        action?: { label: string; onClick: () => void | Promise<void> }
+      ) => addToast('info', message, title, duration, action),
+      warning: (
+        message: string,
+        title?: string,
+        duration?: number,
+        action?: { label: string; onClick: () => void | Promise<void> }
+      ) => addToast('warning', message, title, duration, action),
     }),
     [addToast]
   );

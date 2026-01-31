@@ -10,12 +10,15 @@ import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/Confirma
 import { useAuth } from '@/features/auth/context/AuthContext';
 import type { Place } from '@/features/places/types/place';
 import { useToast } from '@/hooks/useToast';
+import { useDeferredAction } from '@/hooks/useDeferredAction';
 
 interface PlaceDetailsModalProps {
   place: Place;
   isOpen: boolean;
   onClose: () => void;
   onPlaceUpdated: () => void;
+  onPlaceHidden: (id: string) => void;
+  onPlaceRestored: (id: string) => void;
   listOwnerId?: string;
   userPermission?: 'owner' | 'editor' | 'viewer';
 }
@@ -53,13 +56,14 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
   isOpen,
   onClose,
   onPlaceUpdated,
+  onPlaceHidden,
+  onPlaceRestored,
   userPermission,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedNotes, setEditedNotes] = useState(place.notes || '');
   const [saving, setSaving] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
   const { user } = useAuth();
@@ -93,20 +97,34 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
     return '$'.repeat(Math.min(level, 4));
   };
 
+  const { trigger: triggerAction } = useDeferredAction();
+
   const handleDelete = async () => {
     if (!place.listId) return;
-    setDeleting(true);
-    try {
-      await PlaceService.deletePlace(place.id, place.listId, user?.id);
-      setShowDeleteConfirm(false);
-      onClose();
-      onPlaceUpdated();
-    } catch (error) {
-      logger.error('Failed to delete place:', error);
-      toast.error('Failed to delete place. Please try again.');
-    } finally {
-      setDeleting(false);
-    }
+
+    const placeId = place.id;
+    const listId = place.listId;
+    const userId = user?.id;
+
+    onPlaceHidden(placeId);
+    setShowDeleteConfirm(false);
+    onClose();
+
+    triggerAction(
+      async () => {
+        await PlaceService.deletePlace(placeId, listId, userId);
+      },
+      {
+        toastMessage: 'Place deleted',
+        undoMessage: 'Restored',
+        onUndo: () => {
+          onPlaceRestored(placeId);
+        },
+        onError: (error) => {
+          logger.error('Failed to delete place:', error);
+        },
+      }
+    );
   };
 
   return (
@@ -451,7 +469,6 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
               {canDelete && (
                 <LoadingButton
                   onClick={() => setShowDeleteConfirm(true)}
-                  isLoading={deleting}
                   loadingText="Deleting..."
                   variant="ghost"
                   className="px-3 sm:px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors font-medium whitespace-nowrap text-sm sm:text-base"
@@ -478,7 +495,6 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
         onCancel={() => setShowDeleteConfirm(false)}
         confirmText="Delete"
         variant="danger"
-        isLoading={deleting}
       />
 
       <ImageGalleryModal

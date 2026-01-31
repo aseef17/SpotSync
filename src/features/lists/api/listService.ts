@@ -29,7 +29,8 @@ export class ListService {
     iconSize?: number,
     isPublic: boolean = false,
     ownerEmail?: string,
-    ownerUsername?: string
+    ownerUsername?: string,
+    clientId?: string
   ): Promise<string> {
     try {
       const listRef = doc(collection(db, 'lists'));
@@ -58,6 +59,7 @@ export class ListService {
         updatedAt: new Date(),
         createdBy: ownerId,
         updatedBy: ownerId,
+        clientId,
       };
 
       // Only add description if it's provided and not empty

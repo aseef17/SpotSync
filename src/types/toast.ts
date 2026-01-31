@@ -16,7 +16,13 @@ export interface ToastMessage {
 }
 
 export interface ToastContextType {
-  addToast: (type: ToastType, message: string, title?: string, duration?: number) => void;
+  addToast: (
+    type: ToastType,
+    message: string,
+    title?: string,
+    duration?: number,
+    action?: { label: string; onClick: () => void | Promise<void> }
+  ) => void;
   removeToast: (id: string) => void;
   position: ToastPosition;
   setPosition: (position: ToastPosition) => void;

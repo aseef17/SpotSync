@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Plus, Users, Settings, Eye, EyeOff, Trash2, Edit, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -15,6 +15,7 @@ import { useToast } from '@/hooks/useToast';
 import { ListIcon } from '@/features/lists/components/ListIcon';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
 import { logger } from '@/utils/logger';
+import { useDeferredAction } from '@/hooks/useDeferredAction';
 
 export const Dashboard: React.FunctionComponent = () => {
   const { user, logout } = useAuth();
@@ -29,8 +30,36 @@ export const Dashboard: React.FunctionComponent = () => {
   const [editingList, setEditingList] = useState<PlaceList | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
-  const [deletingListId, setDeletingListId] = useState<string | null>(null);
   const [signingOut, setSigningOut] = useState(false);
+
+  // Optimistic UI State
+  const [pendingUpdates, setPendingUpdates] = useState<Record<string, Partial<PlaceList>>>({});
+  const [hiddenListIds, setHiddenListIds] = useState<Set<string>>(new Set());
+  const [optimisticLists, setOptimisticLists] = useState<PlaceList[]>([]);
+  const { trigger: triggerAction } = useDeferredAction();
+
+  // Merge optimistic lists with real lists, apply updates, and filter hidden
+  const displayedLists = useMemo(() => {
+    const combined = [...optimisticLists, ...lists];
+    // Deduplicate by clientId if available, falling back to id
+    // Since 'lists' (real data) comes last, it will overwrite optimistic versions with the same clientId
+    const unique = Array.from(new Map(combined.map((l) => [l.clientId || l.id, l])).values());
+    return unique
+      .filter((l) => !hiddenListIds.has(l.id))
+      .map((l) => (pendingUpdates[l.id] ? { ...l, ...pendingUpdates[l.id] } : l));
+  }, [lists, optimisticLists, hiddenListIds, pendingUpdates]);
+
+  useEffect(() => {
+    if (optimisticLists.length === 0) return;
+
+    const realIds = new Set(lists.map((l) => l.id));
+    const stillOptimistic = optimisticLists.filter((l) => !realIds.has(l.id));
+
+    if (stillOptimistic.length !== optimisticLists.length) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setOptimisticLists(stillOptimistic);
+    }
+  }, [lists, optimisticLists]);
 
   const resetForm = () => {
     setEditingList(null);
@@ -49,14 +78,83 @@ export const Dashboard: React.FunctionComponent = () => {
 
     try {
       if (editingList) {
-        await updateList(editingList.id, data, user.id);
+        // Optimistic Update
+        const listId = editingList.id;
+        setPendingUpdates((prev) => ({ ...prev, [listId]: data }));
+
+        triggerAction(
+          async () => {
+            await updateList(listId, data, user.id);
+          },
+          {
+            toastMessage: 'List updated',
+            undoMessage: 'Reverted',
+            onUndo: () => {
+              setPendingUpdates((prev) => {
+                const next = { ...prev };
+                delete next[listId];
+                return next;
+              });
+            },
+            onError: (err) => {
+              logger.error('Update failed', err);
+              setPendingUpdates((prev) => {
+                const next = { ...prev };
+                delete next[listId];
+                return next;
+              });
+            },
+          }
+        );
       } else {
-        await createList({
+        const tempId = `temp-${Date.now()}`;
+        const clientId = tempId;
+
+        const optimisticList: PlaceList = {
+          id: tempId,
+          clientId,
           ...data,
-          email: user.email,
-          username: user.username,
-        });
-        toast.success('List created successfully');
+          ownerId: user.id,
+          collaborators: [],
+          collaboratorIds: [],
+          places: [],
+          customStatuses: [],
+          tags: [],
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        setOptimisticLists((prev) => [optimisticList, ...prev]);
+
+        triggerAction(
+          async () => {
+            const newListId = await createList({
+              ...data,
+              email: user.email,
+              username: user.username,
+              clientId,
+            });
+
+            // Replace temp ID with real ID in optimistic state
+            // This ensures transitions are seamless if the user still sees it
+            setOptimisticLists((prev) =>
+              prev.map((l) => (l.id === tempId ? { ...l, id: newListId! } : l))
+            );
+
+            await loadUserLists({ silent: true });
+          },
+          {
+            toastMessage: 'List created',
+            undoMessage: 'Canceled',
+            onUndo: () => {
+              setOptimisticLists((prev) => prev.filter((l) => l.id !== tempId));
+            },
+            onError: (err) => {
+              logger.error('Create failed', err);
+              setOptimisticLists((prev) => prev.filter((l) => l.id !== tempId));
+            },
+          }
+        );
       }
       resetForm();
     } catch (error) {
@@ -78,15 +176,31 @@ export const Dashboard: React.FunctionComponent = () => {
 
   const confirmDeleteList = async () => {
     if (!showDeleteConfirm || !user) return;
-    setDeletingListId(showDeleteConfirm);
-    try {
-      await deleteList(showDeleteConfirm);
-      setShowDeleteConfirm(null);
-    } catch (error) {
-      logger.error('Failed to delete list:', error);
-    } finally {
-      setDeletingListId(null);
-    }
+    const listId = showDeleteConfirm;
+
+    setHiddenListIds((prev) => {
+      const next = new Set(prev);
+      next.add(listId);
+      return next;
+    });
+    setShowDeleteConfirm(null);
+
+    triggerAction(
+      async () => {
+        await deleteList(listId);
+      },
+      {
+        toastMessage: 'List deleted',
+        undoMessage: 'Restored',
+        onUndo: () => {
+          setHiddenListIds((prev) => {
+            const next = new Set(prev);
+            next.delete(listId);
+            return next;
+          });
+        },
+      }
+    );
   };
 
   const confirmSignOut = async () => {
@@ -99,7 +213,10 @@ export const Dashboard: React.FunctionComponent = () => {
     loadUserLists({ silent: true });
   }, [loadUserLists]);
 
-  const existingListsData = useMemo(() => lists.map((l) => ({ id: l.id, name: l.name })), [lists]);
+  const existingListsData = useMemo(
+    () => displayedLists.map((l) => ({ id: l.id, name: l.name })),
+    [displayedLists]
+  );
 
   const handleInvitationAccepted = useCallback(() => {
     loadUserLists({ silent: true });
@@ -297,7 +414,7 @@ export const Dashboard: React.FunctionComponent = () => {
                 />
                 <p className={`mt-2 text-sm ${themeColors.text.secondary}`}>Loading lists...</p>
               </div>
-            ) : lists.length === 0 ? (
+            ) : displayedLists.length === 0 ? (
               <div className="text-center py-12">
                 <img src="/mappin-icon.svg" alt="Empty" className="mx-auto h-20 w-20 opacity-20" />
                 <h3 className={`mt-2 text-sm font-medium ${themeColors.text.primary}`}>
@@ -329,26 +446,40 @@ export const Dashboard: React.FunctionComponent = () => {
                 }}
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
               >
-                {lists.map((list) => (
+                {displayedLists.map((list) => (
                   <motion.div
-                    key={list.id}
+                    key={list.clientId || list.id}
                     layout
                     initial={{ opacity: 0, scale: 0.95 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.2 }}
                   >
                     <Link
-                      to={`/list/${list.id}`}
-                      className={`${themeColors.background.card} border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer block h-full`}
+                      to={list.id.startsWith('temp-') ? '#' : `/list/${list.id}`}
+                      onClick={(e) => {
+                        if (list.id.startsWith('temp-')) {
+                          e.preventDefault();
+                        }
+                      }}
+                      className={`${themeColors.background.card} border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer block h-full ${
+                        list.id.startsWith('temp-') ? 'opacity-60 pointer-events-none' : ''
+                      }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="mr-4 flex-shrink-0">
                           <ListIcon icon={list.icon} color={list.color} size={24} />
                         </div>
                         <div className="flex-1">
-                          <h3 className={`text-lg font-medium ${themeColors.text.primary}`}>
-                            {list.name}
-                          </h3>
+                          <div className="flex items-center gap-2">
+                            <h3 className={`text-lg font-medium ${themeColors.text.primary}`}>
+                              {list.name}
+                            </h3>
+                            {list.id.startsWith('temp-') && (
+                              <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded">
+                                Saving...
+                              </span>
+                            )}
+                          </div>
                           {list.description && (
                             <p className={`text-sm ${themeColors.text.secondary} mt-1`}>
                               {list.description}
@@ -424,7 +555,6 @@ export const Dashboard: React.FunctionComponent = () => {
           onCancel={() => setShowDeleteConfirm(null)}
           confirmText="Delete"
           variant="danger"
-          isLoading={!!deletingListId}
         />
 
         <ConfirmDialog

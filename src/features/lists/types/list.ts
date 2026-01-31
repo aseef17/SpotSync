@@ -13,6 +13,7 @@ export interface Collaborator {
 
 export interface PlaceList {
   id: string;
+  clientId?: string; // Stable ID for UI key tracking to prevent remounts during optimistic updates
   name: string;
   description?: string;
   isPublic: boolean;

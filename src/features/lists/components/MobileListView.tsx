@@ -38,6 +38,8 @@ interface MobileListViewProps {
   onAddPlaces: () => void;
   onAddExternalPlace: (place: Partial<Place>) => void;
   highlightedPlaceId?: string;
+  onPlaceHidden?: (placeId: string) => void;
+  onPlaceRestored?: (placeId: string) => void;
 }
 
 export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
@@ -55,6 +57,8 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   onAddPlaces,
   onAddExternalPlace,
   highlightedPlaceId,
+  onPlaceHidden,
+  onPlaceRestored,
 }) => {
   const { user } = useAuth();
   const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
@@ -133,6 +137,8 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
     // 1. Initial check (optimistic) to avoid API call if possible
     let existingPlace = places.find((p) => normalizeId(p.googlePlaceId) === resultId);
 
+    // Only skip if we are absolutely sure it's the same place and NOT in a "force preview" context
+    // But if the user is searching, they might want to see the "Add" button if it's not truly in the list yet
     if (existingPlace) {
       onPlaceClick(existingPlace);
       clearSearch();
@@ -208,7 +214,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
 
   const listContent = (
     <div className="space-y-4">
-      {places.length > 0 && (
+      {(places.length > 0 || effectiveFilteredPlaces.length > 0) && (
         <PlaceFilters
           filters={filters}
           onFiltersChange={onFiltersChange}
@@ -243,7 +249,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
         ) : (
           effectiveFilteredPlaces.map((place) => (
             <MobilePlaceCard
-              key={place.id}
+              key={place.clientId || place.id}
               place={place}
               list={list}
               userLocation={userLocation}
@@ -276,6 +282,8 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
       onClose={onClearSelection}
       currentUserId={user?.id}
       onAddExternalPlace={onAddExternalPlace}
+      onPlaceHidden={onPlaceHidden}
+      onPlaceRestored={onPlaceRestored}
     />
   ) : (
     listContent
@@ -285,13 +293,13 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   const [forcedSnap, setForcedSnap] = React.useState<number | undefined>(undefined);
 
   return (
-    <div className="h-[100dvh] w-full flex flex-col relative overflow-hidden">
+    <div className="h-[100dvh] w-full flex flex-col relative">
       {/* AI Mode Highlight Border */}
       {isAiMode && (
         <div className="absolute inset-0 z-[9999] pointer-events-none shadow-[inset_0_0_80px_rgba(168,85,247,0.4)] transition-all duration-300" />
       )}
 
-      <div className="absolute inset-0 z-0">
+      <div className="absolute inset-0 z-0 overflow-hidden">
         <MapView
           places={effectiveFilteredPlaces}
           onPlaceClick={onPlaceClick}

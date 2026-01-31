@@ -8,6 +8,7 @@ import { AccountLinking } from '@/features/auth/components/AccountLinking';
 import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
 import { useProfile } from '@/features/auth/hooks/useProfile';
 import { useToast } from '@/hooks/useToast';
+import { useDeferredAction } from '@/hooks/useDeferredAction';
 
 export const Settings: React.FunctionComponent = () => {
   const { user, firebaseUser, logout } = useAuth();
@@ -22,17 +23,17 @@ export const Settings: React.FunctionComponent = () => {
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
 
-  // Custom Hook
   const {
     displayName,
     setDisplayName,
     username,
     setUsername,
-    loading,
     usernameAvailable,
     checkingUsername,
     saveProfile,
   } = useProfile();
+
+  const { trigger: triggerAction } = useDeferredAction();
 
   const handleSaveProfile = async () => {
     // Check if values actually changed
@@ -41,12 +42,26 @@ export const Settings: React.FunctionComponent = () => {
       return;
     }
 
-    try {
-      await saveProfile();
-      toast.success('Profile updated successfully');
-    } catch {
-      toast.error('Failed to update profile');
-    }
+    const previousDisplayName = user?.displayName;
+    const previousUsername = user?.username;
+
+    triggerAction(
+      async () => {
+        await saveProfile();
+      },
+      {
+        toastMessage: 'Profile updated successfully',
+        undoMessage: 'Reverted',
+        onUndo: () => {
+          if (previousDisplayName) setDisplayName(previousDisplayName);
+          if (previousUsername) setUsername(previousUsername);
+        },
+        onError: () => {
+          if (previousDisplayName) setDisplayName(previousDisplayName);
+          if (previousUsername) setUsername(previousUsername);
+        },
+      }
+    );
   };
 
   const handleToggleNotifications = async () => {
@@ -152,11 +167,10 @@ export const Settings: React.FunctionComponent = () => {
             <div className="pt-4">
               <button
                 onClick={handleSaveProfile}
-                disabled={loading}
-                className={`inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors`}
+                className={`inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors`}
               >
                 <Save className="h-4 w-4 mr-2" />
-                {loading ? 'Saving...' : 'Save Changes'}
+                Save Changes
               </button>
             </div>
           </div>

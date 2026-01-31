@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Plus,
   Users,
@@ -23,7 +23,9 @@ import { PlaceStatusSelector } from '@/features/places/components/PlaceStatusSel
 import { PlaceDetailsModal } from '@/features/places/components/PlaceDetailsModal';
 import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
 import { PlaceFilters } from '@/features/places/components/PlaceFilters';
+import { useDeferredAction } from '@/hooks/useDeferredAction';
 import type { Place } from '@/features/places/types/place';
+import type { PlaceList } from '@/features/lists/types/list';
 import { themeColors } from '@/styles/colors';
 import { MapView } from '@/features/maps/components/MapView';
 import { CollaboratorManager } from '@/features/lists/components/CollaboratorManager';
@@ -37,10 +39,11 @@ import { useIsMobile } from '@/hooks/useMediaQuery';
 
 export const ListView: React.FunctionComponent = () => {
   const { listId } = useParams<{ listId: string }>();
+  const navigate = useNavigate();
   const { user } = useAuth();
 
-  const { list, places, loading, error, loadListData, updatePlace } = useListDetails(listId);
-  const { filters, setFilters, filteredPlaces, viewMode, setViewMode } = usePlaceFilters(places);
+  const { list, places, loading, error, loadListData, updatePlace, updateList } =
+    useListDetails(listId);
   const isMobile = useIsMobile();
 
   const [showAddPlacesModal, setShowAddPlacesModal] = useState(false);
@@ -49,6 +52,85 @@ export const ListView: React.FunctionComponent = () => {
   const [showCollaborators, setShowCollaborators] = useState(false);
   const [showEditList, setShowEditList] = useState(false);
   const [deletingListId, setDeletingListId] = useState<string | null>(null);
+  const [hiddenPlaceIds, setHiddenPlaceIds] = useState<Set<string>>(new Set());
+  const [optimisticPlaces, setOptimisticPlaces] = useState<Place[]>([]);
+  const [pendingUpdate, setPendingUpdate] = useState<Partial<typeof list>>(null);
+  const { trigger: triggerAction } = useDeferredAction();
+
+  const displayedList = React.useMemo(() => {
+    if (!list) return null;
+    if (pendingUpdate) return { ...list, ...pendingUpdate };
+    return list;
+  }, [list, pendingUpdate]);
+
+  const handleUpdateList = async (data: Partial<PlaceList>) => {
+    if (!list || !user) return;
+
+    setPendingUpdate(data);
+
+    triggerAction(
+      async () => {
+        await updateList(list.id, data, user.id);
+      },
+      {
+        toastMessage: 'List updated',
+        undoMessage: 'Reverted',
+        onUndo: () => {
+          setPendingUpdate(null);
+        },
+        onError: (err) => {
+          logger.error('Update failed', err);
+          setPendingUpdate(null);
+        },
+      }
+    );
+  };
+
+  const visiblePlaces = React.useMemo(() => {
+    const all = [...optimisticPlaces, ...places];
+    // Deduplicate by clientId if available, falling back to id
+    // Since 'places' (real data) comes last, it will overwrite optimistic versions with the same clientId
+    const unique = Array.from(new Map(all.map((p) => [p.clientId || p.id, p])).values());
+    return unique.filter((p) => !hiddenPlaceIds.has(p.id));
+  }, [places, optimisticPlaces, hiddenPlaceIds]);
+
+  useEffect(() => {
+    if (optimisticPlaces.length === 0) return;
+
+    const realIds = new Set(places.map((p) => p.id));
+    const stillOptimistic = optimisticPlaces.filter((p) => !realIds.has(p.id));
+
+    if (stillOptimistic.length !== optimisticPlaces.length) {
+      setOptimisticPlaces(stillOptimistic);
+    }
+  }, [places, optimisticPlaces]);
+
+  const handlePlaceAdded = useCallback((place: Place) => {
+    setOptimisticPlaces((prev) => [place, ...prev]);
+  }, []);
+
+  const handleUndoAdd = useCallback((tempId: string) => {
+    setOptimisticPlaces((prev) => prev.filter((p) => p.id !== tempId));
+  }, []);
+
+  const handleReplacePlaceId = useCallback((tempId: string, realId: string) => {
+    setOptimisticPlaces((prev) => prev.map((p) => (p.id === tempId ? { ...p, id: realId } : p)));
+  }, []);
+
+  const handlePlaceHidden = useCallback((placeId: string) => {
+    setHiddenPlaceIds((prev) => new Set([...prev, placeId]));
+  }, []);
+
+  const handlePlaceRestored = useCallback((placeId: string) => {
+    setHiddenPlaceIds((prev) => {
+      const next = new Set(prev);
+      next.delete(placeId);
+      return next;
+    });
+  }, []);
+
+  const { filters, setFilters, filteredPlaces, viewMode, setViewMode } =
+    usePlaceFilters(visiblePlaces);
 
   // Sync selectedPlace with places array - if a preview place is now in the list, use the saved version
   useEffect(() => {
@@ -75,7 +157,7 @@ export const ListView: React.FunctionComponent = () => {
         // Update selectedPlace if it's the one that was updated
         setSelectedPlace((prev) => (prev?.id === place.id ? { ...prev, ...place } : prev));
       } else {
-        loadListData().then(() => {
+        loadListData(true).then(() => {
           // After full reload, try to find the selected place in the new list to update its data
           setSelectedPlace((prev) => {
             if (!prev) return null;
@@ -111,28 +193,62 @@ export const ListView: React.FunctionComponent = () => {
           delete finalPlaceData.id;
         }
 
-        const newPlace = {
+        // Create temporary place for optimistic UI
+        const tempId = `temp-${Date.now()}`;
+        const clientId = tempId;
+
+        const optimisticPlace = {
           ...finalPlaceData,
+          id: tempId,
+          clientId,
           listId,
           addedBy: user.id || 'anonymous',
           status: 'not_visited',
           addedAt: new Date(),
           updatedAt: new Date(),
-        } as Omit<Place, 'id'>;
+        } as Place;
 
-        const newPlaceId = await PlaceService.createPlace(listId, newPlace);
-        await loadListData();
+        handlePlaceAdded(optimisticPlace);
+        setSelectedPlace(null); // Close detail view immediately
 
-        // Fetch the newly created place and select it to show details (not preview)
-        const savedPlace = await PlaceService.getPlace(newPlaceId);
-        if (savedPlace) {
-          setSelectedPlace(savedPlace);
-        }
+        triggerAction(
+          async () => {
+            const newPlace = {
+              ...finalPlaceData,
+              listId,
+              addedBy: user.id || 'anonymous',
+              status: 'not_visited',
+              addedAt: new Date(),
+              updatedAt: new Date(),
+              clientId,
+            } as Omit<Place, 'id'>;
+
+            const realId = await PlaceService.createPlace(listId, newPlace);
+
+            // Replace temp ID with real ID in optimistic state
+            setOptimisticPlaces((prev) =>
+              prev.map((p) => (p.id === tempId ? { ...p, id: realId } : p))
+            );
+
+            handlePlaceUpdated();
+          },
+          {
+            toastMessage: 'Place added',
+            undoMessage: 'Canceled',
+            onUndo: () => {
+              handleUndoAdd(tempId);
+            },
+            onError: (err) => {
+              logger.error('Failed to add external place:', err);
+              handleUndoAdd(tempId);
+            },
+          }
+        );
       } catch (err) {
         logger.error('Failed to add external place:', err);
       }
     },
-    [listId, user, loadListData]
+    [listId, user, handlePlaceAdded, handleUndoAdd, triggerAction, handlePlaceUpdated]
   );
 
   const formatPriceLevel = (level?: number) => {
@@ -179,7 +295,7 @@ export const ListView: React.FunctionComponent = () => {
     );
   }
 
-  if (error || !list) {
+  if (error || !list || !displayedList) {
     return (
       <div className={`min-h-screen ${themeColors.background.app}`}>
         <header
@@ -231,8 +347,8 @@ export const ListView: React.FunctionComponent = () => {
           className="w-full h-full"
         >
           <MobileListView
-            list={list}
-            places={places}
+            list={displayedList}
+            places={visiblePlaces}
             filteredPlaces={filteredPlaces}
             filters={filters}
             onFiltersChange={setFilters}
@@ -246,6 +362,8 @@ export const ListView: React.FunctionComponent = () => {
             onManageTeam={() => setShowCollaborators(true)}
             onAddPlaces={() => setShowAddPlacesModal(true)}
             onAddExternalPlace={handleAddExternalPlace}
+            onPlaceHidden={handlePlaceHidden}
+            onPlaceRestored={handlePlaceRestored}
             highlightedPlaceId={selectedPlace?.id}
           />
 
@@ -253,9 +371,10 @@ export const ListView: React.FunctionComponent = () => {
           <PlaceSearchModal
             isOpen={showAddPlacesModal}
             onClose={() => setShowAddPlacesModal(false)}
-            onPlaceAdded={() => {
-              loadListData();
-            }}
+            onPlaceAdded={handlePlaceAdded}
+            onUndoAdd={handleUndoAdd}
+            onPlaceUpdated={handlePlaceUpdated}
+            onReplaceId={handleReplacePlaceId}
             listId={list.id}
           />
 
@@ -289,11 +408,9 @@ export const ListView: React.FunctionComponent = () => {
               onClose={() => setShowEditList(false)}
               editingList={list}
               onSave={async (data) => {
-                await ListService.updateList(list.id, data, user?.id);
-                loadListData();
+                await handleUpdateList(data);
                 setShowEditList(false);
               }}
-              isLoading={false}
               currentUserId={user?.id}
               onUpdate={loadListData}
             />
@@ -310,7 +427,6 @@ export const ListView: React.FunctionComponent = () => {
               title="Delete List"
               message="Are you sure you want to delete this list? This action cannot be undone."
               confirmText="Delete"
-              isLoading={false}
             />
           )}
         </motion.div>
@@ -334,7 +450,7 @@ export const ListView: React.FunctionComponent = () => {
               </Link>
               <div className="min-w-0 flex-1">
                 <h1 className={`text-xl font-semibold ${themeColors.text.primary} truncate`}>
-                  {list.name}
+                  {displayedList.name}
                 </h1>
                 <div
                   className={`flex flex-wrap items-center mt-1 gap-x-4 gap-y-1 text-sm ${themeColors.text.secondary}`}
@@ -343,7 +459,7 @@ export const ListView: React.FunctionComponent = () => {
                     {filteredPlaces.length} of {places.length} places
                   </span>
                   <span className="flex items-center">
-                    {list.isPublic ? (
+                    {displayedList.isPublic ? (
                       <>
                         <Eye className="h-4 w-4 mr-1" />
                         Public
@@ -357,8 +473,8 @@ export const ListView: React.FunctionComponent = () => {
                   </span>
                   <span className="flex items-center">
                     <Users className="h-4 w-4 mr-1" />
-                    {list.collaborators.length}{' '}
-                    {list.collaborators.length === 1 ? 'collaborator' : 'collaborators'}
+                    {displayedList.collaborators.length}{' '}
+                    {displayedList.collaborators.length === 1 ? 'collaborator' : 'collaborators'}
                   </span>
                 </div>
               </div>
@@ -388,9 +504,9 @@ export const ListView: React.FunctionComponent = () => {
       </header>
 
       <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
-        {list.description && (
+        {displayedList.description && (
           <div className="mb-6">
-            <p className={`${themeColors.text.secondary}`}>{list.description}</p>
+            <p className={`${themeColors.text.secondary}`}>{displayedList.description}</p>
           </div>
         )}
 
@@ -406,7 +522,7 @@ export const ListView: React.FunctionComponent = () => {
                 places.flatMap((p) => p.cuisines || []).filter((c): c is string => Boolean(c))
               ),
             ]}
-            customStatuses={list.customStatuses}
+            customStatuses={displayedList.customStatuses}
             totalPlaces={places.length}
             filteredCount={filteredPlaces.length}
             viewMode={viewMode}
@@ -422,9 +538,9 @@ export const ListView: React.FunctionComponent = () => {
                 setSelectedPlace(place);
                 setShowPlaceDetails(true);
               }}
-              markerIcon={list?.icon}
-              markerColor={list?.color}
-              markerSize={list?.iconSize}
+              markerIcon={displayedList?.icon}
+              markerColor={displayedList?.color}
+              markerSize={displayedList?.iconSize}
               highlightedPlaceId={selectedPlace?.id}
             />
           </div>
@@ -564,7 +680,8 @@ export const ListView: React.FunctionComponent = () => {
           isOpen={showAddPlacesModal}
           onClose={() => setShowAddPlacesModal(false)}
           listId={listId!}
-          onPlaceAdded={loadListData}
+          onPlaceAdded={handlePlaceAdded}
+          onUndoAdd={handleUndoAdd}
         />
 
         {selectedPlace && (
@@ -576,6 +693,23 @@ export const ListView: React.FunctionComponent = () => {
               setSelectedPlace(null);
             }}
             onPlaceUpdated={handlePlaceUpdated}
+            onPlaceHidden={(id) => {
+              setHiddenPlaceIds((prev) => {
+                const next = new Set(prev);
+                next.add(id);
+                return next;
+              });
+              // Close modal since place is "deleted"
+              setShowPlaceDetails(false);
+              setSelectedPlace(null);
+            }}
+            onPlaceRestored={(id) => {
+              setHiddenPlaceIds((prev) => {
+                const next = new Set(prev);
+                next.delete(id);
+                return next;
+              });
+            }}
           />
         )}
 
@@ -614,11 +748,28 @@ export const ListView: React.FunctionComponent = () => {
             onClose={() => setShowEditList(false)}
             editingList={list}
             onSave={async (data) => {
-              await ListService.updateList(list.id, data, user?.id);
-              loadListData();
+              setPendingUpdate(data);
               setShowEditList(false);
+
+              triggerAction(
+                async () => {
+                  await ListService.updateList(list.id, data, user?.id);
+                  loadListData();
+                  setPendingUpdate(null);
+                },
+                {
+                  toastMessage: 'List updated',
+                  undoMessage: 'Reverted',
+                  onUndo: () => {
+                    setPendingUpdate(null);
+                  },
+                  onError: (err) => {
+                    logger.error('Update list failed', err);
+                    loadListData();
+                  },
+                }
+              );
             }}
-            isLoading={false}
             currentUserId={user?.id}
             onUpdate={loadListData}
           />
@@ -631,13 +782,25 @@ export const ListView: React.FunctionComponent = () => {
             isOpen={!!deletingListId}
             onCancel={() => setDeletingListId(null)}
             onConfirm={async () => {
-              await ListService.deleteList(deletingListId);
-              window.location.href = '/';
+              const listId = deletingListId;
+              navigate('/');
+              triggerAction(
+                async () => {
+                  await ListService.deleteList(listId);
+                },
+                {
+                  toastMessage: 'List deleted',
+                  undoMessage: 'Restored',
+                  onUndo: () => {
+                    navigate(`/list/${listId}`);
+                  },
+                }
+              );
             }}
             title="Delete List"
             message="Are you sure you want to delete this list? This action cannot be undone."
             confirmText="Delete"
-            isLoading={false}
+            variant="danger"
           />
         )}
       </main>

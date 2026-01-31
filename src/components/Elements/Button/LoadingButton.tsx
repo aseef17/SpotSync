@@ -10,7 +10,7 @@ interface LoadingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
 
 export const LoadingButton: React.FunctionComponent<LoadingButtonProps> = ({
   children,
-  isLoading,
+  isLoading = false,
   loadingText,
   variant = 'primary',
   className = '',

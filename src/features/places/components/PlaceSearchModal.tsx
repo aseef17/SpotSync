@@ -8,6 +8,7 @@ import { getCategoryDisplayText } from '@/features/places/utils/placeHelpers';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { themeColors, colors } from '@/styles/colors';
 import { logger } from '@/utils/logger';
+import { useDeferredAction } from '@/hooks/useDeferredAction';
 import type { Place } from '@/features/places/types/place';
 
 // Simplified interface for Google Places search results
@@ -26,7 +27,10 @@ interface PlaceSearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   listId: string;
-  onPlaceAdded: () => void;
+  onPlaceAdded: (place: Place) => void;
+  onUndoAdd?: (placeId: string) => void;
+  onPlaceUpdated?: () => void;
+  onReplaceId?: (tempId: string, realId: string) => void;
 }
 
 export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = ({
@@ -34,8 +38,12 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
   onClose,
   listId,
   onPlaceAdded,
+  onUndoAdd,
+  onPlaceUpdated,
+  onReplaceId,
 }) => {
   const { user } = useAuth();
+  const { trigger: triggerAction } = useDeferredAction();
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [searchResults, setSearchResults] = useState<PlaceSearchResult[]>([]);
@@ -143,15 +151,52 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
 
       // Add the place to the list with the current user ID
       // placeData already omits id/addedAt/updatedAt so we can use it directly
+      // Create temporary place for optimistic UI
+      const tempId = `temp-${Date.now()}`;
+      // Use tempId as stable clientId for React keys -> ensures no unmounting when ID changes
+      const clientId = tempId;
+
       const newPlaceData = {
         ...placeData,
-        addedBy: user.id,
+        id: tempId,
+        clientId,
+        addedBy: user.id || 'anonymous',
         status: 'not_visited',
-      } as Omit<Place, 'id' | 'addedAt' | 'updatedAt'>;
+        addedAt: new Date(),
+        updatedAt: new Date(),
+      } as Place;
 
-      await PlaceService.createPlace(listId, newPlaceData);
+      onPlaceAdded(newPlaceData);
+      onClose();
 
-      onPlaceAdded();
+      triggerAction(
+        async () => {
+          const apiPayload = {
+            ...placeData,
+            listId,
+            addedBy: user.id,
+            status: 'not_visited' as const,
+            clientId,
+          } as Omit<Place, 'id' | 'addedAt' | 'updatedAt'>;
+
+          const realId = await PlaceService.createPlace(listId, apiPayload);
+
+          onReplaceId?.(tempId, realId);
+
+          onPlaceUpdated?.();
+        },
+        {
+          toastMessage: 'Place added',
+          undoMessage: 'Canceled',
+          onUndo: () => {
+            onUndoAdd?.(tempId);
+          },
+          onError: (err) => {
+            logger.error('Failed to add place:', err);
+            onUndoAdd?.(tempId);
+          },
+        }
+      );
 
       if (!keepOpen) {
         // Close modal if user clicked "Save"

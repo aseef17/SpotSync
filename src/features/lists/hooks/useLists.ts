@@ -44,11 +44,12 @@ export const useLists = (userId: string | undefined) => {
     isPublic: boolean;
     email: string;
     username: string;
+    clientId?: string;
   }) => {
     if (!userId) return;
     setCreating(true);
     try {
-      await ListService.createList(
+      return await ListService.createList(
         userId,
         data.name,
         data.description,
@@ -57,9 +58,9 @@ export const useLists = (userId: string | undefined) => {
         data.iconSize,
         data.isPublic,
         data.email,
-        data.username
+        data.username,
+        data.clientId
       );
-      await loadUserLists();
     } catch (err) {
       logger.error('Error creating list:', err);
       throw err;
@@ -72,7 +73,6 @@ export const useLists = (userId: string | undefined) => {
     setCreating(true);
     try {
       await ListService.updateList(listId, data, userId);
-      await loadUserLists();
     } catch (err) {
       logger.error('Error updating list:', err);
       throw err;
@@ -84,7 +84,6 @@ export const useLists = (userId: string | undefined) => {
   const deleteList = async (listId: string) => {
     try {
       await ListService.deleteList(listId);
-      await loadUserLists();
     } catch (err) {
       logger.error('Error deleting list:', err);
       throw err;

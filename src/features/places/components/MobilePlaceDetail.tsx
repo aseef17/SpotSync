@@ -27,6 +27,7 @@ import { calculateDistance } from '@/utils/geo';
 import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
 import { PlaceService } from '@/features/places/api/placeService';
 import { useToast } from '@/hooks/useToast';
+import { useDeferredAction } from '@/hooks/useDeferredAction';
 import { logger } from '@/utils/logger';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -109,11 +110,11 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
     () =>
       userLocation && place.location
         ? calculateDistance(
-          userLocation.lat,
-          userLocation.lng,
-          place.location.lat,
-          place.location.lng
-        )
+            userLocation.lat,
+            userLocation.lng,
+            place.location.lat,
+            place.location.lng
+          )
         : null,
     [userLocation, place.location]
   );
@@ -207,7 +208,7 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
         <button
           onClick={() => {
             onAddExternalPlace?.(place);
-            onClose();
+            // Let user stay on current view - don't close automatically
           }}
           className="w-full flex items-center justify-center gap-2 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all shadow-md active:scale-[0.98]"
         >
@@ -310,10 +311,11 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
                       <button
                         key={option.value}
                         onClick={() => handleStatusSelect(option.value)}
-                        className={`w-full p-3 text-left rounded-lg flex items-center justify-between font-medium ${option.value === currentStatusValue
+                        className={`w-full p-3 text-left rounded-lg flex items-center justify-between font-medium ${
+                          option.value === currentStatusValue
                             ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600'
                             : `${themeColors.text.primary} hover:bg-gray-50 dark:hover:bg-gray-800`
-                          }`}
+                        }`}
                       >
                         {option.label}
                         {option.value === currentStatusValue && <Check className="h-4 w-4" />}
@@ -343,6 +345,8 @@ interface MobilePlaceDetailContentProps {
   onClose: () => void;
   currentUserId?: string;
   onAddExternalPlace?: (place: Partial<Place>) => void;
+  onPlaceHidden?: (placeId: string) => void;
+  onPlaceRestored?: (placeId: string) => void;
 }
 
 export const MobilePlaceDetailContent: React.FunctionComponent<MobilePlaceDetailContentProps> = ({
@@ -351,12 +355,14 @@ export const MobilePlaceDetailContent: React.FunctionComponent<MobilePlaceDetail
   onClose,
   currentUserId,
   onAddExternalPlace,
+  onPlaceHidden,
+  onPlaceRestored,
 }) => {
   const { toast } = useToast();
+  const { trigger: triggerAction } = useDeferredAction();
   const [isEditingNotes, setIsEditingNotes] = useState(false);
   const [editedNotes, setEditedNotes] = useState(place.notes || '');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
   const [isHoursExpanded, setIsHoursExpanded] = useState(false);
 
@@ -385,21 +391,36 @@ export const MobilePlaceDetailContent: React.FunctionComponent<MobilePlaceDetail
     }
   };
 
-  const handleDelete = async () => {
-    if (!place.listId) return;
-    setDeleting(true);
-    try {
-      await PlaceService.deletePlace(place.id, place.listId, currentUserId);
-      setShowDeleteConfirm(false);
-      onClose();
-      onPlaceUpdated();
-      toast.success('Place deleted');
-    } catch (error) {
-      logger.error('Failed to delete place:', error);
-      toast.error('Failed to delete place');
-    } finally {
-      setDeleting(false);
-    }
+  const handleDelete = () => {
+    if (!place.listId || !onPlaceHidden || !onPlaceRestored) return;
+
+    const placeId = place.id;
+    const listId = place.listId;
+
+    // Optimistic deletion
+    onPlaceHidden(placeId);
+    setShowDeleteConfirm(false);
+    onClose();
+
+    triggerAction(
+      async () => {
+        // If it's a temporary ID, we only need to remove it from optimistic UI
+        if (!placeId.startsWith('temp-')) {
+          await PlaceService.deletePlace(placeId, listId, currentUserId);
+        }
+      },
+      {
+        toastMessage: placeId.startsWith('temp-') ? 'Addition canceled' : 'Place deleted',
+        undoMessage: 'Restored',
+        onUndo: () => {
+          onPlaceRestored(placeId);
+        },
+        onError: (error: unknown) => {
+          logger.error('Failed to delete place:', error);
+          onPlaceRestored(placeId);
+        },
+      }
+    );
   };
 
   return (
@@ -616,7 +637,6 @@ export const MobilePlaceDetailContent: React.FunctionComponent<MobilePlaceDetail
         message="Are you sure you want to remove this place from the list?"
         confirmText="Remove"
         variant="danger"
-        isLoading={deleting}
       />
     </motion.div>
   );

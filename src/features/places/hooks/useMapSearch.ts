@@ -54,7 +54,7 @@ export const useMapSearch = ({ listId, userLocation, currentUserId }: UseMapSear
       const details = await GoogleMapsService.getPlaceDetails(result.place_id);
       if (details) {
         const place = GoogleMapsService.convertGooglePlaceToPlace(details, listId);
-        const previewPlace: Place & { isPreview: boolean } = {
+        const previewPlace: Place = {
           ...place,
           id: `temp-${result.place_id}`,
           addedBy: currentUserId || '',

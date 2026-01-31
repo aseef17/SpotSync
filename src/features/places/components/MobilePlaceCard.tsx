@@ -36,11 +36,16 @@ export const MobilePlaceCard: React.FunctionComponent<MobilePlaceCardProps> = ({
       className={`${themeColors.background.card} mb-4 pb-4 border-b ${themeColors.border.default} last:border-0 cursor-pointer`}
     >
       <div className="flex justify-between items-start mb-1">
-        <h3
-          className={`text-base font-semibold ${themeColors.text.primary} line-clamp-1 flex-1 mr-2`}
-        >
-          {place.name}
-        </h3>
+        <div className="flex-1 min-w-0 mr-2 flex items-center gap-2">
+          <h3 className={`text-base font-semibold ${themeColors.text.primary} line-clamp-1`}>
+            {place.name}
+          </h3>
+          {place.id.startsWith('temp-') && (
+            <span className="px-1.5 py-0.5 text-[9px] font-bold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded uppercase tracking-tighter flex-shrink-0">
+              Saving...
+            </span>
+          )}
+        </div>
         {place.status !== 'not_visited' && (
           <span
             className={`flex-shrink-0 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
