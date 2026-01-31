@@ -64,7 +64,6 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
   const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
   const [bottomSheetHeight, setBottomSheetHeight] = useState(120);
 
-  // Filter places based on AI results if active
   // When AI filter is active, show all AI-matched places regardless of other filters
   const effectiveFilteredPlaces = React.useMemo(() => {
     if (aiMatchedIds === null) return filteredPlaces;
@@ -103,7 +102,6 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
     setIsAiMode(false);
   };
 
-  // Wrapper that clears AI filter when exiting AI mode
   const handleAiModeChange = (enabled: boolean) => {
     setIsAiMode(enabled);
     if (!enabled) {
@@ -305,7 +303,6 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
           highlightedPlaceId={highlightedPlaceId}
           previewPlace={(() => {
             if (!selectedPlace?.isPreview) return null;
-            // Use normalized comparison for backward compatibility
             const normalizeId = (id: string | undefined) => id?.replace(/^places\//, '') || '';
             const selectedId = normalizeId(selectedPlace?.googlePlaceId);
             const existsInList = places.some(

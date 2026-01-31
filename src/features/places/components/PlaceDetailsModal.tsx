@@ -149,7 +149,6 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                 }}
                 className="p-6 space-y-6"
               >
-                {/* Place Image Gallery */}
                 <motion.div
                   variants={{
                     hidden: { opacity: 0, y: 10 },
@@ -157,7 +156,6 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                   }}
                   className="grid grid-cols-1 gap-4"
                 >
-                  {/* Google Places Photos */}
                   {place.photoUrls && place.photoUrls.length > 0 && (
                     <div>
                       <h3 className="text-sm font-medium light-text-secondary mb-2">
@@ -191,7 +189,6 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                           ) : null;
                         })}
                       </div>
-                      {/* View Gallery Link */}
                       <button
                         onClick={() => {
                           setGalleryIndex(0);
@@ -206,7 +203,6 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                   )}
                 </motion.div>
 
-                {/* Place Details */}
                 <motion.div
                   variants={{
                     hidden: { opacity: 0, y: 10 },
@@ -297,7 +293,6 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Right Column: Badges & Hours */}
                   <div className="space-y-4">
                     {place.cuisines && place.cuisines.length > 0 && (
                       <div className="flex flex-wrap gap-2">
@@ -395,7 +390,6 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                   </div>
                 </motion.div>
 
-                {/* Notes Section */}
                 <motion.div
                   variants={{
                     hidden: { opacity: 0, y: 10 },
@@ -453,7 +447,6 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
               </motion.div>
             </div>
 
-            {/* Footer */}
             <div className="p-2 sm:p-4 border-t light-border-default flex justify-between items-center gap-4 flex-shrink-0">
               {canDelete && (
                 <LoadingButton
@@ -477,7 +470,6 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
         </div>
       )}
 
-      {/* Delete Confirmation Dialog */}
       <ConfirmDialog
         isOpen={showDeleteConfirm}
         title="Delete Place?"
@@ -489,7 +481,6 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
         isLoading={deleting}
       />
 
-      {/* Image Gallery Modal */}
       <ImageGalleryModal
         isOpen={showGallery}
         onClose={() => setShowGallery(false)}

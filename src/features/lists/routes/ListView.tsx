@@ -38,12 +38,10 @@ export const ListView: React.FC = () => {
   const { listId } = useParams<{ listId: string }>();
   const { user } = useAuth();
 
-  // Custom Hooks
   const { list, places, loading, error, loadListData, updatePlace } = useListDetails(listId);
   const { filters, setFilters, filteredPlaces, viewMode, setViewMode } = usePlaceFilters(places);
   const isMobile = useIsMobile();
 
-  // UI State
   const [showAddPlacesModal, setShowAddPlacesModal] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
   const [showPlaceDetails, setShowPlaceDetails] = useState(false);
@@ -223,7 +221,6 @@ export const ListView: React.FC = () => {
     );
   }
 
-  // Mobile layout
   if (isMobile && list) {
     return (
       <AnimatePresence mode="wait">
@@ -323,7 +320,6 @@ export const ListView: React.FC = () => {
     );
   }
 
-  // Desktop layout
   return (
     <div className={`min-h-screen ${themeColors.background.app}`}>
       <header
@@ -400,7 +396,6 @@ export const ListView: React.FC = () => {
           </div>
         )}
 
-        {/* Filters */}
         {places.length > 0 && (
           <PlaceFilters
             filters={filters}
@@ -421,7 +416,6 @@ export const ListView: React.FC = () => {
           />
         )}
 
-        {/* Map View */}
         {viewMode === 'map' && places.length > 0 && (
           <div className="mb-6 h-[calc(100vh-280px)]">
             <MapView
@@ -568,7 +562,6 @@ export const ListView: React.FC = () => {
           </motion.div>
         )}
 
-        {/* Place Search Modal */}
         <PlaceSearchModal
           isOpen={showAddPlacesModal}
           onClose={() => setShowAddPlacesModal(false)}
@@ -576,7 +569,6 @@ export const ListView: React.FC = () => {
           onPlaceAdded={loadListData}
         />
 
-        {/* Place Details Modal */}
         {selectedPlace && (
           <PlaceDetailsModal
             place={selectedPlace}
@@ -589,7 +581,6 @@ export const ListView: React.FC = () => {
           />
         )}
 
-        {/* Collaborator Manager Modal */}
         {showCollaborators && list && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
             <motion.div
@@ -619,7 +610,6 @@ export const ListView: React.FC = () => {
           </div>
         )}
 
-        {/* Edit List Modal */}
         {showEditList && list && (
           <CreateListModal
             isOpen={showEditList}
@@ -636,10 +626,8 @@ export const ListView: React.FC = () => {
           />
         )}
 
-        {/* FAB for Add Places */}
         <FAB onClick={() => setShowAddPlacesModal(true)} label="Add Places" />
 
-        {/* Delete List Confirmation */}
         {deletingListId && (
           <ConfirmDialog
             isOpen={!!deletingListId}
