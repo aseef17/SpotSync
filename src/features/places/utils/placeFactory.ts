@@ -102,5 +102,12 @@ export const createPlaceFromGoogleDetails = (
     ...overrides,
   };
 
+  // Remove undefined fields to keep object clean for Firestore
+  Object.keys(placeData).forEach((key) => {
+    if (placeData[key as keyof Place] === undefined) {
+      delete placeData[key as keyof Place];
+    }
+  });
+
   return placeData;
 };
