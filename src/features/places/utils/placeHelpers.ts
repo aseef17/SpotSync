@@ -59,7 +59,11 @@ export const getTodayHoursText = (place: Place) => {
   const parts = todayHours.split(':');
   if (parts.length < 2) return todayHours;
 
-  return parts.slice(1).join(':').trim();
+  const text = parts.slice(1).join(':').trim();
+  if (text.toLowerCase() === 'closed') {
+    return `Closed on ${todayName}`;
+  }
+  return text;
 };
 
 export const getCategoryDisplayText = (place: { category?: string; cuisines?: string[] }) => {
