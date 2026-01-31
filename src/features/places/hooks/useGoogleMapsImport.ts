@@ -283,6 +283,11 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
             clientId: `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           });
 
+          // Firestore doesn't like undefined
+          (Object.keys(factoryPlace) as Array<keyof typeof factoryPlace>).forEach((key) => {
+            if (factoryPlace[key] === undefined) delete factoryPlace[key];
+          });
+
           const { id: _id, addedAt: _addedAt, updatedAt: _updatedAt, ...rest } = factoryPlace;
           return rest;
         }

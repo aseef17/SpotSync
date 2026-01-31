@@ -9,18 +9,20 @@ export const logger = {
     if (import.meta.env.DEV) {
       console.error(message, ...args);
     }
-    try {
-      // Log to Google Analytics
-      logEvent(analytics, 'exception', {
-        description:
-          `${message} ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`.substring(
-            0,
-            100
-          ), // Limit length
-        fatal: false,
-      });
-    } catch (e) {
-      // Ignore analytics errors to prevent loops
+    if (!import.meta.env.DEV) {
+      try {
+        // Log to Google Analytics
+        logEvent(analytics, 'exception', {
+          description:
+            `${message} ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`.substring(
+              0,
+              100
+            ), // Limit length
+          fatal: false,
+        });
+      } catch (e) {
+        // Ignore analytics errors to prevent loops
+      }
     }
   },
   warn: (message: string, ...args: unknown[]) => {
