@@ -69,14 +69,21 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
   const [bottomSheetHeight, setBottomSheetHeight] = useState(120);
 
-  // When AI filter is active, show all AI-matched places regardless of other filters
+  // Base set of places for filter calculations (Dropdown options)
+  const aiMatchedPlaces = React.useMemo(() => {
+    if (aiMatchedIds === null) return null;
+    return places.filter((p) => aiMatchedIds.includes(p.id));
+  }, [places, aiMatchedIds]);
+
+  const basePlaces = aiMatchedPlaces || places;
+
+  // Final list to show: Intersection of (Standard Filters) AND (AI Matches)
   const effectiveFilteredPlaces = React.useMemo(() => {
     if (aiMatchedIds === null) return filteredPlaces;
-    // Use full places array to bypass other filters when AI is active
-    const matched = places.filter((p) => aiMatchedIds.includes(p.id));
 
-    return matched;
-  }, [places, filteredPlaces, aiMatchedIds]);
+    // If AI is active, we want to apply standard filters (like Open Now) ON TOP of AI results
+    return filteredPlaces.filter((p) => aiMatchedIds.includes(p.id));
+  }, [filteredPlaces, aiMatchedIds]);
 
   const handleAiSearchSubmit = async (query: string) => {
     if (!query.trim()) return;
@@ -219,15 +226,15 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
           filters={filters}
           onFiltersChange={onFiltersChange}
           availableCategories={[
-            ...new Set(places.map((p) => p.category).filter((c): c is string => Boolean(c))),
+            ...new Set(basePlaces.map((p) => p.category).filter((c): c is string => Boolean(c))),
           ]}
           availableCuisines={[
             ...new Set(
-              places.flatMap((p) => p.cuisines || []).filter((c): c is string => Boolean(c))
+              basePlaces.flatMap((p) => p.cuisines || []).filter((c): c is string => Boolean(c))
             ),
           ]}
           customStatuses={list.customStatuses}
-          totalPlaces={places.length}
+          totalPlaces={basePlaces.length}
           filteredCount={effectiveFilteredPlaces.length}
           viewMode="list"
           onViewModeChange={() => {}}
