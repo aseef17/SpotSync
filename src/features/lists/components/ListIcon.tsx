@@ -8,7 +8,7 @@ interface ListIconProps {
   size?: number;
 }
 
-export const ListIcon: React.FC<ListIconProps> = ({ icon, color, size = 24 }) => {
+export const ListIcon: React.FunctionComponent<ListIconProps> = ({ icon, color, size = 24 }) => {
   const isAutoIcon = !icon || icon === 'AUTO';
   const isAutoColor = !color || color === 'AUTO';
 

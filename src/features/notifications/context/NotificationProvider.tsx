@@ -7,7 +7,9 @@ import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
 import { useToastContext } from '@/hooks/useToastContext';
 import { NotificationContext } from './NotificationContext';
 
-export const NotificationProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const NotificationProvider: React.FunctionComponent<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { user } = useAuth();
   const { addToast } = useToastContext();
   const [permissionGranted, setPermissionGranted] = useState(false);

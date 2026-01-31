@@ -10,7 +10,7 @@ interface ImageGalleryModalProps {
   placeName: string;
 }
 
-export const ImageGalleryModal: React.FC<ImageGalleryModalProps> = ({
+export const ImageGalleryModal: React.FunctionComponent<ImageGalleryModalProps> = ({
   isOpen,
   onClose,
   images,

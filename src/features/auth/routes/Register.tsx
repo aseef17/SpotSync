@@ -6,7 +6,7 @@ import { logger } from '@/utils/logger';
 import { themeColors } from '@/styles/colors';
 import { UserService } from '@/features/auth/api/userService';
 
-export const Register: React.FC = () => {
+export const Register: React.FunctionComponent = () => {
   const [formData, setFormData] = useState({
     email: '',
     password: '',

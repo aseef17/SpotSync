@@ -13,7 +13,7 @@ interface ImportGoogleMapsModalProps {
   existingLists?: { id: string; name: string }[];
 }
 
-export const ImportGoogleMapsModal: React.FC<ImportGoogleMapsModalProps> = ({
+export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModalProps> = ({
   isOpen,
   onClose,
   onSuccess,

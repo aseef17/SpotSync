@@ -45,7 +45,7 @@ interface MobilePlaceDetailHeaderProps {
   onAddExternalPlace?: (place: Partial<Place>) => void;
 }
 
-export const MobilePlaceDetailHeader: React.FC<MobilePlaceDetailHeaderProps> = ({
+export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailHeaderProps> = ({
   place,
   onClose,
   userLocation,
@@ -344,7 +344,7 @@ interface MobilePlaceDetailContentProps {
   onAddExternalPlace?: (place: Partial<Place>) => void;
 }
 
-export const MobilePlaceDetailContent: React.FC<MobilePlaceDetailContentProps> = ({
+export const MobilePlaceDetailContent: React.FunctionComponent<MobilePlaceDetailContentProps> = ({
   place,
   onPlaceUpdated,
   onClose,

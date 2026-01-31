@@ -15,7 +15,7 @@ interface ConfirmDialogProps {
   isLoading?: boolean;
 }
 
-export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
+export const ConfirmDialog: React.FunctionComponent<ConfirmDialogProps> = ({
   isOpen,
   title,
   message,

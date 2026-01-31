@@ -12,7 +12,9 @@ interface InvitationListProps {
   onInvitationAccepted?: () => void;
 }
 
-export const InvitationList: React.FC<InvitationListProps> = ({ onInvitationAccepted }) => {
+export const InvitationList: React.FunctionComponent<InvitationListProps> = ({
+  onInvitationAccepted,
+}) => {
   const { user } = useAuth();
   const { toast } = useToast();
   const [invitations, setInvitations] = useState<Invitation[]>([]);

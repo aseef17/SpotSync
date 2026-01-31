@@ -40,7 +40,7 @@ const getPlaceCoords = (place: Place): { lat: number; lng: number } | null => {
   return null;
 };
 
-const MapBoundsFitter: React.FC<{
+const MapBoundsFitter: React.FunctionComponent<{
   places: Place[];
   highlightedPlaceId?: string;
   previewPlace?: Place | null;
@@ -146,7 +146,7 @@ const LocationButton = () => {
   );
 };
 
-const MapLayersControl: React.FC<{ onOpenChange?: (isOpen: boolean) => void }> = ({
+const MapLayersControl: React.FunctionComponent<{ onOpenChange?: (isOpen: boolean) => void }> = ({
   onOpenChange,
 }) => {
   const map = useMap();
@@ -281,7 +281,7 @@ const MapLayersControl: React.FC<{ onOpenChange?: (isOpen: boolean) => void }> =
   );
 };
 
-export const MapView: React.FC<MapViewProps> = ({
+export const MapView: React.FunctionComponent<MapViewProps> = ({
   places,
   onPlaceClick,
   markerIcon,

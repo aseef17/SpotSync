@@ -19,7 +19,7 @@ interface MobilePlaceCardProps {
   onClick: () => void;
 }
 
-export const MobilePlaceCard: React.FC<MobilePlaceCardProps> = ({
+export const MobilePlaceCard: React.FunctionComponent<MobilePlaceCardProps> = ({
   place,
   list,
   userLocation,

@@ -4,7 +4,9 @@ import { UserService } from '@/features/auth/api/userService';
 import { logger } from '@/utils/logger';
 import { ThemeContext, type Theme, type ThemeContextType } from '@/providers/theme-context';
 
-export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode }> = ({
+  children,
+}) => {
   const { firebaseUser, user, loading: authLoading } = useAuth();
 
   // Initialize theme from localStorage or system preference

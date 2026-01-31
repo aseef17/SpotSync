@@ -15,7 +15,7 @@ interface CustomDropdownProps {
   className?: string;
 }
 
-export const CustomDropdown: React.FC<CustomDropdownProps> = ({
+export const CustomDropdown: React.FunctionComponent<CustomDropdownProps> = ({
   value,
   options,
   onChange,

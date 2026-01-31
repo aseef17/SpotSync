@@ -40,7 +40,7 @@ interface MobileListViewProps {
   highlightedPlaceId?: string;
 }
 
-export const MobileListView: React.FC<MobileListViewProps> = ({
+export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   list,
   places,
   filteredPlaces,

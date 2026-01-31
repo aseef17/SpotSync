@@ -5,7 +5,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { logger } from '@/utils/logger';
 import { themeColors } from '@/styles/colors';
 
-export const Login: React.FC = () => {
+export const Login: React.FunctionComponent = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);

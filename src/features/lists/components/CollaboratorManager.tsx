@@ -14,7 +14,7 @@ interface CollaboratorManagerProps {
   onUpdate: () => void;
 }
 
-export const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({
+export const CollaboratorManager: React.FunctionComponent<CollaboratorManagerProps> = ({
   list,
   currentUserId,
   onUpdate,

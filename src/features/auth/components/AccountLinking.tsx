@@ -12,7 +12,10 @@ interface AccountLinkingProps {
   onAccountLinked: () => void;
 }
 
-export const AccountLinking: React.FC<AccountLinkingProps> = ({ user, onAccountLinked }) => {
+export const AccountLinking: React.FunctionComponent<AccountLinkingProps> = ({
+  user,
+  onAccountLinked,
+}) => {
   const [linking, setLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

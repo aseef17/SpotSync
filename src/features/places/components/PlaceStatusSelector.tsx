@@ -10,7 +10,7 @@ interface PlaceStatusSelectorProps {
   onStatusChanged: () => void;
 }
 
-export const PlaceStatusSelector: React.FC<PlaceStatusSelectorProps> = ({
+export const PlaceStatusSelector: React.FunctionComponent<PlaceStatusSelectorProps> = ({
   place,
   customStatuses = [],
   onStatusChanged,

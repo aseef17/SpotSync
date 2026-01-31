@@ -23,7 +23,7 @@ interface CreateListModalProps {
   onUpdate?: () => void;
 }
 
-export const CreateListModal: React.FC<CreateListModalProps> = ({
+export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
   isOpen,
   onClose,
   onSave,

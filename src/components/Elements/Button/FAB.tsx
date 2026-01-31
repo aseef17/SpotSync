@@ -7,7 +7,7 @@ interface FABProps {
   label?: string;
 }
 
-export const FAB: React.FC<FABProps> = ({
+export const FAB: React.FunctionComponent<FABProps> = ({
   onClick,
   icon = <Plus className="h-6 w-6" />,
   label,

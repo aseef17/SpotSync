@@ -8,7 +8,7 @@ interface LoadingButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElemen
   variant?: 'primary' | 'secondary' | 'danger' | 'warning' | 'ghost';
 }
 
-export const LoadingButton: React.FC<LoadingButtonProps> = ({
+export const LoadingButton: React.FunctionComponent<LoadingButtonProps> = ({
   children,
   isLoading,
   loadingText,

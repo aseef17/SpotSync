@@ -15,7 +15,7 @@ interface MapSearchOverlayProps {
   debouncedQuery: string;
 }
 
-export const MapSearchOverlay: React.FC<MapSearchOverlayProps> = ({
+export const MapSearchOverlay: React.FunctionComponent<MapSearchOverlayProps> = ({
   isOpen,
   onClose,
   searchQuery,

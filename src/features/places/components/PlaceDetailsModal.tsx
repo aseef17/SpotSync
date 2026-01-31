@@ -48,7 +48,7 @@ const getImageUrl = (photoReference: string): string => {
   return '';
 };
 
-export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
+export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> = ({
   place,
   isOpen,
   onClose,

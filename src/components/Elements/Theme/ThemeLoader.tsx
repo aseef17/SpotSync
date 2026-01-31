@@ -4,7 +4,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { useTheme } from '@/hooks/useTheme';
 import { UserService } from '@/features/auth/api/userService';
 
-export const ThemeLoader: React.FC = () => {
+export const ThemeLoader: React.FunctionComponent = () => {
   const { user } = useAuth();
   const { setTheme } = useTheme();
 

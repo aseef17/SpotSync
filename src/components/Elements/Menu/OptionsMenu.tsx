@@ -12,7 +12,7 @@ interface OptionsMenuProps {
   }[];
 }
 
-export const OptionsMenu: React.FC<OptionsMenuProps> = ({ options }) => {
+export const OptionsMenu: React.FunctionComponent<OptionsMenuProps> = ({ options }) => {
   return (
     <Menu as="div" className="relative inline-block text-left">
       <Menu.Button

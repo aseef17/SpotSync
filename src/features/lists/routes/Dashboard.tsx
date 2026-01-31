@@ -16,7 +16,7 @@ import { ListIcon } from '@/features/lists/components/ListIcon';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
 import { logger } from '@/utils/logger';
 
-export const Dashboard: React.FC = () => {
+export const Dashboard: React.FunctionComponent = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const { lists, loading, creating, error, loadUserLists, createList, updateList, deleteList } =

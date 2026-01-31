@@ -35,7 +35,7 @@ import { useListDetails } from '@/features/lists/hooks/useListDetails';
 import { usePlaceFilters } from '@/features/places/hooks/usePlaceFilters';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 
-export const ListView: React.FC = () => {
+export const ListView: React.FunctionComponent = () => {
   const { listId } = useParams<{ listId: string }>();
   const { user } = useAuth();
 

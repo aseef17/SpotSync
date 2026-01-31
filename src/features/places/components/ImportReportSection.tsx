@@ -12,7 +12,7 @@ interface ImportReportSectionProps {
   onToggle: () => void;
 }
 
-export const ImportReportSection: React.FC<ImportReportSectionProps> = ({
+export const ImportReportSection: React.FunctionComponent<ImportReportSectionProps> = ({
   title,
   places,
   type,

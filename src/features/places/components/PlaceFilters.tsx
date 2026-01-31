@@ -32,7 +32,7 @@ interface PlaceFiltersProps {
   isAiLoading?: boolean;
 }
 
-export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
+export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
   filters,
   onFiltersChange,
   availableCategories,

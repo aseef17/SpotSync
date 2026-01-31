@@ -9,7 +9,7 @@ import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/Confirma
 import { useProfile } from '@/features/auth/hooks/useProfile';
 import { useToast } from '@/hooks/useToast';
 
-export const Settings: React.FC = () => {
+export const Settings: React.FunctionComponent = () => {
   const { user, firebaseUser, logout } = useAuth();
   const { toast } = useToast();
   const {

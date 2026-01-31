@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import type { ToastType, ToastPosition } from '@/types/toast';
 import { ToastContext } from '@/providers/toast-context';
 
-export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const ToastProvider: React.FunctionComponent<{ children: ReactNode }> = ({ children }) => {
   // We keep these for interface compatibility but they are no-ops with sonner
   // as sonner handles positioning and state internally
   const [position, setPosition] = React.useState<ToastPosition>('top-right');
@@ -17,14 +17,8 @@ export const ToastProvider: React.FC<{ children: ReactNode }> = ({ children }) =
       // Adapter to map our types to sonner
       const options = {
         duration,
-        description: message, // Description handles the main message
+        description: message,
       };
-
-
-
-      // Actually sonner api: toast(message, { description })
-      // If we have title + message -> toast(title, { description: message })
-      // If we have only message -> toast(message)
 
       const mainText = title || message;
       const subText = title ? message : undefined;

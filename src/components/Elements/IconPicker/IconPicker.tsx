@@ -12,7 +12,7 @@ interface IconPickerProps {
   onSizeChange: (size: number) => void;
 }
 
-export const IconPicker: React.FC<IconPickerProps> = ({
+export const IconPicker: React.FunctionComponent<IconPickerProps> = ({
   selectedIcon,
   selectedColor,
   selectedSize = 36,

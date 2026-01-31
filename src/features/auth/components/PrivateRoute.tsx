@@ -6,7 +6,7 @@ interface PrivateRouteProps {
   children?: React.ReactNode;
 }
 
-export const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
+export const PrivateRoute: React.FunctionComponent<PrivateRouteProps> = ({ children }) => {
   const { firebaseUser, loading } = useAuth();
 
   if (loading) {

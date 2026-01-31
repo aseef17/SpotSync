@@ -11,7 +11,7 @@ interface MobileBottomSheetProps {
   onHeightChange?: (height: number) => void; // Callback when height changes
 }
 
-export const MobileBottomSheet: React.FC<MobileBottomSheetProps> = ({
+export const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> = ({
   header,
   children,
   snapPoints = [120, '25%', '50%', '90%'],

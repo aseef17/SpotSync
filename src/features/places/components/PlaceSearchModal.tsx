@@ -29,7 +29,7 @@ interface PlaceSearchModalProps {
   onPlaceAdded: () => void;
 }
 
-export const PlaceSearchModal: React.FC<PlaceSearchModalProps> = ({
+export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = ({
   isOpen,
   onClose,
   listId,
