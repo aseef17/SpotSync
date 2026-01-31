@@ -109,11 +109,11 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
     () =>
       userLocation && place.location
         ? calculateDistance(
-            userLocation.lat,
-            userLocation.lng,
-            place.location.lat,
-            place.location.lng
-          )
+          userLocation.lat,
+          userLocation.lng,
+          place.location.lat,
+          place.location.lng
+        )
         : null,
     [userLocation, place.location]
   );
@@ -304,20 +304,21 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
                   </h3>
                 </div>
                 <div className="p-2 space-y-1">
-                  {statusOptions.map((option) => (
-                    <button
-                      key={option.value}
-                      onClick={() => handleStatusSelect(option.value)}
-                      className={`w-full p-3 text-left rounded-lg flex items-center justify-between font-medium ${
-                        option.value === currentStatusValue
-                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600'
-                          : `${themeColors.text.primary} hover:bg-gray-50 dark:hover:bg-gray-800`
-                      }`}
-                    >
-                      {option.label}
-                      {option.value === currentStatusValue && <Check className="h-4 w-4" />}
-                    </button>
-                  ))}
+                  {statusOptions
+                    .filter((option) => option.value !== currentStatusValue)
+                    .map((option) => (
+                      <button
+                        key={option.value}
+                        onClick={() => handleStatusSelect(option.value)}
+                        className={`w-full p-3 text-left rounded-lg flex items-center justify-between font-medium ${option.value === currentStatusValue
+                            ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600'
+                            : `${themeColors.text.primary} hover:bg-gray-50 dark:hover:bg-gray-800`
+                          }`}
+                      >
+                        {option.label}
+                        {option.value === currentStatusValue && <Check className="h-4 w-4" />}
+                      </button>
+                    ))}
                 </div>
                 <div className="p-2 pb-8">
                   <button
