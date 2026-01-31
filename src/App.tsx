@@ -16,7 +16,16 @@ function App() {
             <ThemeProvider>
               <div className="min-h-screen light-bg-app transition-colors">
                 <ThemeLoader />
-                <Toaster position="top-center" richColors />
+                <Toaster
+                  position="top-center"
+                  richColors
+                  toastOptions={{
+                    classNames: {
+                      actionButton:
+                        '!bg-transparent !border !border-current !text-inherit hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors',
+                    },
+                  }}
+                />
                 <AppRoutes />
               </div>
             </ThemeProvider>

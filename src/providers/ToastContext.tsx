@@ -22,7 +22,16 @@ export const ToastProvider: React.FunctionComponent<{ children: ReactNode }> = (
 
       const mainText = title || message;
       const subText = title ? message : undefined;
-      const sonnerOptions = { ...options, description: subText };
+      const sonnerOptions = {
+        ...options,
+        description: subText,
+        action: {
+          label: 'Dismiss',
+          onClick: () => {
+            // Sonner automatically dismisses on action click
+          },
+        },
+      };
 
       switch (type) {
         case 'success':
