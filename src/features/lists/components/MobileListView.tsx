@@ -318,7 +318,7 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
           <div className="absolute top-4 left-4 z-10 flex flex-col gap-3">
             <button
               onClick={() => setIsMapSearching(true)}
-              className="p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border light-border-default text-gray-700 dark:text-gray-200 transition-transform active:scale-95"
+              className="p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border light-border-default text-gray-700 dark:text-gray-200 transition-transform active:scale-95 mt-[env(safe-area-inset-top)]"
             >
               <Search className="h-6 w-6" />
             </button>

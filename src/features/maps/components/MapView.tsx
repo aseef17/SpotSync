@@ -203,7 +203,7 @@ const MapLayersControl: React.FC<{ onOpenChange?: (isOpen: boolean) => void }> =
     <>
       <button
         onClick={() => setIsOpen(true)}
-        className={`absolute top-4 right-4 bg-white dark:bg-gray-800 p-3 rounded-lg shadow-md z-10 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none ${themeColors.text.primary} transition-colors`}
+        className={`absolute top-4 right-4 mt-[env(safe-area-inset-top)] bg-white dark:bg-gray-800 p-3 rounded-lg shadow-md z-10 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none ${themeColors.text.primary} transition-colors`}
         aria-label="Map Layers"
       >
         <Icons.Layers className="h-6 w-6" />

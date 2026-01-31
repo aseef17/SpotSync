@@ -121,7 +121,7 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
         <div className="relative flex gap-2">
           <div className="relative flex-1 group">
             <Search
-              className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 ${isAiMode ? 'text-purple-500' : 'text-gray-400'}`}
+              className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 ${isAiMode ? 'text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]' : 'text-gray-400'}`}
             />
             <input
               type="text"
@@ -132,7 +132,7 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
               disabled={isAiLoading}
               className={`w-full pl-10 pr-10 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 transition-all ${
                 isAiMode
-                  ? 'border-purple-300 focus:ring-purple-500 bg-purple-50/50 dark:bg-purple-900/20'
+                  ? 'border-transparent shadow-[0_0_15px_rgba(168,85,247,0.5)] focus:ring-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-md text-purple-900 dark:text-purple-100 placeholder:text-purple-400'
                   : 'light-border-default light-bg-card light-text-primary focus:ring-blue-500'
               }`}
             />
