@@ -18,15 +18,18 @@ This guide covers setting up Firebase Cloud Functions with Gemini AI for the AI-
 ## Installation
 
 1. Navigate to the functions directory:
+
    ```bash
    cd functions
    npm install
    ```
 
 2. Set the Gemini API key as a Firebase secret:
+
    ```bash
    firebase functions:secrets:set GOOGLE_GENAI_API_KEY
    ```
+
    When prompted, paste your API key.
 
 3. Deploy the Cloud Functions:
@@ -45,6 +48,7 @@ AI-powered natural language search for places in a list.
 **Authentication**: Required
 
 **Request**:
+
 ```json
 {
   "listId": "your-list-id",
@@ -53,6 +57,7 @@ AI-powered natural language search for places in a list.
 ```
 
 **Response**:
+
 ```json
 {
   "placeIds": ["place-id-1", "place-id-2"],
@@ -67,6 +72,7 @@ AI-powered natural language search for places in a list.
 ### "AI Service not configured" error
 
 The Gemini API key is not set. Run:
+
 ```bash
 firebase functions:secrets:set GOOGLE_GENAI_API_KEY
 firebase deploy --only functions

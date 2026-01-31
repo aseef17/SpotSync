@@ -75,7 +75,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Also sync with usernames collection
           const normalizedUsername = newUser.username.toLowerCase().trim();
           await setDoc(doc(db, 'usernames', normalizedUsername), {
-            uid: fbUser.uid
+            uid: fbUser.uid,
           });
 
           setUser(newUser);
@@ -94,36 +94,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signInWithEmailAndPassword(auth, email, password);
   }, []);
 
-  const register = useCallback(async (
-    email: string,
-    password: string,
-    username: string,
-    displayName: string
-  ) => {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    await updateProfile(userCredential.user, { displayName });
+  const register = useCallback(
+    async (email: string, password: string, username: string, displayName: string) => {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      await updateProfile(userCredential.user, { displayName });
 
-    // Create user document
-    const newUser: User = {
-      id: userCredential.user.uid,
-      username,
-      email,
-      displayName,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
+      // Create user document
+      const newUser: User = {
+        id: userCredential.user.uid,
+        username,
+        email,
+        displayName,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
 
-    // Create user document
-    await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
+      // Create user document
+      await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
 
-    // Create username mapping for availability checks
-    const normalizedUsername = username.toLowerCase().trim();
-    await setDoc(doc(db, 'usernames', normalizedUsername), {
-      uid: userCredential.user.uid
-    });
+      // Create username mapping for availability checks
+      const normalizedUsername = username.toLowerCase().trim();
+      await setDoc(doc(db, 'usernames', normalizedUsername), {
+        uid: userCredential.user.uid,
+      });
 
-    await sendEmailVerification(userCredential.user);
-  }, []);
+      await sendEmailVerification(userCredential.user);
+    },
+    []
+  );
 
   const loginWithGoogle = useCallback(async () => {
     const provider = new GoogleAuthProvider();
@@ -170,29 +168,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
-  const value: AuthContextType = React.useMemo(() => ({
-    user,
-    firebaseUser,
-    loading,
-    login,
-    register,
-    loginWithGoogle,
-    connectGoogleMaps,
-    googleMapsConnected,
-    logout,
-    sendVerificationEmail,
-  }), [
-    user,
-    firebaseUser,
-    loading,
-    login,
-    register,
-    loginWithGoogle,
-    connectGoogleMaps,
-    googleMapsConnected,
-    logout,
-    sendVerificationEmail
-  ]);
+  const value: AuthContextType = React.useMemo(
+    () => ({
+      user,
+      firebaseUser,
+      loading,
+      login,
+      register,
+      loginWithGoogle,
+      connectGoogleMaps,
+      googleMapsConnected,
+      logout,
+      sendVerificationEmail,
+    }),
+    [
+      user,
+      firebaseUser,
+      loading,
+      login,
+      register,
+      loginWithGoogle,
+      connectGoogleMaps,
+      googleMapsConnected,
+      logout,
+      sendVerificationEmail,
+    ]
+  );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };

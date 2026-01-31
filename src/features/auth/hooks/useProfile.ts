@@ -5,7 +5,7 @@ import { logger } from '@/utils/logger';
 
 export const useProfile = () => {
   const { user, firebaseUser } = useAuth();
-  
+
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [loading, setLoading] = useState(false);
@@ -100,6 +100,6 @@ export const useProfile = () => {
     setCollaboratorNotifications: setNotificationsEnabled,
     usernameAvailable,
     checkingUsername,
-    saveProfile
+    saveProfile,
   };
 };

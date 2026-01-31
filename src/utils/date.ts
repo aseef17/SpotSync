@@ -5,7 +5,7 @@ import { Timestamp } from 'firebase/firestore';
  */
 export function toMilliseconds(date: unknown): number {
   if (!date) return 0;
-  
+
   if (
     typeof date === 'object' &&
     date !== null &&
@@ -14,7 +14,7 @@ export function toMilliseconds(date: unknown): number {
   ) {
     return (date as { toMillis: () => number }).toMillis();
   }
-  
+
   if (date instanceof Timestamp) {
     return date.toMillis();
   }
@@ -28,7 +28,7 @@ export function toMilliseconds(date: unknown): number {
     const time = parsedDate.getTime();
     return isNaN(time) ? 0 : time;
   }
-  
+
   return 0;
 }
 

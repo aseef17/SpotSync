@@ -3,9 +3,9 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { Plus, Users, Settings, Eye, EyeOff, Trash2, Edit, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ThemeToggle } from '@/components/ui/ThemeToggle';
+import { ThemeToggle } from '@/components/Elements/Theme/ThemeToggle';
 import { ImportGoogleMapsModal } from '@/features/places/components/ImportGoogleMapsModal';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
 import { CreateListModal } from '@/features/lists/components/CreateListModal';
 import type { PlaceList } from '@/features/lists/types/list';
 import { themeColors } from '@/styles/colors';
@@ -18,11 +18,10 @@ import { useNotifications } from '@/features/notifications/hooks/useNotification
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
-  const {
-    lists, loading, creating, error, loadUserLists, createList, updateList, deleteList
-  } = useLists(user?.id);
+  const { lists, loading, creating, error, loadUserLists, createList, updateList, deleteList } =
+    useLists(user?.id);
 
-  const { permissionGranted, tokenSynced } = useNotifications();
+  const { permissionGranted, tokenSynced, notificationsDisabled } = useNotifications();
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showInvitations, setShowInvitations] = useState(false);
@@ -54,13 +53,15 @@ export const Dashboard: React.FC = () => {
         await createList({
           ...data,
           email: user.email,
-          username: user.username
+          username: user.username,
         });
         toast.success('List created successfully');
       }
       resetForm();
     } catch (error) {
-      toast.error(`Failed to save list: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error(
+        `Failed to save list: ${error instanceof Error ? error.message : 'Unknown error'}`
+      );
     }
   };
 
@@ -97,9 +98,7 @@ export const Dashboard: React.FC = () => {
     loadUserLists({ silent: true });
   }, [loadUserLists]);
 
-  const existingListsData = useMemo(() =>
-    lists.map(l => ({ id: l.id, name: l.name })),
-    [lists]);
+  const existingListsData = useMemo(() => lists.map((l) => ({ id: l.id, name: l.name })), [lists]);
 
   const handleInvitationAccepted = useCallback(() => {
     loadUserLists({ silent: true });
@@ -147,7 +146,7 @@ export const Dashboard: React.FC = () => {
           transition={{ duration: 0.5 }}
           className="mb-8"
         >
-          {permissionGranted && !tokenSynced && (
+          {permissionGranted && !tokenSynced && !notificationsDisabled && (
             <div className="mb-6 flex items-center gap-3 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-100 dark:border-yellow-900/30 rounded-xl shadow-sm">
               <div className="h-3 w-3 rounded-full bg-yellow-500 animate-pulse border-2 border-white dark:border-gray-900" />
               <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300">
@@ -171,16 +170,16 @@ export const Dashboard: React.FC = () => {
             visible: {
               opacity: 1,
               transition: {
-                staggerChildren: 0.1
-              }
-            }
+                staggerChildren: 0.1,
+              },
+            },
           }}
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8"
         >
           <motion.button
             variants={{
               hidden: { opacity: 0, y: 20 },
-              visible: { opacity: 1, y: 0 }
+              visible: { opacity: 1, y: 0 },
             }}
             onClick={openCreateModal}
             className={`${themeColors.background.card} rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow text-left`}
@@ -203,7 +202,7 @@ export const Dashboard: React.FC = () => {
           <motion.button
             variants={{
               hidden: { opacity: 0, y: 20 },
-              visible: { opacity: 1, y: 0 }
+              visible: { opacity: 1, y: 0 },
             }}
             onClick={() => setShowImportModal(true)}
             className={`${themeColors.background.card} rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow text-left`}
@@ -224,7 +223,7 @@ export const Dashboard: React.FC = () => {
           <motion.button
             variants={{
               hidden: { opacity: 0, y: 20 },
-              visible: { opacity: 1, y: 0 }
+              visible: { opacity: 1, y: 0 },
             }}
             onClick={() => setShowInvitations(!showInvitations)}
             className={`${themeColors.background.card} rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow w-full text-left`}
@@ -282,9 +281,7 @@ export const Dashboard: React.FC = () => {
                 <h3 className={`mt-2 text-lg font-medium ${themeColors.text.primary}`}>
                   Error loading lists
                 </h3>
-                <p className={`mt-1 text-sm ${themeColors.text.secondary}`}>
-                  {error}
-                </p>
+                <p className={`mt-1 text-sm ${themeColors.text.secondary}`}>{error}</p>
                 <button
                   onClick={() => loadUserLists()}
                   className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.secondary} transition-colors`}
@@ -294,7 +291,9 @@ export const Dashboard: React.FC = () => {
               </div>
             ) : loading ? (
               <div className="text-center py-12">
-                <div className={`animate-spin rounded-full h-8 w-8 border-b-2 ${themeColors.text.primary} mx-auto`} />
+                <div
+                  className={`animate-spin rounded-full h-8 w-8 border-b-2 ${themeColors.text.primary} mx-auto`}
+                />
                 <p className={`mt-2 text-sm ${themeColors.text.secondary}`}>Loading lists...</p>
               </div>
             ) : lists.length === 0 ? (
@@ -324,8 +323,8 @@ export const Dashboard: React.FC = () => {
                   hidden: { opacity: 0 },
                   visible: {
                     opacity: 1,
-                    transition: { staggerChildren: 0.05 }
-                  }
+                    transition: { staggerChildren: 0.05 },
+                  },
                 }}
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
               >
@@ -358,11 +357,17 @@ export const Dashboard: React.FC = () => {
                             <span className={`text-sm ${themeColors.text.secondary}`}>
                               {list.places?.length || 0} places
                             </span>
-                            <span className={`flex items-center text-sm ${themeColors.text.secondary}`}>
+                            <span
+                              className={`flex items-center text-sm ${themeColors.text.secondary}`}
+                            >
                               {list.isPublic ? (
-                                <><Eye className="h-4 w-4 mr-1" /> Public</>
+                                <>
+                                  <Eye className="h-4 w-4 mr-1" /> Public
+                                </>
                               ) : (
-                                <><EyeOff className="h-4 w-4 mr-1" /> Private</>
+                                <>
+                                  <EyeOff className="h-4 w-4 mr-1" /> Private
+                                </>
                               )}
                             </span>
                           </div>

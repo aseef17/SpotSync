@@ -1,4 +1,4 @@
-import { logger } from "@/utils/logger";
+import { logger } from '@/utils/logger';
 
 export interface ParsedPlace {
   title: string;
@@ -70,7 +70,7 @@ export const parseTakeoutJson = (jsonContent: string): ParsedPlace[] => {
 
     return features.filter(isGeoJSONFeature).map((f) => {
       const props = f.properties || {};
-      
+
       const place: ParsedPlace = {
         title: props.Title || props.name || 'Unknown Place',
         address: props['Address'] || props['formatted_address'],
@@ -78,7 +78,12 @@ export const parseTakeoutJson = (jsonContent: string): ParsedPlace[] => {
       };
 
       // Extract coordinates (GeoJSON is usually [lng, lat])
-      if (f.geometry && f.geometry.type === 'Point' && Array.isArray(f.geometry.coordinates) && f.geometry.coordinates.length >= 2) {
+      if (
+        f.geometry &&
+        f.geometry.type === 'Point' &&
+        Array.isArray(f.geometry.coordinates) &&
+        f.geometry.coordinates.length >= 2
+      ) {
         place.location = {
           lat: f.geometry.coordinates[1],
           lng: f.geometry.coordinates[0],

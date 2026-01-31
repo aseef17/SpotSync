@@ -8,7 +8,9 @@ export const formatPrice = (level?: number) => {
   return '$'.repeat(Math.min(level, 4));
 };
 
-export const parseTimestamp = (ts: Date | string | number | { seconds: number } | { __time__: string } | null | undefined): Date => {
+export const parseTimestamp = (
+  ts: Date | string | number | { seconds: number } | { __time__: string } | null | undefined
+): Date => {
   if (!ts) return new Date();
   if (ts instanceof Date) return ts;
   if (typeof ts === 'string') return new Date(ts);
@@ -36,8 +38,7 @@ export const getPlaceAttribution = (place: Place, list: PlaceList) => {
   if (diffDays <= 1) {
     const isToday = date.getDate() === now.getDate() && date.getMonth() === now.getMonth();
     timeString = isToday ? 'today' : 'yesterday';
-  }
-  else if (diffDays < 30) timeString = `${diffDays} days ago`;
+  } else if (diffDays < 30) timeString = `${diffDays} days ago`;
   else if (diffDays < 365) timeString = `${Math.floor(diffDays / 30)} months ago`;
   else timeString = `${Math.floor(diffDays / 365)} years ago`;
 
@@ -63,7 +64,7 @@ export const getTodayHoursText = (place: Place) => {
 
 export const getCategoryDisplayText = (place: { category?: string; cuisines?: string[] }) => {
   const parts = [];
-  
+
   // 1. Add Category first if available
   if (place.category) {
     parts.push(formatCategoryName(place.category));
@@ -72,10 +73,10 @@ export const getCategoryDisplayText = (place: { category?: string; cuisines?: st
   // 2. Add cuisines, joined by commas
   if (place.cuisines && place.cuisines.length > 0) {
     const cuisinesText = place.cuisines
-      .map(c => formatCategoryName(c))
-      .filter(c => c.toLowerCase() !== place.category?.toLowerCase()) // Avoid exact duplicate
+      .map((c) => formatCategoryName(c))
+      .filter((c) => c.toLowerCase() !== place.category?.toLowerCase()) // Avoid exact duplicate
       .join(', ');
-    
+
     if (cuisinesText) {
       parts.push(cuisinesText);
     }
@@ -84,7 +85,10 @@ export const getCategoryDisplayText = (place: { category?: string; cuisines?: st
   return parts.join(' · ');
 };
 
-export const formatPlaceDistance = (place: Place, userLocation: { lat: number; lng: number } | null) => {
+export const formatPlaceDistance = (
+  place: Place,
+  userLocation: { lat: number; lng: number } | null
+) => {
   if (!userLocation || !place.location) return null;
 
   return calculateDistance(

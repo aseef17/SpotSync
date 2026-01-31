@@ -2,13 +2,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import * as Icons from 'lucide-react';
-import {
-  APIProvider,
-  Map,
-  AdvancedMarker,
-  useMap,
-  InfoWindow,
-} from '@vis.gl/react-google-maps';
+import { APIProvider, Map, AdvancedMarker, useMap, InfoWindow } from '@vis.gl/react-google-maps';
 import type { Place } from '@/features/places/types/place';
 import { getColorByName } from '@/constants/mapIcons';
 import { getIconForCategory, getCategoryColor } from '@/constants/placeCategories';
@@ -24,6 +18,7 @@ interface MapViewProps {
   className?: string;
   style?: React.CSSProperties;
   highlightedPlaceId?: string;
+  previewPlace?: Place | null; // For showing a temporary marker for search preview
   onLayerMenuOpen?: (isOpen: boolean) => void;
   onAddExternalPlace?: (place: Partial<Place>) => void;
 }
@@ -35,27 +30,27 @@ const defaultCenter = {
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
 
-// Helper to robustly get coordinates from a Place object
-const getPlaceCoords = (place: Place): { lat: number, lng: number } | null => {
-  const lat = place.lat !== undefined && place.lat !== null ? Number(place.lat) : (place.location?.lat !== undefined ? Number(place.location.lat) : null);
-  const lng = place.lng !== undefined && place.lng !== null ? Number(place.lng) : (place.location?.lng !== undefined ? Number(place.location.lng) : null);
+const getPlaceCoords = (place: Place): { lat: number; lng: number } | null => {
+  const lat = Number(place.lat ?? place.location?.lat);
+  const lng = Number(place.lng ?? place.location?.lng);
 
-  if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+  if (!isNaN(lat) && !isNaN(lng) && lat !== 0 && lng !== 0) {
     return { lat, lng };
   }
   return null;
 };
 
-const MapBoundsFitter: React.FC<{ places: Place[], highlightedPlaceId?: string }> = ({ places, highlightedPlaceId }) => {
+const MapBoundsFitter: React.FC<{
+  places: Place[];
+  highlightedPlaceId?: string;
+  previewPlace?: Place | null;
+}> = ({ places, highlightedPlaceId, previewPlace }) => {
   const map = useMap();
   const lastPlacesCount = useRef(0);
 
-  // Fit bounds when places change
   useEffect(() => {
     if (!map || places.length === 0) return;
 
-    // Only auto-fit if the number of places changed from 0,
-    // or if we explicitly don't have a highlighted place
     const shouldFit = (lastPlacesCount.current === 0 && places.length > 0) || !highlightedPlaceId;
 
     if (shouldFit) {
@@ -87,7 +82,7 @@ const MapBoundsFitter: React.FC<{ places: Place[], highlightedPlaceId?: string }
   useEffect(() => {
     if (!map || !highlightedPlaceId) return;
 
-    const place = places.find(p => p.id === highlightedPlaceId);
+    const place = places.find((p) => p.id === highlightedPlaceId);
     if (place) {
       const coords = getPlaceCoords(place);
       if (coords) {
@@ -96,6 +91,17 @@ const MapBoundsFitter: React.FC<{ places: Place[], highlightedPlaceId?: string }
       }
     }
   }, [map, highlightedPlaceId, places]);
+
+  // Preview place pan effect - pan to preview location when a preview is selected
+  useEffect(() => {
+    if (!map || !previewPlace) return;
+
+    const coords = getPlaceCoords(previewPlace);
+    if (coords) {
+      map.panTo(coords);
+      map.setZoom(16);
+    }
+  }, [map, previewPlace]);
 
   return null;
 };
@@ -140,7 +146,9 @@ const LocationButton = () => {
   );
 };
 
-const MapLayersControl: React.FC<{ onOpenChange?: (isOpen: boolean) => void }> = ({ onOpenChange }) => {
+const MapLayersControl: React.FC<{ onOpenChange?: (isOpen: boolean) => void }> = ({
+  onOpenChange,
+}) => {
   const map = useMap();
   const [isOpen, setIsOpen] = useState(false);
   const [mapType, setMapType] = useState('roadmap');
@@ -201,66 +209,74 @@ const MapLayersControl: React.FC<{ onOpenChange?: (isOpen: boolean) => void }> =
         <Icons.Layers className="h-6 w-6" />
       </button>
 
-      {isOpen && createPortal(
-        <div className="fixed inset-0 z-[9999] isolate">
-          <div
-            className="absolute inset-0 bg-black/20 backdrop-blur-[1px]"
-            onClick={() => setIsOpen(false)}
-          />
-          <div className="absolute inset-x-0 bottom-0 bg-white dark:bg-gray-900 rounded-t-2xl shadow-xl border-t border-gray-200 dark:border-gray-800 animate-in slide-in-from-bottom duration-300">
-            <div className="p-4 space-y-6 pb-8">
-              <div className="flex items-center justify-between">
-                <h3 className={`text-lg font-semibold ${themeColors.text.primary}`}>Map type</h3>
-                <button onClick={() => setIsOpen(false)} className={`p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 ${themeColors.text.secondary}`}>
-                  <Icons.X className="h-5 w-5" />
-                </button>
-              </div>
-              <div className="flex gap-4">
-                {[
-                  { id: 'roadmap', label: 'Default', icon: Icons.Map },
-                  { id: 'satellite', label: 'Satellite', icon: Icons.Globe },
-                  { id: 'terrain', label: 'Terrain', icon: Icons.Mountain },
-                ].map((type) => (
+      {isOpen &&
+        createPortal(
+          <div className="fixed inset-0 z-[9999] isolate">
+            <div
+              className="absolute inset-0 bg-black/20 backdrop-blur-[1px]"
+              onClick={() => setIsOpen(false)}
+            />
+            <div className="absolute inset-x-0 bottom-0 bg-white dark:bg-gray-900 rounded-t-2xl shadow-xl border-t border-gray-200 dark:border-gray-800 animate-in slide-in-from-bottom duration-300">
+              <div className="p-4 space-y-6 pb-8">
+                <div className="flex items-center justify-between">
+                  <h3 className={`text-lg font-semibold ${themeColors.text.primary}`}>Map type</h3>
                   <button
-                    key={type.id}
-                    onClick={() => setMapType(type.id)}
-                    className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${mapType === type.id
-                      ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
-                      : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                      }`}
+                    onClick={() => setIsOpen(false)}
+                    className={`p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 ${themeColors.text.secondary}`}
                   >
-                    <type.icon className="h-8 w-8" />
-                    <span className="text-sm font-medium">{type.label}</span>
+                    <Icons.X className="h-5 w-5" />
                   </button>
-                ))}
-              </div>
-              <div>
-                <h4 className={`text-sm font-medium ${themeColors.text.secondary} mb-3`}>Map details</h4>
+                </div>
                 <div className="flex gap-4">
                   {[
-                    { id: 'transit', label: 'Transit', icon: Icons.Train },
-                    { id: 'traffic', label: 'Traffic', icon: Icons.Car },
-                    { id: 'bicycling', label: 'Biking', icon: Icons.Bike },
-                  ].map((layer) => (
+                    { id: 'roadmap', label: 'Default', icon: Icons.Map },
+                    { id: 'satellite', label: 'Satellite', icon: Icons.Globe },
+                    { id: 'terrain', label: 'Terrain', icon: Icons.Mountain },
+                  ].map((type) => (
                     <button
-                      key={layer.id}
-                      onClick={() => toggleLayer(layer.id)}
-                      className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${activeLayers.has(layer.id)
-                        ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
-                        : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                        }`}
+                      key={type.id}
+                      onClick={() => setMapType(type.id)}
+                      className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                        mapType === type.id
+                          ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
+                          : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
+                      }`}
                     >
-                      <layer.icon className="h-8 w-8" />
-                      <span className="text-sm font-medium">{layer.label}</span>
+                      <type.icon className="h-8 w-8" />
+                      <span className="text-sm font-medium">{type.label}</span>
                     </button>
                   ))}
                 </div>
+                <div>
+                  <h4 className={`text-sm font-medium ${themeColors.text.secondary} mb-3`}>
+                    Map details
+                  </h4>
+                  <div className="flex gap-4">
+                    {[
+                      { id: 'transit', label: 'Transit', icon: Icons.Train },
+                      { id: 'traffic', label: 'Traffic', icon: Icons.Car },
+                      { id: 'bicycling', label: 'Biking', icon: Icons.Bike },
+                    ].map((layer) => (
+                      <button
+                        key={layer.id}
+                        onClick={() => toggleLayer(layer.id)}
+                        className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                          activeLayers.has(layer.id)
+                            ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
+                            : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
+                        }`}
+                      >
+                        <layer.icon className="h-8 w-8" />
+                        <span className="text-sm font-medium">{layer.label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </div>
-          </div>
-        </div>,
-        document.body
-      )}
+          </div>,
+          document.body
+        )}
     </>
   );
 };
@@ -274,6 +290,7 @@ export const MapView: React.FC<MapViewProps> = ({
   className = '',
   style = {},
   highlightedPlaceId,
+  previewPlace,
   onLayerMenuOpen,
   onAddExternalPlace,
 }) => {
@@ -294,8 +311,19 @@ export const MapView: React.FC<MapViewProps> = ({
     const clickListener = map.addListener('click', (e: google.maps.MapMouseEvent) => {
       // If the event has a placeId, it's a POI
       if ('placeId' in e && e.placeId) {
-        // e.stop(); // This prevents the default Google InfoWindow
+        // Normalize IDs for comparison (handle both old format places/ChIJ... and new format ChIJ...)
+        const normalizeId = (id: string | undefined) => id?.replace(/^places\//, '') || '';
+        const poiId = normalizeId(e.placeId as string);
 
+        // Check if this POI is already in our places list
+        const existingPlace = places.find((p) => normalizeId(p.googlePlaceId) === poiId);
+        if (existingPlace) {
+          // Place already exists in list - select it directly (no preview)
+          onPlaceClick(existingPlace);
+          return;
+        }
+
+        // Not in list - show POI info window for adding
         setSelectedPoi({
           placeId: e.placeId as string,
           name: (e as { name?: string }).name || 'Place',
@@ -307,11 +335,13 @@ export const MapView: React.FC<MapViewProps> = ({
     return () => {
       google.maps.event.removeListener(clickListener);
     };
-  }, [map]);
+  }, [map, places, onPlaceClick]);
 
   // Calculate center using robust coord helper
   const center = React.useMemo(() => {
-    const validCoords = places.map(getPlaceCoords).filter((c): c is { lat: number, lng: number } => !!c);
+    const validCoords = places
+      .map(getPlaceCoords)
+      .filter((c): c is { lat: number; lng: number } => !!c);
 
     if (validCoords.length === 0) return defaultCenter;
 
@@ -324,9 +354,7 @@ export const MapView: React.FC<MapViewProps> = ({
   if (!GOOGLE_MAPS_API_KEY) {
     return (
       <div className="flex items-center justify-center h-96 text-center p-4">
-        <p className="text-red-600 font-medium">
-          Missing Google Maps API Key.
-        </p>
+        <p className="text-red-600 font-medium">Missing Google Maps API Key.</p>
       </div>
     );
   }
@@ -410,15 +438,23 @@ export const MapView: React.FC<MapViewProps> = ({
             const isAutoIcon = !markerIcon || markerIcon === 'AUTO' || markerIcon === 'MapPin';
             const isAutoColor = !markerColor || markerColor === 'AUTO';
 
-            const iconName = (isAutoIcon && place.category)
-              ? getIconForCategory(place.category)
-              : (markerIcon !== 'AUTO' ? markerIcon : 'MapPin');
+            const iconName =
+              isAutoIcon && place.category
+                ? getIconForCategory(place.category)
+                : markerIcon !== 'AUTO'
+                  ? markerIcon
+                  : 'MapPin';
 
-            const colorName = isHighlighted ? 'Red' : ((isAutoColor && place.category)
-              ? getCategoryColor(place.category)
-              : (markerColor !== 'AUTO' ? markerColor : 'Blue'));
+            const colorName = isHighlighted
+              ? 'Red'
+              : isAutoColor && place.category
+                ? getCategoryColor(place.category)
+                : markerColor !== 'AUTO'
+                  ? markerColor
+                  : 'Blue';
 
-            const PlaceIcon = (Icons[iconName as keyof typeof Icons] || Icons.MapPin) as React.ElementType;
+            const PlaceIcon = (Icons[iconName as keyof typeof Icons] ||
+              Icons.MapPin) as React.ElementType;
             const placeColorObj = getColorByName(colorName || 'Blue');
 
             return (
@@ -439,7 +475,9 @@ export const MapView: React.FC<MapViewProps> = ({
                   </div>
 
                   {(zoom >= 14 || isHighlighted) && (
-                    <div className={`absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded shadow text-xs font-medium whitespace-nowrap pointer-events-none z-50 ${themeColors.map.label} ${isHighlighted ? 'font-bold text-sm' : ''}`}>
+                    <div
+                      className={`absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded shadow text-xs font-medium whitespace-nowrap pointer-events-none z-50 ${themeColors.map.label} ${isHighlighted ? 'font-bold text-sm' : ''}`}
+                    >
                       {place.name}
                     </div>
                   )}
@@ -447,7 +485,40 @@ export const MapView: React.FC<MapViewProps> = ({
               </AdvancedMarker>
             );
           })}
-          <MapBoundsFitter places={places} highlightedPlaceId={highlightedPlaceId} />
+
+          {/* Preview marker for search results not yet added to list */}
+          {previewPlace &&
+            (() => {
+              const coords = getPlaceCoords(previewPlace);
+              if (!coords) return null;
+              return (
+                <AdvancedMarker
+                  key={`preview-${previewPlace.id}`}
+                  position={coords}
+                  onClick={() => onPlaceClick(previewPlace)}
+                  style={{ overflow: 'visible' }}
+                  zIndex={1000}
+                >
+                  <div className="relative flex flex-col items-center animate-bounce">
+                    <div
+                      className="rounded-full flex items-center justify-center shadow-lg border-2 border-white bg-blue-600 text-white"
+                      style={{ width: 48, height: 48 }}
+                    >
+                      <Icons.MapPin size={24} strokeWidth={2.5} />
+                    </div>
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded shadow text-xs font-bold whitespace-nowrap pointer-events-none z-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                      {previewPlace.name}
+                    </div>
+                  </div>
+                </AdvancedMarker>
+              );
+            })()}
+
+          <MapBoundsFitter
+            places={places}
+            highlightedPlaceId={highlightedPlaceId}
+            previewPlace={previewPlace}
+          />
           <LocationButton />
           <MapLayersControl onOpenChange={onLayerMenuOpen} />
         </Map>

@@ -211,7 +211,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   bar: 'Beer',
   night_club: 'Beer',
   pizza_restaurant: 'Pizza',
-  
+
   // Shopping
   store: 'ShoppingBag',
   clothing_store: 'ShoppingBag',
@@ -219,7 +219,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
   grocery_store: 'ShoppingCart',
   supermarket: 'ShoppingCart',
   grocery_or_supermarket: 'ShoppingCart',
-  
+
   // Entertainment
   movie_theater: 'Film',
   art_gallery: 'Landmark',
@@ -229,16 +229,16 @@ export const CATEGORY_ICONS: Record<string, string> = {
   hiking_area: 'Mountain',
   gym: 'Zap', // Activity/Energy
   stadium: 'Flag',
-  
+
   // Lodging
   hotel: 'Bed',
   lodging: 'Bed',
-  
+
   // Travel
   airport: 'Plane',
   train_station: 'Train',
   bus_station: 'Bus', // check if Bus exists, else Car
-  
+
   // Services
   hospital: 'Heart',
   pharmacy: 'Heart',
@@ -275,7 +275,7 @@ function normalizeCategory(category: string): string {
 
 export function getIconForCategory(category: string): string {
   const key = normalizeCategory(category);
-  
+
   // 1. Check specific category mapping
   if (CATEGORY_ICONS[key]) {
     return CATEGORY_ICONS[key];

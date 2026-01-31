@@ -16,18 +16,18 @@ firebase.initializeApp({
 // messages.
 const messaging = firebase.messaging();
 
-messaging.onBackgroundMessage(function(payload) {
+messaging.onBackgroundMessage(function (payload) {
   console.log('[firebase-messaging-sw.js] Received background message ', payload);
-  
+
   // Extract title/body from notification OR data (supporting data-only messages)
   const title = payload.notification?.title || payload.data?.title || 'Notification';
   const body = payload.notification?.body || payload.data?.body || 'You have a new update';
-  
+
   const notificationOptions = {
     body: body,
     icon: '/icon-192x192.png',
     badge: '/icon-192x192.png',
-    data: payload.data // Pass through the data for click handling
+    data: payload.data, // Pass through the data for click handling
   };
 
   return self.registration.showNotification(title, notificationOptions);

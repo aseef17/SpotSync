@@ -1,356 +1,349 @@
 {
-    "4ATc8I2ieiDmjHsqYhVM": {
-        "addedAt": {
-            "__time__": "2026-01-20T19:21:09.318Z"
-        },
-        "addedBy": "tDnVgrXLnkXJ4B9KeH7rGLueTyo2",
-        "address": "401 E 58th St, New York, NY 10022, USA",
-        "businessStatus": "OPERATIONAL",
-        "category": "Cafe",
-        "googleMapsUrl": "https://maps.google.com/?cid=13043044536657255361&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA",
-        "googlePlaceId": "ChIJK0YMWmdZwokRwRsOreYzArU",
-        "lat": 40.7589167,
-        "listId": "YEpdgH9Nh4eNMuBwPBXr",
-        "lng": -73.962008,
-        "location": {
-            "lat": 40.7589167,
-            "lng": -73.962008
-        },
-        "name": "787 Coffee",
-        "openNow": true,
-        "openingHours": [
-            "Monday: 7:00\u202fam – 7:00\u202fpm",
-            "Tuesday: 7:00\u202fam – 7:00\u202fpm",
-            "Wednesday: 7:00\u202fam – 7:00\u202fpm",
-            "Thursday: 7:00\u202fam – 7:00\u202fpm",
-            "Friday: 7:00\u202fam – 7:00\u202fpm",
-            "Saturday: 7:00\u202fam – 7:00\u202fpm",
-            "Sunday: 7:00\u202fam – 7:00\u202fpm"
-        ],
-        "phoneNumber": "(646) 649-3196",
-        "photoUrls": [
-            "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN33YrSRcpiL5NyQ5V2a5EeXaMx1KNRN4yXbamIGPfCQIBPdONZUROqsI67Yew1Kmyx48tkSulWHB4bpDpsWv54K73jpAq8FvMFuCcHgYBfteQ8kp4mR1SJXdZOHvIZq9HI8knQdGdctbHMmr-pZsfYjQGXI6h7T9bYq8qD_m97l-IN_mVusC8dtTsa2eYGYKEO5cz9T-EhABQCqrVHnMHtyUW4ustYSuV39QdkHdoD8KLrGVgpX1AoCcoCTTPIf6BaZU0DIGS08GL5UoC7aT7BgPyug2mu1cl3wzWunXBRRFQ",
-            "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN27gJyIPz2juS2fuSxQ_RArcSCDjk37khZG8cwmL9QAeX0laIRQw-Yei0kelh4WSSiTneermKOt7reNWxuF7EouKiRm6GNOL4IMcvOpOUC_-1PSOMQq8_tPL0f7lCoqxssOe2TByCAxM2vCmmziflXJ2kXCpQps3RGh2yk4EsWMi3kssFrzAJc-57AF58tt_qiDYHl0_2tMRRXxTtZup3IME_LZZc1DR4Dm6uPz3ttDA8rwNru-mNY5No9YWbROOzU0YUpTP7mJP1Tu3-RFudLP8FNNnGizUgKpY-9zUiwN5Q",
-            "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN3GUp8_pN7eBeeEEm3dxqtqNNdHo_z4oqVPT6X2tjYyPxebw4XDJ6KWYWI3l4qGpLbXt11CqPD6RF7PZlDVzTpt-wq-LnTvfaY9OinyiHTewJKbQjNPi1oMwT9lHBXKEUnChaZid6WV-XNUh2afAa8dSuDdHF_I-3ZG-L0y3LfHT8mw-9th9qsGJXpXXKObi4lc6i0Mc18JPdqh8RJs368MrxMmGK6JV23K-AOBk1YISxXIoyzwtmKbJxJ_F8T1rhqR75JUYV11yyCraKNXGaqJJ9UDDuSiDneHN-wN0kQw025yeydVAuMhiKH627xAf2YRgDx76Vf2c89KFBwOzprr2RLu9JzrUGoqsq-_jlXrgUiepsEPiTgZYXfohmlPkffmk8uy8QhPYT77mSTZYvrINVbyai53Oao2MJJc6pjhJ45YK3TpJg9_i-qkDgNM",
-            "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN2HAooqBCycvMmaj94IS1kbQ5psB9rdD9AxDYCEVphuQ4HD1gwX-6UofEiCWFGCjUXMxxxMOj6ZUrMKjG2lMBAGPuudEqlchoiM45wnscXtPF09XqblBxF4kOwd6xV_kr903K7pORVYlVywjJ2ogyBprNUcAErWdqjBEJiAjNHNxzY_867CZuOANH13s425EUoKzOlgUugYnMnruGnJFc2iNmTSTrVus4E_Ve50lZc-C78pb9JEFx7k_uVZJ4g1e7mvMoMrDKyN9Dj8xI1Ejsd_rtBhxry5ltg5nmtOG-uqCQ",
-            "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN1-Tlfae12u7yyWUmEpAEKoMz34P2hhdF3_BGVfHVcpZTkHRlt2h6HUJ6J1m-Z643kzVsJ0sXgzwmb8MWyLi9TQexnbIZp-aWK6vKZ2bKqHPkG1pmJHlhHcwuHNLBa3DfQf0w1oogOy7GVoyBqoDvyq2uJMyMM_P3KHwBAdi4hWSSyiRY_ciHrWun7XzcsTQVYu4-EqSMvbb6ZUudGpY9tNAGBE29JXFA6_Ht9EW2_cGBW8LbPvbR7U_IEzfSNUFF3QJDE1SeJEtKKc4bdVf4aFU-LitELKwjSG3AxKw31lvHAaNG0yw8gciZpTNaaCF5jm8SE9rdgLPDnVQR-ab6vvVAeEBgGFzmP_l4uFHttOW_FutZymbpwcwbqfyQ2g1ithmc5M3V7mDUXrabwJu4R4yKZUseoaRiJamCeXFJPEHDjbwo5WtDZPu4a_lQ",
-            "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN0yNHqZsj9mVkb570_BX57Du1ZWOdnGJtU6XckTIJgtXrh853XLk_cbeKskC2khgX-L2gKbAhj3XaX1XbWgDy4LIAUSreQNh66XkwxQHwLug6MnGVn4gjFLAcWV5eaul_JZbvrRnNo4IQPuRue_sB8X_iellUDcd4W1IRc7vWRe30XcPfyvpKLxP2Fx0uk-_1Yd2mLxlUwQYXiUekQ5x1gxgcRepmZ2qDU5O1-HcsygdSmY_UmOzVAgk4R6A6QyNHXL-hh33Ma6ft-cwnBs5iSk0gKWBxP9LAMu7YtAUso8EQ",
-            "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN0ypaYFEKVMEkV0Wi3PhPdYoFxDkVr7MNzHZ4IUJNcVpX10uSnovWfeUt0WeDzQzXbhTL_a3JtIoABKiuXa9WUu5QM8WRQSYD7WjLGwJtXalzHgmAmduIBTgG53cWoCSdpKXFG8gxeCJC_siNl_gDBapmW9Zu3d3_ai9TN2rFLtqH2qStPaUmatf0UBRoImAON14fQmzSqfJIuKkl1FfOc2bPB30wQZz7jyVctFDhKx9KKCbYfN4F1oZiNEzFBKkdl3gXhfaIdgf3UOFuhtO9whLjmOLndGwpUb97KYOHM39dCsdfD3Npq40bfni5y4L027bYP4g0v22WD07Yr0ldgMt6VoykYMZ4AsbTbSRJLrxTBUDz8c_d-klWra00QTcCSflcYuGKLObIKiqFx9EsQzaSIVs7yjy83P_h6DQYM3OmPaZnyP-qhLJAHo2xXN",
-            "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN2VrmPIDetmlzjOJcsmQuUgmvfKpMxCLTM7vOf31msxwmKfxzcqgfqPEI35eJANGrCSELkKwgwumcgJMIBW6N6uJuQFnhN6dauu59mOnf13c5DLl2bDyx541U_yANlYzITRQigJxn574tTJ8X1hKXv_kDsC6MXhhglCLQAnQ8LaWI99zdZZDT556UgLnWBMk6WHiNHiIlGSPh64o3JFiFkzT0S869a2E1LesLa3gBYURr4pc4O3FTBQxuUdb3W-h5PPguImNXzJAy4XO1KC16dfnjFwBPUwCgDSsDubj8Z3iwDGeqYcN17twaSEZCFERyHn1aDCYosAyMl1_rCkL6YXB8XWLFrYs1WaRaqHoJGY5i1O59udhDzZx5LSW-9G-pladnAQzKIdF62jyj-O7rP-wS1twhZPrBAm7V24Xcv2QA",
-            "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN3SvJum_39s9Tll_qUDeBZS1PrVcRuViKnhn8B5W-bCe6L_hnIC_BWRq57S86U9TNbGe9SDtYLOB9J5M7LMeA5wJfFaZdH__BDk3tCnjb4DuJO1G6Dn-KB8sKq0aUIU8AHtmf8B8a7w1ypwc3gtMEdqlIDxW0vc1CXl9vfQBhd8MUkWsnYmv3tkoRuh3oTXdxcE-skQZD-Jrk25kmFYEvQp4Kuw3KxHlR8uf3TqyBCPDrhf_T8mlZ8OJtP_pn_g7u3-OqNgnJt1gWkZ8fFrxP00h9NuZ6OQAy0OkhYueq9LHKNjzIUuyZUtPh7d-ElLTbKIYNCg1GSlzoV_Xjhrqc93sd7S5IraQ9x-uSqzA9kFyrPpWN9vu6mbbEUZwL2sCDqAdcrw4-oQY4-K53KLAxxeIZE_fuWy3NnaZthqun4phQQBwPY3DfLra3fS-Q",
-            "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN0Uz_cYI35Hkg0VqgLgdUHc1oJ6A49yaa13JCFWQvG_yJqAU3_tUZZFV6Un_yG5axihFBCjq0hJKQ55UafXwJmsZTEccE5YyBZ1kJkLrwehqq7X6RrU3ffqsXR-zuJeC5e2903KGfaZp76yrbkfoaXopkzK6j5wbRbFVIFXcvRTEiC4razbYms_F8mBt0caBl1vJe8QKpJ_4sKPingAPY0OXQ2IbJvmZ-4tjj89lWifhT7r_Y_jI2RsGxv578Yz8Y01r3tZLAj6TSodLhJ2w_olQeULO5Tld6yvxyP8JTXh-Q"
-        ],
-        "rating": 4.9,
-        "status": "not_visited",
-        "types": [
-            "coffee_shop",
-            "food_store",
-            "cafe",
-            "store",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "updatedAt": {
-            "__time__": "2026-01-20T19:21:09.318Z"
-        },
-        "userRatingsTotal": 2512,
-        "website": "http://787coffee.com/"
+  "4ATc8I2ieiDmjHsqYhVM": {
+    "addedAt": {
+      "__time__": "2026-01-20T19:21:09.318Z"
     },
-    "FsgDEmhXwpFuJwkdV7B1": {
-        "addedAt": {
-            "__time__": "2026-01-20T19:20:38.497Z"
-        },
-        "addedBy": "tDnVgrXLnkXJ4B9KeH7rGLueTyo2",
-        "address": "407 E 59th St, New York, NY 10022, USA",
-        "businessStatus": "OPERATIONAL",
-        "category": "Clothing Store",
-        "googleMapsUrl": "https://maps.google.com/?cid=4449434614112181366&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA",
-        "googlePlaceId": "ChIJ6envdOdYwokRdtx7GTWRvz0",
-        "lat": 40.7595404,
-        "listId": "YEpdgH9Nh4eNMuBwPBXr",
-        "lng": -73.961351,
-        "location": {
-            "lat": 40.7595404,
-            "lng": -73.961351
-        },
-        "name": "T.J. Maxx",
-        "openNow": true,
-        "openingHours": [
-            "Monday: 8:30\u202fam – 9:00\u202fpm",
-            "Tuesday: 8:30\u202fam – 9:00\u202fpm",
-            "Wednesday: 8:30\u202fam – 9:00\u202fpm",
-            "Thursday: 8:30\u202fam – 9:00\u202fpm",
-            "Friday: 8:30\u202fam – 9:00\u202fpm",
-            "Saturday: 8:30\u202fam – 9:00\u202fpm",
-            "Sunday: 9:00\u202fam – 9:00\u202fpm"
-        ],
-        "phoneNumber": "(212) 486-2142",
-        "photoUrls": [
-            "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN06cYisHk9cwGDniFSxh6mX5Vrve_oppmp-0dqzQaagi-eSYNH7qpnkPC2mWNjd-kWxtKzkdDJ3_Y_wauyxKADlcfynmPWf2wZiAhtKDdQo_EtjkJM5Dd02PvI2oN_CI1S-sQPjGB1Lbofs779VbsohNs3L_kX10v3wQAVHTaABbxnhVTceI41Rga6_bKuFfCjg1a9iRo4U9UdLGfsfB447CcBbxqQZeVPFpFA9z8Oyzu57SejfP6lk7xVw_i6EPzDk912lKgh57gDC7D1gqIjVnpFxUhhrHRoZNB0QUnlp3yIbLJNVlH8t4xfjuEpoCLOmoxi704AMwmQ-9zz3KFQ8PAus5XFGbUSmVkQXrvRJeOt1QNqA4sNP5f_IzXyqWC5hOOOoTIPHsnQxayMca00C3STmhBIR4E4plkNm5b9rhA",
-            "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN0ECNuWGdn41H7ux-s0eFKnbL8l7WnmUr6DZhMGawjjFNpQ6Zbv7FTcxX1slpBl5k_c6X0r2cmA9YG0Vi8Z0M3B2o9-4mS5u4DQ_NntKU4UY1_ZeB0nAxG1OmxTzEk7tQWwNEtnD9tCnMGaWi78sW8ArNQJydtBauDNZgGR5IkfZhXxCws5f92EUuLckNoVo0LH10DsSufXV8998QQ0EK1gUeKKaEGk82QNFqBHpCeL5II3Sx6oW6mTSYrNxYh5AXlEKSklznHN7Tqjn_eOP7DR79qNegYnNrpN-yELnafpbbuizaoN-kjgp0vAgBTRSurWAFgUs6rszGSSRkEr3t69A4c3X2XKm6Qp2K45wcFXDmcLA5gxsdNPt2ZDWLeN6bhT2pPMhpu5uqpAR15VOrxwHLd-AytWWBEJGhfnj-SNBeM",
-            "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN0txdx-Rd6rD_8XRQEI7RcsSGNRrNzYQgh3yeJ3iRBddCrAlWvjHK-AO1YIRhuCLA63T3g1XMltmQxezh7ibN5cEvT8kAiEqpW018-6PcP-rEXY7_9jWJoMf3LDftz25RdPRRM4D8IXQ-FPzyYC6a0DEiS7j4advMtqaOBaXi7e7gkdL_aAfo-dsG8ZCNvE0SBFhuSFVIjmAERWM6VoMk_4y38XiNFrh0EIcgsBRB2YMRdH9z4aZD9w0_NMyGi9ej_yWr3s_JCAW3tvQ0AJq0tJqrrXv5rt5Hgj1a_OHwAAbX0QpdjLBQEy008hYETK4uN6DGRTNYVEuDlUjPwJwdA6zVK19oKC3AEqxsMY1LNzEMb6_o1RYxblqMg_4gBqR1LEbSNJVJzooi-jxxtTRkkU_pLqggNqJNE9_4Zgh_d_Z7sb",
-            "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN2XshGTrzcVXoFkOmw6GiymFbuzut8Bphie-IqLm1TMPKft_y0DjSQCmKmUAbWfoGEwDFH64tWqMe4WyGTiXFJL6ppCdD8EoL0ozSUig_1zdQfyIZrNcPEyS4wH6P2MhJ7JnWa7s5_OuQosWN6QoUtx-sVmcVPzQzytSDaOjbIPVMMRUYD8O4ylvIbRY0Q60jUu7uJA-g54BrOQJeGXkjm5rtMEvzgQ8Kvz8Fc2b3sGhAjcgmbQafxncWMO56_jlszMKbu1R1Ffi8F3VMsosDOfakZA9lSavqhDKcNKWRhMX9tNhEzMT2_IRuRyEEUoSyllumgw79r7QbLbkzb8e1hVuJOS9IvdYcEbkyxVowSZrx7AfoAtTmjUBZ-10PrwFLb5LshFm9Bu02bPSO_dD5J-1X0m1C6tzD5y2IPgtVoCRy5q",
-            "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN1pqbEyUJqklzqRpD3o-lVhd4PeEpG_N9CqRvI8_znOGthrpY6b_PR6wgY8NTlVplYiHExurzeL427baae7qYqRGvTZxvLtyAMd0fkO2sgkKCQhGPRq8m3uGvCe5VelLnSZ_U5sgYuuPJrYo2SGvHp43ScKPIQxmVk_fBaRkxY0aNFenJohppAtK7A9bvjehOunmoXVbNPkIFaD0B9cmdG9YpvRe-lDCiVIlxG4KMYMMpJ_yEMqbWVs5bA35fcb63Xv7ef5wXDhhALl1Rjni7Z_XXMWUgKf4013yLRSeoYjtWBHLDnM9Zxkj3LBzCNMgSHgKcc4b44rgdHytNP62gO3qsRscRjdismmW7-Bygun5dKkdQOV8xR9GyS16cqnrTBVRee8XfFISruRGZxkU11y0H_2GX3qMmjhmqTIc10Dyg",
-            "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN1dZvYpMopGIT86YNvoAkNcc33EMuLQzX3fFuQ2lVSZegw42CCaLgqz5H1UNZuZ1WreS-HLiK1hmLfhz_XgZbmWeYr4SUvBP2_G54KwgSzz4Ee4qr4pSFFjq7R_hvdUEBhVBG01TkmnsZsj0_UYGqSDVPqJS5JX-KEh5xH_pjNdwmJvtbSPvhGLGvm8gHV3fnl2YC7pJD8ji5Tfhrs0K7HLugi-EJbGvlV5iEtPg6gGe8IzA6UaffVP071FFvJH60vSYs2BCytJL2JkwU4Eyccawyo4Czv_bMNua7zmFzeB436ABDsVDoxdCBZ-0GVQrl60s1c35esrqQNHMbH4B2-JlZv-bMmlvA9fURXYCJ4AJaiwv_A6nrYheLfRXKwmB3pF2_SlRjHsqZfYQh2zFzPn9lBOPtC11BjwKg0FgK1rt_lE",
-            "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN2D_bdlt4QX37PDzeb66cFDT-4KwOd6JHQEOb4qSfRUgFLeBIWw23kLbXH-kr6PnP7xsFXh2drwiNmHY3_qbSdAechgi7LJgwWhjMQYV0RfvbmxcHMCM8Zz2newio8pObBDBwR_uzs1KwPcCdV6UldRZThgOPw0bo0bWrFrbjSTaJKm-assV3yv7Onp9gnsthmEYhxVzF-vb0tEYRa_6wEIjgE2-6RHAY1zstD_2tfe1f439Ql_2oxe7GvA8Ji_6k8G7wjIYMmAIGowt3AdPMwYw4foVrfi6ikCDsLLkDDZuhnt8Xmf8c_HXQ9NhirFfnxk9JOsWT0WjrTcLCxGDFIJcg6QlyUOkzBc64HX5McjqLX2QLgA7lNa5l-VPX_sCA5xmN5mVwQeSd_rQ26R0ynSQ6rNcCfLYBz0m6Z4TaVBlPyY",
-            "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN082auJFJ85j96O9CvOfxLhWbK4WmvSS-au5a6AB7d_tI0alobBgvObxx_9ob8YO3BcGA6I_JxsS_i0RS0r_6wyKjl_LmavczggowhnYuNI4OVWCOGqIO0KkHvlM3lQOzYQyAaFmVR5fOCUroFe7Lp0524Gjtya-wY0dV3ixlKqYOhyaSnKOH-tuz8iOR7QR-N_-AtRDYJ5PrE_IlQzq8KGLMgd0U0b1Z9q3AQFfSAX3RgvCSOb-MXGHnkjK-88_D6iB0JsD0ZJ25JtKk3Cv4wXKziWV2kg0T0_J5Qukrq8HlOz3FIISIgZk5g6yNaktb_LnZXfzGBm88mPnocL9Jg7vNbv2xP0lyzjZtI1i0bzfH_6jzuvvyFGv4mFjQxevksa-xptOIgYQgCs5x5Y4lVB0bxl-v2gZLmsAp3igCx7Jw",
-            "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN1HnW2bkGaZ8qajt_JBz6RP8fl1IIhBy3_nDzlgUu50fanc78dlTlpRdr7HQ04o9u-TWdA5clKZ6iVkjvu8PrULSUc79MltQr73tgrcvnGk5zdYQP-kXSSLKPyBbf-bTLeZj6gIOAP-hBEisLw7t0HhdHxo2C2QsAHukTTWGbH0joAL9HzYfvjkE4gdt7cdyMfG2yXD5gB2ZhvqmPdvj4YLjRmq4R7IVS3fw_g9Pv9TsZuC0dt3g7FLIgOVD-1ih-Jj3CfJMdqUlIqAvStHRUAOkyQmZyPBBnyT9loUl25sCd4DlY2OHoIgCvCgavXncIvLwjAQ_UqCEyJmmhFeFjVzN_kALYdzkwWgdRnx5BbtCfu761x8JuKydyMnJlmpqD7LiMISxQGf7DrQVtVlPBCVcUJPLSvBiJbaJpqRiRQ8cQ",
-            "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN2iLoDCJpUq8dqShG9oPZAWIPgGgT6owiPgyI0LkEPXTV-QOqNgnigIUJtCI9rqY88A6rIooNdBOnUUAVpkEUjHsYLtRsVBggjWxVQjxiqjL6GPxL37NBJBMgcUMIzjpzGRiJ-FqetYVL_o4vnP3jdfoeyj-F_4Ru1e0vF-3lAntKq-YdkZK-1q0ts9CT0Fig8kBbaeu61Hnvn2v5IAChKUPHUvtHAyKIx1rDArBZkj4Hvkx31rtF3x2U1ZPSrDPVJ9JRpXk8HdcxZa_TGP-urW4Nx-MejxBkfQddO4akcoD27uOZPkclATphcZu4wc4jVR0yklEtDA3VlfUG3bdEmoEzxftgwxUeL5NkyiGjy3-ItLsab_rpZkDkXLDTTK-uP9V0377ruHO9EbhoHuYn7yDTdMIKMZE-BroSZedIRBHBbQ"
-        ],
-        "priceLevel": 1,
-        "rating": 4.2,
-        "status": "not_visited",
-        "types": [
-            "department_store",
-            "jewelry_store",
-            "clothing_store",
-            "store",
-            "point_of_interest",
-            "establishment"
-        ],
-        "updatedAt": {
-            "__time__": "2026-01-20T19:20:38.497Z"
-        },
-        "userRatingsTotal": 2407,
-        "website": "https://tjmaxx.tjx.com/store/index.jsp"
+    "addedBy": "tDnVgrXLnkXJ4B9KeH7rGLueTyo2",
+    "address": "401 E 58th St, New York, NY 10022, USA",
+    "businessStatus": "OPERATIONAL",
+    "category": "Cafe",
+    "googleMapsUrl": "https://maps.google.com/?cid=13043044536657255361&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA",
+    "googlePlaceId": "ChIJK0YMWmdZwokRwRsOreYzArU",
+    "lat": 40.7589167,
+    "listId": "YEpdgH9Nh4eNMuBwPBXr",
+    "lng": -73.962008,
+    "location": {
+      "lat": 40.7589167,
+      "lng": -73.962008
     },
-    "Ndmi7n02Scpt7KjaKnGQ": {
-        "addedAt": {
-            "__time__": "2026-01-20T19:20:26.307Z"
-        },
-        "addedBy": "tDnVgrXLnkXJ4B9KeH7rGLueTyo2",
-        "address": "1074 1st Ave, New York, NY 10022, USA",
-        "businessStatus": "OPERATIONAL",
-        "category": "Bar",
-        "googleMapsUrl": "https://maps.google.com/?cid=16180874719199021509&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA",
-        "googlePlaceId": "ChIJFTW1AOdYwokRxcn0wNMDjuA",
-        "lat": 40.759172299999996,
-        "listId": "YEpdgH9Nh4eNMuBwPBXr",
-        "lng": -73.9620025,
-        "location": {
-            "lat": 40.759172299999996,
-            "lng": -73.9620025
-        },
-        "name": "Sutton Bar Room",
-        "openNow": false,
-        "openingHours": [
-            "Monday: 4:00\u202fpm – 4:00\u202fam",
-            "Tuesday: 4:00\u202fpm – 4:00\u202fam",
-            "Wednesday: 4:00\u202fpm – 4:00\u202fam",
-            "Thursday: 4:00\u202fpm – 4:00\u202fam",
-            "Friday: 2:00\u202fpm – 4:00\u202fam",
-            "Saturday: 12:00\u202fpm – 4:00\u202fam",
-            "Sunday: 12:00\u202fpm – 4:00\u202fam"
-        ],
-        "phoneNumber": "(212) 980-9850",
-        "photoUrls": [
-            "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN3M-GrCmwmsj1da7ogwMz8mnLeAlj2RtIO8pqUz_Lsq5g5xTsfK6PgX0XOQZTl6bCWlE4FwUmM5hlFskliQZSHDUCeUkc_zk13fdIKZELKUwkkskuw-SicyNT9nw1krCYa0MZGYEZiuGb4e8dNOByFh747VNzKDV1Ln-gazT6dtR4OkpPUCAQPE7AstyY_qVhDOgfMF4e5GGHf2lnfkFq6m0Ay6IDKI4629fAwvGc4GRIKjyBwmv_yViLSoI5ZTcDVT6EA_HLXxXscWBuGGvUZrIp3EbqDRbPS4edOUekLwEw",
-            "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN1N_LT11pM08-SDLRff_oIjhU16I7EVTtO8v_8SRZ5N80xL8efzlfwI6hHuDF2NO0aRGSLFdq5yBAk6ce9Q2npY1VRnsFyihyzRBTXvY_Mkc4DGuUODjUbvQMNWY-x9QiiYUhoo5juAUZzrHrNap458QPa7ndThMBTpdSR2EA1qa1yH3Ub6XkiUqpC8cq-aDZTWRZjys_zudS_fWHaY5D5smsjkajZajqJa0qE1OuRwSQaPCD2jEL-yVffYGVZiLP0Xn3pGcPT2NM8OaufVg3sSKg6PCCWXnLg-UdCWiEiSVw",
-            "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN3wd7wzXvrjGRcDlCE_k3k7RI84fuc3XITTqhce0VGMQp3ZqvOHT54W-5LnkPxa4lxRFp5pt6LQL_64UYzrwruEdMeKcH8fkjj3pws4ysiUsUiOYDZ7otfroY6WwviyMDT5qG57QGBgng4m6wWUYuAmhhX2feHmPNygACjt-2uKj-i68HqmuG94MNdcqlIyYg-zMYRhNGKVzVvN9cQhk9unbK_UQZc-sniaTwx2RxKOqk8FNEjdG-NevD3clc6j94tsKDOiwl_0ntWIDziBpi0J5bwi3Q0uJYNKylXIMLTDOw",
-            "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN1iCVB5Y0kibx6-UjzucflMuzFMlsstO-UqIUbyWu8yKRqOKeKw_7kbEwOIdQTVIPU8Xy5zxYQMkDJBP8rtZcLGufOnOOhtFc3rjD5ntmrpz-sWfRsxkDTM4Arta8OFozHDSlZo8ys72tPu85ODADFLbGSphYJZuP5J12XPi9oPW-v84zCv4aEZOm14ZccKBcoqF0VTlO7CDT9arkZ_kghjLjl23N3tq5EIt9NlLS1fSwlkjTNynh0uYl_Ul_IaPk1Qye-ypvvV-93bE3VLKpCClEMRTnft7esDJrjpyejxCr2Az2J9ykvffXHg0vSupJJhMXubLhI9mOilylHeYEo3HiCZ6iP-caJhECY7I5XxgOv_d8SDHURuAh57X7XrwllFEdNIObLiGjltolWy7u-8SSg5rqOaKmHqBqzEEfL_DoTOhJXUTRA7R6Sonmvl",
-            "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN0_ulpFKBZ3UjBKkghSj3nsK0I0fjsItNbpa_sFmsilpcMgCA7dyIhmUSIAFbut2zeWbYedw1GbBxofyGWqh-hrdejdUUc4nvhBjwVEH7HD_QzFIBRZptE2gEdxTRmNR9aV3TClkGDtiCgSYBvvSjfhCntyrOVfj053W0id0k8Tr6SAnJrhCR6unifGY22X8a2iYuUgJKJX3J0z4uJxP-hMHGvglLDU_Axa0dMBvtVhpyDgSxXTmXMRgFJsS-hwVT2q9F2UKlH0eLigQcTG5CfiM5x2pPWfVuLLxPTlwW7KKXbG4inRvTr0hjU_m-YXWgmfQN6IS1TbuGNPcu9TnJ8Lkyq0z2TPApG1ZOddAufDj_6zM7oFji67hiLOMwL7r5UndWiWYgHQkNceQWuuY4Zuxqw439C95qUshQTdNEgMrQ7jxNvzJRSXB_tlUzHf",
-            "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN3dHTwdKXsA5ntb1yRL0rB86uMNVC4-tZNB5uYaY07e0IywJPbZYeK1LXe9aUNViYHAj9o4e5eX2LstEm2F1NvJPwVzHrrs15It5BjzC4VKKOGmoBKghiUvQM66oaZe4QUy76oymJC8KJ2GGijB7lKRmxwDouIPn3mhocGxmfXYsE1g40MhDDLC0YIKAb2K8CaJkseA4ueFqmE8hbWKqSI5K7I485EzloCSCXoHNqieNJy7WKQkbWgLIaWQ1-D5sT1MrQfmKtcx17cLW2BSkXs10wbSLRQ9EmclvXxFbn1hBYdBMkcAOYxrsjuUvOIMUawN80LFjllQNeNWUFtSiF2GQOTSQ-_IOkPURNPGzUfJQqcvBsi_mmPaIW_cQQ5V7IqZ2l4iM-C_X4cnXFzPNXmcmavxwI-al-qFNFsoXf3QAs2m",
-            "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN3T1RSRLeRk11M9-Q5-_UrppLz4MF4uB9zQbXfjJj2YeyWTQ08oPuuryU2xluTzp5UYjeyx_k7VqWmCzhvUgkbt7auGotGqLxCxXi9xbcxAM3N90mWh1MyNNKcrXKz-glzgLF2zZTTMpVaD-Rs7UCE6UkfC18axmKpuRgvm07moWzC046gGy-PmeRTQWYLNM9JLJcOftyl-XzOwzzJKSB4AkWBpDI1Y0MsDSKDAI_MeE5RSq5HhyH_JgxMYqnJZWEk7i1MFmPqZWl0vFxuVagTgm3Mi_0H1g4hZQmjb4AdI3cTujefk08RBKTaYIyUBm8AR82yGDjWPKxm3AjWKYjUKq0NQ78LsRpVmmSb86v5_vmsXU9kMZEoBkNXb5vHk7hjIpRy7t0eBfGalIYzu6qRsg4Qi2p_1mrzttDfFmWCOweWplISVTInHhiEmCgRJ",
-            "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN1dM4NWUJ6I0aHYmBgKsjGcrGHPoOL7UZls_i91pAroE0qNkJgYR7SjZSBeZzzpSpCF5Vanb9A6M_4XolImGza02Uqz6coFj5XEpnwgUHR-Fc1wbhN_d09mFvxdDUdydVtWbNOMfRccGueZdHIDEsWTo0Ky6F8GtQL_Hk2knMB1Eepm0vjpS-7tjIDakPAjDEcRTn-OHSxsWcbMFFkwHS1wMbT93kRo4fxIXjQbyd_KL_pcupBprfW4-VQS9Inhu7fO_bq9NND07SQLGbluGEpvUeLMzx453gjtZfbVN_YwWD-QiorQ4JH7k-nfTWSpxtBwsp--FUR9gq7kNLxgE7JVbmu8yOerZW6q3SDMgs_tJukOnn4J0TrZs5veWBj73-w-5Dbh1rKZ20BvHfGjitGenkqYB-fhQurvmf95CFpi1N8",
-            "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN1hAF75qQnBWUBx3vpEZ2O0lsvcA__iTagAyJXFT7oswqXcKVBIrezc_V1Kbm1vvAhBXvp0YpmdgADGhlBVUFkGWArN0UiQXZl2l_r5ay_Q-sni2IsB_Mx7FpZwHD463JpAn2YqP-dUdA6O4IubRWODfGNnTCyF0mSEkyQKSrEZ1BwFwC0eXwebibQaTg2acEMsYYvXAaRRYsEBjSAeJZHZPuYl_fP0qNvrNWu-IoGAx_WCRAuoP7OCVldNYogH8o6I7oE6CG78MqEHqwNWrEdA1-GrVZNLSEBePgSyeK1FV3PvB3SRaWj8uzKCgJ1IRadARBQI0rRmEIZvXmAflQX7LeO9GBSoN0z9lNSOR7PeatT0oUY_8LVtk46B0eEj_4fUcnePffBo4pHz5yK9gOsFpfEgBd-5uxrKI3vabX5JV_AG",
-            "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN1Xs2goUl0UHN1WbDxud_QuXfQakOvt_iNzwkBAfGTNpUZ_PhAo8PmeqRrFUoYU5Cd0MDpf-G5QoDnPDkttdR-4cbNSqjpUMZTIGsCb-U5OXMM40-PQ15J_Jzdxp-Z2pBDhedEO6wKYb3VtAzz5DYueBe1XReQ80K9UwPuiLNEKK88hcnvggOEmARymDVuyDyWPx0_WPxAOzy22CZ3m6d4-3XRc8jYcFA6ijdWsPjXwwpehoqWPFKPfkcCJG5z_BvLgHlYttSxkC6SqTAATykD5Fo9ZIenbw9ulHZn7_JCEQyf-pBQ3btEop3tR_3dY18p3ieBsHZgED45fntCawFs9WzL4eh2h5DiamAqz9YUD6pZViGusQ9q3-RiL6CWiq1BTBRePECsh9jcTzdtNwSamZ09I-Z3KYDIU_4ou6rM"
-        ],
-        "priceLevel": 1,
-        "rating": 4.5,
-        "status": "not_visited",
-        "types": [
-            "bar",
-            "wine_bar",
-            "night_club",
-            "food",
-            "point_of_interest",
-            "establishment"
-        ],
-        "updatedAt": {
-            "__time__": "2026-01-20T19:20:26.307Z"
-        },
-        "userRatingsTotal": 336,
-        "website": "http://www.suttonbarroom.com/"
+    "name": "787 Coffee",
+    "openNow": true,
+    "openingHours": [
+      "Monday: 7:00\u202fam – 7:00\u202fpm",
+      "Tuesday: 7:00\u202fam – 7:00\u202fpm",
+      "Wednesday: 7:00\u202fam – 7:00\u202fpm",
+      "Thursday: 7:00\u202fam – 7:00\u202fpm",
+      "Friday: 7:00\u202fam – 7:00\u202fpm",
+      "Saturday: 7:00\u202fam – 7:00\u202fpm",
+      "Sunday: 7:00\u202fam – 7:00\u202fpm"
+    ],
+    "phoneNumber": "(646) 649-3196",
+    "photoUrls": [
+      "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN33YrSRcpiL5NyQ5V2a5EeXaMx1KNRN4yXbamIGPfCQIBPdONZUROqsI67Yew1Kmyx48tkSulWHB4bpDpsWv54K73jpAq8FvMFuCcHgYBfteQ8kp4mR1SJXdZOHvIZq9HI8knQdGdctbHMmr-pZsfYjQGXI6h7T9bYq8qD_m97l-IN_mVusC8dtTsa2eYGYKEO5cz9T-EhABQCqrVHnMHtyUW4ustYSuV39QdkHdoD8KLrGVgpX1AoCcoCTTPIf6BaZU0DIGS08GL5UoC7aT7BgPyug2mu1cl3wzWunXBRRFQ",
+      "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN27gJyIPz2juS2fuSxQ_RArcSCDjk37khZG8cwmL9QAeX0laIRQw-Yei0kelh4WSSiTneermKOt7reNWxuF7EouKiRm6GNOL4IMcvOpOUC_-1PSOMQq8_tPL0f7lCoqxssOe2TByCAxM2vCmmziflXJ2kXCpQps3RGh2yk4EsWMi3kssFrzAJc-57AF58tt_qiDYHl0_2tMRRXxTtZup3IME_LZZc1DR4Dm6uPz3ttDA8rwNru-mNY5No9YWbROOzU0YUpTP7mJP1Tu3-RFudLP8FNNnGizUgKpY-9zUiwN5Q",
+      "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN3GUp8_pN7eBeeEEm3dxqtqNNdHo_z4oqVPT6X2tjYyPxebw4XDJ6KWYWI3l4qGpLbXt11CqPD6RF7PZlDVzTpt-wq-LnTvfaY9OinyiHTewJKbQjNPi1oMwT9lHBXKEUnChaZid6WV-XNUh2afAa8dSuDdHF_I-3ZG-L0y3LfHT8mw-9th9qsGJXpXXKObi4lc6i0Mc18JPdqh8RJs368MrxMmGK6JV23K-AOBk1YISxXIoyzwtmKbJxJ_F8T1rhqR75JUYV11yyCraKNXGaqJJ9UDDuSiDneHN-wN0kQw025yeydVAuMhiKH627xAf2YRgDx76Vf2c89KFBwOzprr2RLu9JzrUGoqsq-_jlXrgUiepsEPiTgZYXfohmlPkffmk8uy8QhPYT77mSTZYvrINVbyai53Oao2MJJc6pjhJ45YK3TpJg9_i-qkDgNM",
+      "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN2HAooqBCycvMmaj94IS1kbQ5psB9rdD9AxDYCEVphuQ4HD1gwX-6UofEiCWFGCjUXMxxxMOj6ZUrMKjG2lMBAGPuudEqlchoiM45wnscXtPF09XqblBxF4kOwd6xV_kr903K7pORVYlVywjJ2ogyBprNUcAErWdqjBEJiAjNHNxzY_867CZuOANH13s425EUoKzOlgUugYnMnruGnJFc2iNmTSTrVus4E_Ve50lZc-C78pb9JEFx7k_uVZJ4g1e7mvMoMrDKyN9Dj8xI1Ejsd_rtBhxry5ltg5nmtOG-uqCQ",
+      "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN1-Tlfae12u7yyWUmEpAEKoMz34P2hhdF3_BGVfHVcpZTkHRlt2h6HUJ6J1m-Z643kzVsJ0sXgzwmb8MWyLi9TQexnbIZp-aWK6vKZ2bKqHPkG1pmJHlhHcwuHNLBa3DfQf0w1oogOy7GVoyBqoDvyq2uJMyMM_P3KHwBAdi4hWSSyiRY_ciHrWun7XzcsTQVYu4-EqSMvbb6ZUudGpY9tNAGBE29JXFA6_Ht9EW2_cGBW8LbPvbR7U_IEzfSNUFF3QJDE1SeJEtKKc4bdVf4aFU-LitELKwjSG3AxKw31lvHAaNG0yw8gciZpTNaaCF5jm8SE9rdgLPDnVQR-ab6vvVAeEBgGFzmP_l4uFHttOW_FutZymbpwcwbqfyQ2g1ithmc5M3V7mDUXrabwJu4R4yKZUseoaRiJamCeXFJPEHDjbwo5WtDZPu4a_lQ",
+      "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN0yNHqZsj9mVkb570_BX57Du1ZWOdnGJtU6XckTIJgtXrh853XLk_cbeKskC2khgX-L2gKbAhj3XaX1XbWgDy4LIAUSreQNh66XkwxQHwLug6MnGVn4gjFLAcWV5eaul_JZbvrRnNo4IQPuRue_sB8X_iellUDcd4W1IRc7vWRe30XcPfyvpKLxP2Fx0uk-_1Yd2mLxlUwQYXiUekQ5x1gxgcRepmZ2qDU5O1-HcsygdSmY_UmOzVAgk4R6A6QyNHXL-hh33Ma6ft-cwnBs5iSk0gKWBxP9LAMu7YtAUso8EQ",
+      "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN0ypaYFEKVMEkV0Wi3PhPdYoFxDkVr7MNzHZ4IUJNcVpX10uSnovWfeUt0WeDzQzXbhTL_a3JtIoABKiuXa9WUu5QM8WRQSYD7WjLGwJtXalzHgmAmduIBTgG53cWoCSdpKXFG8gxeCJC_siNl_gDBapmW9Zu3d3_ai9TN2rFLtqH2qStPaUmatf0UBRoImAON14fQmzSqfJIuKkl1FfOc2bPB30wQZz7jyVctFDhKx9KKCbYfN4F1oZiNEzFBKkdl3gXhfaIdgf3UOFuhtO9whLjmOLndGwpUb97KYOHM39dCsdfD3Npq40bfni5y4L027bYP4g0v22WD07Yr0ldgMt6VoykYMZ4AsbTbSRJLrxTBUDz8c_d-klWra00QTcCSflcYuGKLObIKiqFx9EsQzaSIVs7yjy83P_h6DQYM3OmPaZnyP-qhLJAHo2xXN",
+      "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN2VrmPIDetmlzjOJcsmQuUgmvfKpMxCLTM7vOf31msxwmKfxzcqgfqPEI35eJANGrCSELkKwgwumcgJMIBW6N6uJuQFnhN6dauu59mOnf13c5DLl2bDyx541U_yANlYzITRQigJxn574tTJ8X1hKXv_kDsC6MXhhglCLQAnQ8LaWI99zdZZDT556UgLnWBMk6WHiNHiIlGSPh64o3JFiFkzT0S869a2E1LesLa3gBYURr4pc4O3FTBQxuUdb3W-h5PPguImNXzJAy4XO1KC16dfnjFwBPUwCgDSsDubj8Z3iwDGeqYcN17twaSEZCFERyHn1aDCYosAyMl1_rCkL6YXB8XWLFrYs1WaRaqHoJGY5i1O59udhDzZx5LSW-9G-pladnAQzKIdF62jyj-O7rP-wS1twhZPrBAm7V24Xcv2QA",
+      "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN3SvJum_39s9Tll_qUDeBZS1PrVcRuViKnhn8B5W-bCe6L_hnIC_BWRq57S86U9TNbGe9SDtYLOB9J5M7LMeA5wJfFaZdH__BDk3tCnjb4DuJO1G6Dn-KB8sKq0aUIU8AHtmf8B8a7w1ypwc3gtMEdqlIDxW0vc1CXl9vfQBhd8MUkWsnYmv3tkoRuh3oTXdxcE-skQZD-Jrk25kmFYEvQp4Kuw3KxHlR8uf3TqyBCPDrhf_T8mlZ8OJtP_pn_g7u3-OqNgnJt1gWkZ8fFrxP00h9NuZ6OQAy0OkhYueq9LHKNjzIUuyZUtPh7d-ElLTbKIYNCg1GSlzoV_Xjhrqc93sd7S5IraQ9x-uSqzA9kFyrPpWN9vu6mbbEUZwL2sCDqAdcrw4-oQY4-K53KLAxxeIZE_fuWy3NnaZthqun4phQQBwPY3DfLra3fS-Q",
+      "places/ChIJK0YMWmdZwokRwRsOreYzArU/photos/AcnlKN0Uz_cYI35Hkg0VqgLgdUHc1oJ6A49yaa13JCFWQvG_yJqAU3_tUZZFV6Un_yG5axihFBCjq0hJKQ55UafXwJmsZTEccE5YyBZ1kJkLrwehqq7X6RrU3ffqsXR-zuJeC5e2903KGfaZp76yrbkfoaXopkzK6j5wbRbFVIFXcvRTEiC4razbYms_F8mBt0caBl1vJe8QKpJ_4sKPingAPY0OXQ2IbJvmZ-4tjj89lWifhT7r_Y_jI2RsGxv578Yz8Y01r3tZLAj6TSodLhJ2w_olQeULO5Tld6yvxyP8JTXh-Q"
+    ],
+    "rating": 4.9,
+    "status": "not_visited",
+    "types": [
+      "coffee_shop",
+      "food_store",
+      "cafe",
+      "store",
+      "food",
+      "point_of_interest",
+      "establishment"
+    ],
+    "updatedAt": {
+      "__time__": "2026-01-20T19:21:09.318Z"
     },
-    "UakN0olyekptuIdXTqV3": {
-        "addedAt": {
-            "__time__": "2026-01-20T19:21:23.615Z"
-        },
-        "addedBy": "tDnVgrXLnkXJ4B9KeH7rGLueTyo2",
-        "address": "357 E 57th St, New York, NY 10022, USA",
-        "businessStatus": "OPERATIONAL",
-        "category": "Store",
-        "googleMapsUrl": "https://maps.google.com/?cid=1615466105298708109&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA",
-        "googlePlaceId": "ChIJd_CmwuZYwokRjWYDGd1JaxY",
-        "lat": 40.7586126,
-        "listId": "YEpdgH9Nh4eNMuBwPBXr",
-        "lng": -73.9630576,
-        "location": {
-            "lat": 40.7586126,
-            "lng": -73.9630576
-        },
-        "name": "Daniel's Jewelry and Watches",
-        "openNow": true,
-        "openingHours": [
-            "Monday: 12:00 – 5:00\u202fpm",
-            "Tuesday: 12:00 – 5:00\u202fpm",
-            "Wednesday: 12:00 – 5:00\u202fpm",
-            "Thursday: 12:00 – 5:00\u202fpm",
-            "Friday: Closed",
-            "Saturday: Closed",
-            "Sunday: Closed"
-        ],
-        "phoneNumber": "(212) 644-8314",
-        "photoUrls": [
-            "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN3g_oloyNCTVLrXDNHsgM7uT4kWYAnibCLT_uzu9k7k-7qozSboEClSA4BNaxx5UNdTloy79WK9nNj78GR8g5n9BLSzix1rRxK9SwLTF00K2Dsu0SkpxN4tLPgPmp4KMrwSHF7uGJOLrQYSAwgrW7LfbdcV7DGxHnjKtgbT3VbzZrQZl9iCnZjCpmB75QG90uyNHghP7ZiqgFUrxKGAGE2mhWszBtkPb2CG51QBFnmuEREO3K8NZxPz_jBu-jYJMUp_kty4nL_TbkE6E-hzFEUlJ_RGdr-btMBgXzT43eHyIZIAk-47lqAIKeukeqke6-TSrMuv9txaJu5oorUkD2YQUM0cIl1hOEHljZlbAZzlrN5gP7PQNlcQ-dxq-5ZX0U1cpNTadCdaDv-VFpB3Qpiodm0ccmAaXQv3RDDQ9RwLRIZU",
-            "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN2Bbcs9Fl3VpxZRXHAKxNeplFEfIvXBWqedwQDqyII3eM9pi7fG7rHkj_jTFcLaelzmdAkxcOCQ0VHxdS8Trdtc6oseDR-Iv2kTGIHPG9LmLPHHd6q0KsJI9dlytSHhN8KBCXESW99Sc7h3HFeQ4RbI_Ame89FsQ9_penMYgVdPzghMRjBBXv8N0_hknKzTiZZozplBni6QK_XNggkVL0sv-S5_2Y0-rOifutewTVNJ-iNwHP0Gi2L0BMZiFxH4VDXfhoCHTXeKWinZZNS-c7WoxniUOecOE0uQ49oZRaFJig",
-            "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN2lFYAz-DcMUuf5TSxN1eVvWs8gI_JoY8D0M1NmYiu8wh6Wja34AFXdFQP6-dYFM_2sQ5IQVq1KJyYAtuO8QgIa92LhbrnHfFVjl2oekQ45ChJgu7jSuVl5zNPgzVFwsTgMk-BN5j8-Yry1h_h2FVgBwWYJsHySmZXQGOv2CZMgDvD1NR2vVhEXtZU9eCuPd3OjVjjdkCFvQbPuYo-nf3hKpSryWtleHT9WjLZYdrjskJacUTmTEhccspaxGBKYsSpGWhqnm4ULQwsZR0_1iyULAviAbOuu-9rjLdXw3Q8__T0u9s_iE5tMxBbzySDbvnL7bgPeO6xNiIyqPW1fpqelwf1aqEnJGY0voVFRwsFHzGwylkGh_sWNgoA004EjLR9MV-JKZwBzXcd-yS4WOuIbpnusrzyDq-sfWxZtnX4FxX0",
-            "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN2eAlqLCPt2E-lVvpTj9LqdZIV_LlxOHQmc85cGCUoseCqGJ2OyTUdPo8Voh8ve18wJW21nA1fah_XSXqHpNo2eumDkm6aZNyhI1n1wNjwQf34OS8_1e2pCOTde0-I7fx8ugbJcEDDnnKNJSgEQerQDCBhUNlX0xoZKA-nHbHYb3P_1UY-cOp0F8rlXeoS1qNCIu2KHB6PIeOP_NyKxqGABgMzvx-AZJ8PLUPItr4kN3X6FIlwpWvuE38pIJyMSNS_tV_SFY0_Ok9Jz6Tx_gWeUHLNFmR6wy7e2uvye4YFkR2R7ZSkVQ5OrOlwQN9SWdv5mgp6yzrcL2pdnbqeK_gSABsDSL6hG6ZlByaBiyKWgegvRtmifMKENDpPAUDPZ6WQPTHWaXow1N4YejmSB0PvWNgvkokLTiA-6WtwskvKVYqeH",
-            "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN1aLqTyOUw8ZSsZp9kLelKqYYJ-dglTixKHQY2BU8xqnqWzrbssRm79LxKnWWFjWjDrfLwUfoMXOVKoPtxMncH4A7oVOC48QncGBOVbl2TJTIfUwx1jTqrLln1A7UueGTA0F19_qds38ngoezh6-b_hFBkom6nJ3ToblD1gZjMPTQOIqQ7S2KmxOQh2n5ByKjMyXiPL0u9LOho9k42QMUUt589j9KceEWeHIxjtmUzeLXSRPVFJydjFOMS_ajR3hJhPY2nCsY6NDA30bbk1cgS5wrG7Z16y83LBIqXYM_DJf4rV__MSBBnC0QdnQlBY4_qS5nhGYnTTMpf0l4a4SQ0BGuC39nhRVndsKNQzl_vfXVeFaiFkaIIk41yEbvq3K1TFuAibPa07ZPzVl9Oduyxo6HF9-UjXSFGPDUPgB0YRCQ",
-            "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN1Hs85NdRkh2GQxSAHcwtOHfqOahVqaBVmnFcO6pdMwrgCH6kBXioE6-k6820c6vQw33tF02pqYmgZQKQrMleWpmH55GL3IoC9Qv-XPakuggIcsMchRDUfcp3L1L_ipfUmFWWMunjbKhs5_q-JZ1Lc1TC-MtiWTLj83hMxx21eGXHtVdO-t-CpmB0uA7mczKS2WVEc_4rvbtcGBtWAbVdLhC7Nw9lYT1SDbPOjIfx1baka45FN4rHkra14VJ2Ps29QfDeE7I_UPnbR7GGwmJBonE_EdJTY1vqXd-KCg3ijR-_UmG8Y9D9lloHFkboUizWAZcBNUxsDHijNzM0mqw56iQ32Rec_yqOu6tjc7ImophS_6Q0FNsVZ8iAjFaVCCEKHOYw0m3Wzugw5puFDbu0Os4RTT34BRikF0-9hkHlE6JpFR",
-            "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN0bQKzchWnxYSoGvQIoxNeIy98nQoZhSkLN6qT8NT1Sq7WIX8tAHOT0g0ehg38Cib1FXLaiZCKC8fHLm9nqv2325eHPhBggUwCP2r1nLd_aiHzDM68vdhJoDuYEpldhi1AGtwXEA_2VWCZ3HqK3hGMqes09_LBbB9bYN6WVwMCcLpiYzgaD34FcuAM_ymZhmpyTKNxbG5EzxcNFX7IFYdJpTS1edkczrEmo54gstlSvZ3CmDnSfE_lF5ThUlp8TqqHwaodGsSggl-uOK_GPV-MrOgSO_gT_67brINW6LSckbg",
-            "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN14h8cZsTZsj1FAN98s18Ioor2y7EDmk0HVI-r0B4a_zKrXmLAyws8m4gTeaaSg-YWL-ERPJGtzXDhqYUMgsZeVse7fXecoGaKOaylFo9-yY9dNcTcejl7Gh_NUr6EvtOQ_ahXOUjqEbSLOvoFwfQVzMk4FLL5DXnfCns-rz1oND3R7vgXgNLHrT5lAbXUFSxTNZacyxdqSE1puo9m5qECtmTqHgv8dwaNJmvqSOMECvE9YLp-ZByS5Xcw-zmQhsh8AkT1INWoYWVXBjCgKMPAsmu0XG2XYBcdl8M1joVHf5w",
-            "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN3SM_KTMS8GCQCndPOYbw0QkcW1KahgJHdyPTOvJq21fX3tlaup8MO7KtL0IlZYGJWcqj2ErnTiaeDoLWlRKkUEwMdoRi-BbNXHQIRDyETWWtnKJD0GTkZhlgALLVdRrsdJ4MHAfI833LtkY_CW-mWSNx1nLv6uZA61yfpakaum2Tn1-W2VP-EnhU-dN41NcWOOtCRMLWA0-PmRg03qu6Y4gfRLH1E_7YInWYrxxwAspxOzvrMnYO9ofWEES86mGYadt7jaDdMubMkBzpeE8l0zuz9hyNixHYC4bopt9CmpCw",
-            "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN2yJ8opp-ULsaCxm1inMFh1VVcyZuNv9ACJoc_JAK07e4LEQPAbw4-veiwRDm4Yj7NfhPtCKUcNqPTr4CHha2_ZjmrftE7cWiVD4_gopfCHdtPVvdDMhg20J39qWIckdTWLBn2NESRMTvtlV39h54QB3T9wS6c400i4KKGpnAvhOoni0d6BVGg5wkX9DVbNJpjJyABLycfDO7uaM4QMAiI121YVU2Y-VGiVfIOv8AdbBhpMsstnRGc-nlgmOAKwJNZo4M_839_7okg5k_dYej91IKHiRZaHIYDvyGQIFpD8tcP1-suTEEb0IJWJvTNaV2OknqLILnWuIg_0a9v7FyLg9fmMZPyCdO7-tMdg7HiJwlsf6KEVyJDHqn-voFt1DFSq-Kn8pQgmGJKPr8wesTpxN74LPvdXb2YQ8i-F6Q0"
-        ],
-        "rating": 4.8,
-        "status": "not_visited",
-        "types": [
-            "jewelry_store",
-            "finance",
-            "wholesaler",
-            "store",
-            "point_of_interest",
-            "establishment"
-        ],
-        "updatedAt": {
-            "__time__": "2026-01-20T19:21:23.615Z"
-        },
-        "userRatingsTotal": 84,
-        "website": "http://danielsjewelryandwatches.site/"
+    "userRatingsTotal": 2512,
+    "website": "http://787coffee.com/"
+  },
+  "FsgDEmhXwpFuJwkdV7B1": {
+    "addedAt": {
+      "__time__": "2026-01-20T19:20:38.497Z"
     },
-    "dU6z10kH5G5ikFzbR2Ey": {
-        "addedAt": {
-            "__time__": "2026-01-20T19:20:19.027Z"
-        },
-        "addedBy": "tDnVgrXLnkXJ4B9KeH7rGLueTyo2",
-        "address": "1063 1st Ave, New York, NY 10022, USA",
-        "businessStatus": "OPERATIONAL",
-        "category": "Restaurant",
-        "cuisine": "lebanese",
-        "googleMapsUrl": "https://maps.google.com/?cid=17542759738776396346&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA",
-        "googlePlaceId": "ChIJvVBJx45ZwokROqLKcQlndPM",
-        "lat": 40.7589866,
-        "listId": "YEpdgH9Nh4eNMuBwPBXr",
-        "lng": -73.96275159999999,
-        "location": {
-            "lat": 40.7589866,
-            "lng": -73.96275159999999
-        },
-        "name": "Au Za'atar - Midtown East",
-        "openNow": true,
-        "openingHours": [
-            "Monday: 10:00\u202fam – 2:00\u202fam",
-            "Tuesday: 10:00\u202fam – 2:00\u202fam",
-            "Wednesday: 10:00\u202fam – 2:00\u202fam",
-            "Thursday: 10:00\u202fam – 2:00\u202fam",
-            "Friday: 10:00\u202fam – 2:00\u202fam",
-            "Saturday: 10:00\u202fam – 2:00\u202fam",
-            "Sunday: 10:00\u202fam – 2:00\u202fam"
-        ],
-        "phoneNumber": "(212) 625-3982",
-        "photoUrls": [
-            "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN0M4k4KgM3nlfOIJ8tBE2M5Vq9YYO1xukfa5mfRBTqEBdgPu_WWYH_ZUQUxp49ThlMl5KcaBIed60vC6AbH7Xanrg0_Sz8y-OPJlaSbDzV3E3N-aGTwPv28nGeptO2IPtVTETabHKFhVp47gasZ1Wya1fVF3XI3FG_7v_7jIGfeEFOOLm7I-u5LREC-eaJNK0Km3sD9idLcXwqJHnPdLd8cCOMOsL0GNdWPaRcl0iOwdZIyuJ7syoT8EiiY07uNkmQgCZE7THWD3Qjj8DgyygETjIafEbx0jN81tMvt742Now",
-            "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN0KoDkfv-D5XCECeQ_HSzoa8OUeAIoBOn8RB9nxNuxn0TR2GYepX4JS96ldZ-xJJCZI6UKXVkzPRjo-ajMXrrfoHT3Um4tS8hIi2r2VyljZiqEKM9MJYPq7wT0di-VL1ubx_EGFYeJ4JhoWpEKgfQrg5XlKWlWGCcslK1jaT0jRJV0NtNzshRkdacjE-gskNB7TMyGIXx5Acppzxfr-PC3L9H5Hf2bNF5oQRJ8jaU3sdrnoTItYEJoJZfpz_qF23_jUKaow1eE9RlkkRSK9d83Vv2Ox144QzQMv8c6Yfy2ZpQ",
-            "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN1CtZQCM07_TR8Y4eEZa84YtxXPHxHTIvGKpDjOH8QjdLy-t19fwRE_dNxEfXsQHuX0QmJS80l9Gj7uUgMkd3jyvBl6hMtSJHf147LKRc8qGcnh2UuUXWmbnIUJaYXfLq4Y_A1Ri5BIQyFFINzImZptA5s4g6ptwvGGvQWkq54ZPezCNBXlS1I1RnA2KHu2clsmD3lAtR18VdJT6Dysi0i4_fxZEMUz5L1pIhus-jn7zMKk9q725nzZVGqUfBZDCAM6SYoUCUYgLooF41SVnPoEdFeiONWQl_wfCMaHkEcOQQZui0Xs91jnjoCWdDZkkkEWgovJHtEx_bnFeuyfA7Lr4X8QGF7t9OWtZISaubaaKrYHlpXcocez46NwHKWT8R-a5069ictAKgaUWveYZDfH8Dlq0ur11I_MyBXPWtUFpXqSELSPLPJoc58Nx-zs",
-            "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN1eMu-IbJ_LeDXSbXwQMcNQxt5axF2HHvoJ0IVxX3hlkjER1hQp4AvAVsS2Hw3LOu-d_K43ephnf1hDZ9SLX-qaUp5ABGAZZo9NPVC7Mg-YQlV9XNpg4_4JgfJjH6pmC7zN4T-Bj3b9YKpAIou6021hW7nbr-raicYb1HdWBRtp3P8FpuQ-IQfpBxew1Min6LbNhAOr1nsRHbaZIJ0-Tp74EqbaMGHEVHnyHlN8M15Se28qmUb8mqr9YI_9nlzDszd_uzTYKfDeFYAVIyFxsOxHqlKJL4gDvdET6ZQUhXzEld9I1oq7Aa_jp96JGZcgAOAnk_p6ZzJfhmjgb8HXRWxZgtn4-2Vy9PifQCEnnjVnb14hZhoIypl45oWZBTTC3F5yV46ZmPlAfuQNNQhubA1J7bTdyr0G3cJ11f6rSd_UEFT7xwMk6kk4nroLuYCE",
-            "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN0UdoqcDzHDgPuvidCWaZKvHAhCdqEzzuRaqujGpgLOjnRzqadAUA3-uayVtVw0xV-e9_Hb6ktnaWU-wMG3DVKsD6Ysu6VartBj_YOHdtzTtBxZxKLvzBa0hSkIaxM3UUKpFPtUouiBk5bATp9P9zQfYI9Q7_7Vt1TYbfXuyEi1jNNY0IYp-DzuAxxfmZELn7jyHHZhubU45DVJH_u5RrIUjOyna3smbMg80xiOX1l7ZcKvw5WvKCvLhNAL47rQh48w1SrsDuD20ELx7HfSro6ZxSUfguSWWAGy1GZsTYtzxDUhQjYW7VExSQQ1zfQcUsDIqmCY14lnZl8bCeBtcsjMlhtVQlFOqzI0fE3BhOZ21g65RtvzXEEpJr7V0EL3Eqjftcu32CLCDSrZvq14vAKY2waD2oM7C-_-rHldDmHBWkEXk8l6soumthymdAxM",
-            "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN2yx1Xgr6kjPbnuBWNwZjLSfpOU7KTqsrdolSGn5rp4tvkSTnrBr4R39SdUesFjFixksuKDxdwMNZXeRTSDX9mvMSwMy7JlNChyvX4FTLY4Tb-0Hkv5RjxBfQ8z1hxlPjEp64hPb9u3BR7voAdQZfp9SQ5U73Gu_fWvWZK_8intk0E_x187N3U92s4EnlPaQ6l-yjDpNY9NtYxBVsC0PVzHojl_fP5SOv1DFPi88AmEotZsGmR8c0_x7lEVTc4Z_yzU13L0CXkf0hFKuUd7Ehx95BgW0DijA6JC5BVy2C52Zg6goeJajSw2EbMxAN28grnDtZPgDeTz3oHzluyC4DlbGs7Y857qgN1orIb9lrBJ-DgV9dj9IeR_ZXpg2fBOzLJa72DB3kULviJ-bw7k7QseYZMxuz-j9U9SDnm9idc",
-            "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN2Ut-3tJyDE-g5Q577HJN1jQN4timVKMmnhlHPSLeIUaRxu0wvU0tCERNLI7h08g2Nu8eIHAaw0oqASMdvc3aYGtWViS0yDFW1wd3P8HkGMKG350ubXbMgX-qV8P-WvvN-JFuy1O7wZ9eTy4qhp6RlCsQIhWt_o5CSRNkcYk9wg2SEPlRmnv9hl2WKw1V_SoPmgMTTkRcjVYhLiX4QqgBzUr4csc8MCh-iXNyt0-8oGkxf0MyHbF6YpKgfoSOL726RLaCYVU6p6flA6g0l4pG6gMhL9ivebA-2d5V3KwZDw8YvHIvBiDGJa7Bb12kipATm0LtXv-TmmgNAki2DPRcqjScuYD16yxrokJ8ZRzF4Pb_sdWbfK0zqZbeNIk1ADmt4IDVtXhfUd4XU7AL21IrgSwk4vD6ntFMBH0MRe6fDQNz0W",
-            "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN2Wjfu7qiSoC3MLvgZue8CRto3ZAEHd5uQBxOAz6qydU3N_o8napEcutGh3K6wv042PKTlpXlxib3us2J21yxdOcdnNLnGUe-hYhw5FEPfEttSSLkJQNRUKCW2jjzHH6MORmIIKMPf-38opL-7YfBor7VTx6ejLqd5oZioPFUaxYTvQqhLktO-emz9Zkyo1hLKlEJK8ZA1W0KGaGVili6a1n6IUr4opEvtY3x6iCw2UU2TyD748LE3WIJJ-48Q3uR8oGIzbudRrfL1798jLpkHgacF5QDukKH6_uAJbKHvQFhD6EgBqqJ72l374HPan04-CwwCZpTRQggE4YUXcRZrCZzt2JZyj-7m8mFQ8flmpCJmRg9f6_hN4xynct7V4_8xfw-5dFgAVndM8qfMtnHBEAY5zqVoL94wWC1S-0pahRQ",
-            "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN1lepktTIHRxClvTVgcMRlcoQIBcpiBERAt0xsNdjvcjlhEvYyQgNbCpf8qe7LJOpVYhMO7zrf79ZxMIXNSIwUiWjmzfV8gz8op3wkyHUbmaDNJ9u1ZUfCWHwjfJ9NBz5ilydqaljjfJyr9K4xyjKuD-7yfht7LLqfpjcMvmnCMN6ew6xaJ7w0ZiIkauijOU8HsQvN_0rqJh9SSqlhm3LJfQ09B8_Q5UxXe93r5IOFZnsvdyS3XzPO7VJ6dd7dKc0nAq7xgId9cg91juVPmHleObQ9sPjH8cZonfR7kkDLoN6MSy0Mc7qArHCbepCczvnKnrSc0SVqVnBqj7NX94SJzbKpOiLkXYbppUC4xLYlYn5tnVx2gNZhkEzn9NekZ-q3ssGZOkHK4T3L8sPJkjsoyIHr-oRdBYg-fN_Orw1fOg7DZ12IiGEZu7O_cCfLL",
-            "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN05wztI5pbjVsWKK71ct-nQJf5GjZTbFhDtcU5iZ7aJPP40RCrUGWK46HjaQGWeo9LEJzSua-KsJ4J8qtT0LHxrBt3DVUeKaYKXB1EfT3XFwXoN-mNMMScJbdqjyePR3ygw8kkIApKh2MGOtFnalFDjfmc7-4syriPy_iYOWyRTwHghEyS_9x2rQ2x4BO1pr4X_gqFHP3iJv96bhTtAoogFRPIuThlO-13oHpTEGXhN3F9Tmk6zggc7CDbnKrKQ37GbHHJ1R2N5IDW3cE6_WzppTpEbeJDzg8J9wOy4nvkp_eTqC0B_PuXI8VibvGqYjor1N_0ZnkXMLo7jwVXmcUHX2XU_mnENuBdLs_6aSG5Tsa_FCZmIYeMhLhofLb-4Tf0AVt4xElenGv-nOaLu6ApKdQeYgbVSZzins9_FJEo"
-        ],
-        "priceLevel": 2,
-        "rating": 4.5,
-        "status": "not_visited",
-        "types": [
-            "lebanese_restaurant",
-            "bar_and_grill",
-            "vegetarian_restaurant",
-            "mediterranean_restaurant",
-            "middle_eastern_restaurant",
-            "bar",
-            "restaurant",
-            "point_of_interest",
-            "food",
-            "establishment"
-        ],
-        "updatedAt": {
-            "__time__": "2026-01-20T19:20:19.027Z"
-        },
-        "userRatingsTotal": 2348,
-        "website": "https://auzaatar.com/"
+    "addedBy": "tDnVgrXLnkXJ4B9KeH7rGLueTyo2",
+    "address": "407 E 59th St, New York, NY 10022, USA",
+    "businessStatus": "OPERATIONAL",
+    "category": "Clothing Store",
+    "googleMapsUrl": "https://maps.google.com/?cid=4449434614112181366&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA",
+    "googlePlaceId": "ChIJ6envdOdYwokRdtx7GTWRvz0",
+    "lat": 40.7595404,
+    "listId": "YEpdgH9Nh4eNMuBwPBXr",
+    "lng": -73.961351,
+    "location": {
+      "lat": 40.7595404,
+      "lng": -73.961351
     },
-    "xdr8pKqNGvuU9DRczhK5": {
-        "addedAt": {
-            "__time__": "2026-01-20T19:20:51.469Z"
-        },
-        "addedBy": "tDnVgrXLnkXJ4B9KeH7rGLueTyo2",
-        "address": "405 E 59th St, New York, NY 10022, USA",
-        "businessStatus": "OPERATIONAL",
-        "category": "Supermarket",
-        "googleMapsUrl": "https://maps.google.com/?cid=16185529579934534731&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA",
-        "googlePlaceId": "ChIJVaVhLKxZwokRS0yT-WWNnuA",
-        "lat": 40.759703200000004,
-        "listId": "YEpdgH9Nh4eNMuBwPBXr",
-        "lng": -73.9615347,
-        "location": {
-            "lat": 40.759703200000004,
-            "lng": -73.9615347
-        },
-        "name": "Trader Joe's",
-        "openNow": true,
-        "openingHours": [
-            "Monday: 8:00\u202fam – 9:00\u202fpm",
-            "Tuesday: 8:00\u202fam – 9:00\u202fpm",
-            "Wednesday: 8:00\u202fam – 9:00\u202fpm",
-            "Thursday: 8:00\u202fam – 9:00\u202fpm",
-            "Friday: 8:00\u202fam – 9:00\u202fpm",
-            "Saturday: 8:00\u202fam – 9:00\u202fpm",
-            "Sunday: 8:00\u202fam – 9:00\u202fpm"
-        ],
-        "phoneNumber": "(212) 935-3870",
-        "photoUrls": [
-            "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN32xEH9QQzH3WeMXaqmy_D6a6w6oR9IYkeKt9cACbR0aBKsSpppBbf5bEa9UR6l6wolAeoVcCrwULFNNlrMtUPlzt894FfH47yXxOwr8Uo6Bybw-ODixIrgfCTSzAvhM8_jhQ6Far4JCc42TTRncyo5QXwCjW3dYS2uB6UkiWvcHf3Fl06RSVmv927PUIMwbO0AW3r90cqYffoRZWMJ00_yqWbfcaktFqxO_Tz1AZDMhUA1IFz31VdWK9bAmmcgQPjjdZrMrP0EiT4AepL93F_rM3lMiuJ2WXXKW3FhajLT8OWkB9DtHgitWni2He_CABVyZncCLiA8Y_9ByRM0wlhnxOICvsZiCKK_gJjf-9KOsQLHHhQgSkxOXyNE4FxMgfLFaCtqUyS5l0xkBc4Egj2tzfwGJ69B_I1EmaBUfI93zA",
-            "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN0EWPF0JuMn6gOvrsAmb_PprMwCLDiiG5ASW9J2Lo1x8Nd_AglVbRXm2MJUuTFHQceLDOQxQe0yrWA1MTXy2OkwUgyzTG31933vBM5o7ILNEIVosM8mI108Wus8NWx9IQ8L16zM93nxqEctzUZDKn70svg6D59Do9mKO0oU_MiLNOnerBMgfqDZjDu3lVbJx9eWaYRd_OJTJt0wlk0rmvzjXJmCZx3L-nFHsBtkRA7sV2QVU7XjG8iq7JYYlZKMO7gQYVg8tvLjJO9EOubGTljGgIEPWs2rvgUV9u4vIBQIxV-eZC92H1ZzNWYJ4T_AiD7QE1VLtwzcSYfbUw9S5TY5NGdHvoGjkNFsfl7pFzdy-umDYmULByX30ZFDzTf4jqXkQU15HSkJ48GV8NQKEDurrhSzwHm44NcLT2rQh19FQjf_EzTwSz-ydVGR2tRm",
-            "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN178OFXzG4z4F4VoNx4JnQz0mHTG6JlNkpBlwpaOc0rM7bG3CTWYwFg_0uqaZZjM96_-ktzQgsjiLRj6DELsYj136g3TUQqooSYoFLbx9plQsPQZHFl0spXSc6HSR_sUm8PL-FOu3mexA_h0VZmbuYiKVgX8c3lBsYfCbxG6v-29yasj_WcgQgfQelM4dvYCAhp0qAoEGTDk0ut3_zoWZ1raqD_x4OCkO5VkDG0dpauppTb7bOxAUCPGxNEnK6IAOwCGDQ9WLeuuiS2T7yeCrQ9TB2r-ZphdMZeMavvtXG4E7XaI8ZTtirtuhFPzDWcdrgBwoww9oA_oSBqbgBJoNrBmg0nSSVb8fZXeUnPM3-Tl5bCKPrtmHfgc4U8abPM54NfPzgvdGAbM3TFkhmv-W3drhTSDdDipHqak_HOy1jhAEgy",
-            "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN2uPPL0bBkrfd6YtNbMPhvCr4I5em0FinOFgKMe7o4NfGN_dpvPWTQdEUS_NBKaRMYfgraoSnyoTbnDd-goTvg85uCTy3oQHibzC1usG3GH5T_0g1rG46zqYbFZYIXtpGhB5OLJiSdaTpD_afEnmsn2vsEWOfS1XwKuXFnoxjmAuK_LmsacIT4VwbIHJfWR0RoAhPAfyiGylRkwTHFaXBx3g8_lZFqO4XirvQ0MDVBOSnblUXdcNTo8Mu4KtFgGMVIyVkWE2Fz2vFn1UH3yrna2aDHMNz9aXGpj7XXXmqiGfKyzj6oRet4kZZrPpzK8hK4rL8hAs48SkGaUBTAKMgEa6IUo1HzjRPX3xNjmyeGgbuccLV-CUCSwuq37nsqI0s9uEyAXw-WSSoWwVO9M9h1t4WBRcQpvSDChTbOS-aY6oFxH",
-            "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN2MZXrk4k-_cZ4W-OlV3w6behxHq2UaGPIivZGDfXNG9pfcD5llaxE9tQ3DMQHY_jbJp5b8M83whMZsP2EKXWPiutQgZgENlOQs_iWmlgtJOikqAIon3MfTn15M3VZGuJEgWV7Jz1LYwHby79-7zEMMUMX8IxVozocbaU8ui4OpbONO5TCZn5Kfse1nRKPEx5-vKbv0PvmbOl0lSylIy3_HjOiUtI3iWMTN1Gj6ZG1GeNZE2oFckl89GHIh5rq-iRGk8tnqzc7j3_HR_Th-e2oJ6jBCm83SjhpPcEFC1RfiwZr9-GB7id8N-3kLpr6Fd9GPZsq1bVPOHLZ6IsDK43Gm88961CwkD3gq8Komr-X17iXuS-sIw_UQTUY5Ut7h6YVQn7PW1Zm1gLAJn30PpA5LozbqE5uajNYGNBLoDUaJ5Xru",
-            "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN3a3W1jmGmQE_5nHRpCpa-yzTKYQbG5-NTd55CpgvlnexpcaZWPBs5CUdhzW78CLtBtGJlMoQE4Pw_3CncTpscXb5ZfuxD8jS5z4LEMzQb2di6o1ePhtLNWP7dUMAU50vMGEJdmjF0On-3RzmNpgMPIEhQGs7d_wwhKI1EV93mTTEFRWko6AtBCyya7wtcE_psQgqwFMFNTS4drIK6taGv7nC5_fqgG9VWvBS00No26cN9HO2ffjwCMrWmO5QWzfA8KmYe32xYAhxNnqG0_pD9DYuZDpIssgSEpQjx5cI_rUsjo8WVHz6ernz9HIJgTn4ZTdrrOoxMOt6ACS8WfihdQKknVA3mOgmO8Raujk10EvPpjCy_QaR3Pi2fagHtMKBWg4c47VTzvOgTwnulvi-J4g4Tw0ec_Xs1ZMhgfIQ0",
-            "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN3CkZ63QhHN9s20qxrMJW-vuKrNDIC-HBQ4CkKPNsmF9OYzFA9nqVCL1-S5Wr-OVu606CgvFFdrcYKBu-opvAbMAy_s_BplC4skQ3ImD7aKyZtwu8Tv8Zkxit9BH5QEyY4R1ym5LWYyOfc8nXQTzQyyHsGauc-m2Dw1CPx5XHtokf1apEbpSACLDOD1qwo0O6SDhPE9fqdMl2iBIAp91y3GHe18zvoTX-h8T9PQQ_47cKtRn2myiOVG7x4F3mCm9K1D8_dNee3dDu9xpS8E7RR64xuuC5gOgxgFgoUjmPNkkyEDtKZG-dSc-vq-hHSK9Ru9D9hsOKBSCUqUNzMAqCUAXKerp94Q9Gup6qdT5Lq2kTQFeFiChrE6MPegVxC8zgUt2qNlLN-FKseU0bOod-rejvO4X2ap53cR72LobcIydCQ",
-            "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN0m8BTbGkPTN_t0aL2L1meuf9vghTPl5Da5VTqZJxqfsu-a0bn-eIjWbr4J3KoP6w81vINzh9w-3yeroZnmVMPzdnmhQXPES2cjPTsLLIEx3XdX0gfSvox2ii-NXdG1tzeRIaTxDmZ6s0NQabUaWl6htVr3rrOybLeBjvOpIQa_ghOXxYV0GHWhoFyS9JRg3Lme15PQqYp3kb_VtkyKNxTAPBirxeHwYpIBm-EXKIjCuz9VV4FnH9gPwXsJnf2HN4ktoSt7oGl4G6rI8fxODPR_VOtNJIkYQ_73gc1bUH1HSdYEJnYM1wnfpOvrN_B0pP7NZH_ssrI3bI-KPhIp3IQF3c6IWweI2TsZfQ9--yAqYitcbC331oghiRyKW3wRSyQpeUIeUd9PcxCjuccD4k-syZvtMzjFVMSjjseEnY2e2A",
-            "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN1gJHIAu-8FogeJug_YkzeIlnGmWNlWKEnqpTBESDEmCWo5DnygRxBkOTse1BWiAjrvFQpCrc-3i_HG76kht43PSg1TiCIs5vneipYEAjpX_y9NjyWLn--DLiNjdAeYzaRgYsb7O249MzVNh0aLbSS84DanZvW0UEXO_mWwpXx1W4qRMfpsaGqKZ9Iq-WypDAFKGQoOhgkb96Y602sI1Ojy7bwB9wBASw5e0Z8ApLmuWVloAgBrKYjvSaic4vM9yKZ4F_okxhDXtUA5XKthlt75ZqjHS7HPZ1DI7-XkMzjxAF6OjKTYtvOHAnLy_2q2TCSJenczTWh0oRecqw-2rASfps9YgsTtf6xgShcmE-4ONMQ0YjM0jyF0cRDcbMb6weqwb6YXrBszL-auEVkod5JXCCnIv6E8VXzkTigXQkHOcQ",
-            "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN1pUipmwuq9guftTMZ-8mDDOLQ37GOdNU3MXjOB27Egw65eXab0t6vVHO6PaiSrCVn5eS7_NHgXKsjTpyZmxSEXMVlmtMmoEajhL_0sGnJdVc1oWT9o8NgpfFMNfMqQZ9wQQNdlVmJg-6dBAz9lj5rmJWSZIXGiKvPOGoRQgFqFn3nyOrZcnpmcUd6R_Tq8zryRKalFJ0alYiCUXHhOFgESpIV1pZVa7EkA-YtF6t5tbx7mioeKe2xz7CRWH8t25H6UbZOVlb5a3WPGoZqVNAIUGweqlJ5OZjpC5wesunKJGxQ1RL1L80fbwIwVcf8k8STPaupLUNJIERJfEQ_U74_eAeRgeI2vaZq7NTZt718z2Go6S6c2ag04i8tajS6UnXpEctfMQpnAiFfV-rNSgcATtqz1zfgyi8eDO_PcsWBsCfs"
-        ],
-        "rating": 4.7,
-        "status": "not_visited",
-        "types": [
-            "grocery_store",
-            "supermarket",
-            "market",
-            "point_of_interest",
-            "health",
-            "food_store",
-            "store",
-            "food",
-            "establishment"
-        ],
-        "updatedAt": {
-            "__time__": "2026-01-20T19:20:51.469Z"
-        },
-        "userRatingsTotal": 1699,
-        "website": "https://locations.traderjoes.com/ny/new-york/571/?utm_source=gmb&utm_medium=organic&utm_campaign=local"
-    }
+    "name": "T.J. Maxx",
+    "openNow": true,
+    "openingHours": [
+      "Monday: 8:30\u202fam – 9:00\u202fpm",
+      "Tuesday: 8:30\u202fam – 9:00\u202fpm",
+      "Wednesday: 8:30\u202fam – 9:00\u202fpm",
+      "Thursday: 8:30\u202fam – 9:00\u202fpm",
+      "Friday: 8:30\u202fam – 9:00\u202fpm",
+      "Saturday: 8:30\u202fam – 9:00\u202fpm",
+      "Sunday: 9:00\u202fam – 9:00\u202fpm"
+    ],
+    "phoneNumber": "(212) 486-2142",
+    "photoUrls": [
+      "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN06cYisHk9cwGDniFSxh6mX5Vrve_oppmp-0dqzQaagi-eSYNH7qpnkPC2mWNjd-kWxtKzkdDJ3_Y_wauyxKADlcfynmPWf2wZiAhtKDdQo_EtjkJM5Dd02PvI2oN_CI1S-sQPjGB1Lbofs779VbsohNs3L_kX10v3wQAVHTaABbxnhVTceI41Rga6_bKuFfCjg1a9iRo4U9UdLGfsfB447CcBbxqQZeVPFpFA9z8Oyzu57SejfP6lk7xVw_i6EPzDk912lKgh57gDC7D1gqIjVnpFxUhhrHRoZNB0QUnlp3yIbLJNVlH8t4xfjuEpoCLOmoxi704AMwmQ-9zz3KFQ8PAus5XFGbUSmVkQXrvRJeOt1QNqA4sNP5f_IzXyqWC5hOOOoTIPHsnQxayMca00C3STmhBIR4E4plkNm5b9rhA",
+      "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN0ECNuWGdn41H7ux-s0eFKnbL8l7WnmUr6DZhMGawjjFNpQ6Zbv7FTcxX1slpBl5k_c6X0r2cmA9YG0Vi8Z0M3B2o9-4mS5u4DQ_NntKU4UY1_ZeB0nAxG1OmxTzEk7tQWwNEtnD9tCnMGaWi78sW8ArNQJydtBauDNZgGR5IkfZhXxCws5f92EUuLckNoVo0LH10DsSufXV8998QQ0EK1gUeKKaEGk82QNFqBHpCeL5II3Sx6oW6mTSYrNxYh5AXlEKSklznHN7Tqjn_eOP7DR79qNegYnNrpN-yELnafpbbuizaoN-kjgp0vAgBTRSurWAFgUs6rszGSSRkEr3t69A4c3X2XKm6Qp2K45wcFXDmcLA5gxsdNPt2ZDWLeN6bhT2pPMhpu5uqpAR15VOrxwHLd-AytWWBEJGhfnj-SNBeM",
+      "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN0txdx-Rd6rD_8XRQEI7RcsSGNRrNzYQgh3yeJ3iRBddCrAlWvjHK-AO1YIRhuCLA63T3g1XMltmQxezh7ibN5cEvT8kAiEqpW018-6PcP-rEXY7_9jWJoMf3LDftz25RdPRRM4D8IXQ-FPzyYC6a0DEiS7j4advMtqaOBaXi7e7gkdL_aAfo-dsG8ZCNvE0SBFhuSFVIjmAERWM6VoMk_4y38XiNFrh0EIcgsBRB2YMRdH9z4aZD9w0_NMyGi9ej_yWr3s_JCAW3tvQ0AJq0tJqrrXv5rt5Hgj1a_OHwAAbX0QpdjLBQEy008hYETK4uN6DGRTNYVEuDlUjPwJwdA6zVK19oKC3AEqxsMY1LNzEMb6_o1RYxblqMg_4gBqR1LEbSNJVJzooi-jxxtTRkkU_pLqggNqJNE9_4Zgh_d_Z7sb",
+      "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN2XshGTrzcVXoFkOmw6GiymFbuzut8Bphie-IqLm1TMPKft_y0DjSQCmKmUAbWfoGEwDFH64tWqMe4WyGTiXFJL6ppCdD8EoL0ozSUig_1zdQfyIZrNcPEyS4wH6P2MhJ7JnWa7s5_OuQosWN6QoUtx-sVmcVPzQzytSDaOjbIPVMMRUYD8O4ylvIbRY0Q60jUu7uJA-g54BrOQJeGXkjm5rtMEvzgQ8Kvz8Fc2b3sGhAjcgmbQafxncWMO56_jlszMKbu1R1Ffi8F3VMsosDOfakZA9lSavqhDKcNKWRhMX9tNhEzMT2_IRuRyEEUoSyllumgw79r7QbLbkzb8e1hVuJOS9IvdYcEbkyxVowSZrx7AfoAtTmjUBZ-10PrwFLb5LshFm9Bu02bPSO_dD5J-1X0m1C6tzD5y2IPgtVoCRy5q",
+      "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN1pqbEyUJqklzqRpD3o-lVhd4PeEpG_N9CqRvI8_znOGthrpY6b_PR6wgY8NTlVplYiHExurzeL427baae7qYqRGvTZxvLtyAMd0fkO2sgkKCQhGPRq8m3uGvCe5VelLnSZ_U5sgYuuPJrYo2SGvHp43ScKPIQxmVk_fBaRkxY0aNFenJohppAtK7A9bvjehOunmoXVbNPkIFaD0B9cmdG9YpvRe-lDCiVIlxG4KMYMMpJ_yEMqbWVs5bA35fcb63Xv7ef5wXDhhALl1Rjni7Z_XXMWUgKf4013yLRSeoYjtWBHLDnM9Zxkj3LBzCNMgSHgKcc4b44rgdHytNP62gO3qsRscRjdismmW7-Bygun5dKkdQOV8xR9GyS16cqnrTBVRee8XfFISruRGZxkU11y0H_2GX3qMmjhmqTIc10Dyg",
+      "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN1dZvYpMopGIT86YNvoAkNcc33EMuLQzX3fFuQ2lVSZegw42CCaLgqz5H1UNZuZ1WreS-HLiK1hmLfhz_XgZbmWeYr4SUvBP2_G54KwgSzz4Ee4qr4pSFFjq7R_hvdUEBhVBG01TkmnsZsj0_UYGqSDVPqJS5JX-KEh5xH_pjNdwmJvtbSPvhGLGvm8gHV3fnl2YC7pJD8ji5Tfhrs0K7HLugi-EJbGvlV5iEtPg6gGe8IzA6UaffVP071FFvJH60vSYs2BCytJL2JkwU4Eyccawyo4Czv_bMNua7zmFzeB436ABDsVDoxdCBZ-0GVQrl60s1c35esrqQNHMbH4B2-JlZv-bMmlvA9fURXYCJ4AJaiwv_A6nrYheLfRXKwmB3pF2_SlRjHsqZfYQh2zFzPn9lBOPtC11BjwKg0FgK1rt_lE",
+      "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN2D_bdlt4QX37PDzeb66cFDT-4KwOd6JHQEOb4qSfRUgFLeBIWw23kLbXH-kr6PnP7xsFXh2drwiNmHY3_qbSdAechgi7LJgwWhjMQYV0RfvbmxcHMCM8Zz2newio8pObBDBwR_uzs1KwPcCdV6UldRZThgOPw0bo0bWrFrbjSTaJKm-assV3yv7Onp9gnsthmEYhxVzF-vb0tEYRa_6wEIjgE2-6RHAY1zstD_2tfe1f439Ql_2oxe7GvA8Ji_6k8G7wjIYMmAIGowt3AdPMwYw4foVrfi6ikCDsLLkDDZuhnt8Xmf8c_HXQ9NhirFfnxk9JOsWT0WjrTcLCxGDFIJcg6QlyUOkzBc64HX5McjqLX2QLgA7lNa5l-VPX_sCA5xmN5mVwQeSd_rQ26R0ynSQ6rNcCfLYBz0m6Z4TaVBlPyY",
+      "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN082auJFJ85j96O9CvOfxLhWbK4WmvSS-au5a6AB7d_tI0alobBgvObxx_9ob8YO3BcGA6I_JxsS_i0RS0r_6wyKjl_LmavczggowhnYuNI4OVWCOGqIO0KkHvlM3lQOzYQyAaFmVR5fOCUroFe7Lp0524Gjtya-wY0dV3ixlKqYOhyaSnKOH-tuz8iOR7QR-N_-AtRDYJ5PrE_IlQzq8KGLMgd0U0b1Z9q3AQFfSAX3RgvCSOb-MXGHnkjK-88_D6iB0JsD0ZJ25JtKk3Cv4wXKziWV2kg0T0_J5Qukrq8HlOz3FIISIgZk5g6yNaktb_LnZXfzGBm88mPnocL9Jg7vNbv2xP0lyzjZtI1i0bzfH_6jzuvvyFGv4mFjQxevksa-xptOIgYQgCs5x5Y4lVB0bxl-v2gZLmsAp3igCx7Jw",
+      "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN1HnW2bkGaZ8qajt_JBz6RP8fl1IIhBy3_nDzlgUu50fanc78dlTlpRdr7HQ04o9u-TWdA5clKZ6iVkjvu8PrULSUc79MltQr73tgrcvnGk5zdYQP-kXSSLKPyBbf-bTLeZj6gIOAP-hBEisLw7t0HhdHxo2C2QsAHukTTWGbH0joAL9HzYfvjkE4gdt7cdyMfG2yXD5gB2ZhvqmPdvj4YLjRmq4R7IVS3fw_g9Pv9TsZuC0dt3g7FLIgOVD-1ih-Jj3CfJMdqUlIqAvStHRUAOkyQmZyPBBnyT9loUl25sCd4DlY2OHoIgCvCgavXncIvLwjAQ_UqCEyJmmhFeFjVzN_kALYdzkwWgdRnx5BbtCfu761x8JuKydyMnJlmpqD7LiMISxQGf7DrQVtVlPBCVcUJPLSvBiJbaJpqRiRQ8cQ",
+      "places/ChIJ6envdOdYwokRdtx7GTWRvz0/photos/AcnlKN2iLoDCJpUq8dqShG9oPZAWIPgGgT6owiPgyI0LkEPXTV-QOqNgnigIUJtCI9rqY88A6rIooNdBOnUUAVpkEUjHsYLtRsVBggjWxVQjxiqjL6GPxL37NBJBMgcUMIzjpzGRiJ-FqetYVL_o4vnP3jdfoeyj-F_4Ru1e0vF-3lAntKq-YdkZK-1q0ts9CT0Fig8kBbaeu61Hnvn2v5IAChKUPHUvtHAyKIx1rDArBZkj4Hvkx31rtF3x2U1ZPSrDPVJ9JRpXk8HdcxZa_TGP-urW4Nx-MejxBkfQddO4akcoD27uOZPkclATphcZu4wc4jVR0yklEtDA3VlfUG3bdEmoEzxftgwxUeL5NkyiGjy3-ItLsab_rpZkDkXLDTTK-uP9V0377ruHO9EbhoHuYn7yDTdMIKMZE-BroSZedIRBHBbQ"
+    ],
+    "priceLevel": 1,
+    "rating": 4.2,
+    "status": "not_visited",
+    "types": [
+      "department_store",
+      "jewelry_store",
+      "clothing_store",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "updatedAt": {
+      "__time__": "2026-01-20T19:20:38.497Z"
+    },
+    "userRatingsTotal": 2407,
+    "website": "https://tjmaxx.tjx.com/store/index.jsp"
+  },
+  "Ndmi7n02Scpt7KjaKnGQ": {
+    "addedAt": {
+      "__time__": "2026-01-20T19:20:26.307Z"
+    },
+    "addedBy": "tDnVgrXLnkXJ4B9KeH7rGLueTyo2",
+    "address": "1074 1st Ave, New York, NY 10022, USA",
+    "businessStatus": "OPERATIONAL",
+    "category": "Bar",
+    "googleMapsUrl": "https://maps.google.com/?cid=16180874719199021509&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA",
+    "googlePlaceId": "ChIJFTW1AOdYwokRxcn0wNMDjuA",
+    "lat": 40.759172299999996,
+    "listId": "YEpdgH9Nh4eNMuBwPBXr",
+    "lng": -73.9620025,
+    "location": {
+      "lat": 40.759172299999996,
+      "lng": -73.9620025
+    },
+    "name": "Sutton Bar Room",
+    "openNow": false,
+    "openingHours": [
+      "Monday: 4:00\u202fpm – 4:00\u202fam",
+      "Tuesday: 4:00\u202fpm – 4:00\u202fam",
+      "Wednesday: 4:00\u202fpm – 4:00\u202fam",
+      "Thursday: 4:00\u202fpm – 4:00\u202fam",
+      "Friday: 2:00\u202fpm – 4:00\u202fam",
+      "Saturday: 12:00\u202fpm – 4:00\u202fam",
+      "Sunday: 12:00\u202fpm – 4:00\u202fam"
+    ],
+    "phoneNumber": "(212) 980-9850",
+    "photoUrls": [
+      "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN3M-GrCmwmsj1da7ogwMz8mnLeAlj2RtIO8pqUz_Lsq5g5xTsfK6PgX0XOQZTl6bCWlE4FwUmM5hlFskliQZSHDUCeUkc_zk13fdIKZELKUwkkskuw-SicyNT9nw1krCYa0MZGYEZiuGb4e8dNOByFh747VNzKDV1Ln-gazT6dtR4OkpPUCAQPE7AstyY_qVhDOgfMF4e5GGHf2lnfkFq6m0Ay6IDKI4629fAwvGc4GRIKjyBwmv_yViLSoI5ZTcDVT6EA_HLXxXscWBuGGvUZrIp3EbqDRbPS4edOUekLwEw",
+      "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN1N_LT11pM08-SDLRff_oIjhU16I7EVTtO8v_8SRZ5N80xL8efzlfwI6hHuDF2NO0aRGSLFdq5yBAk6ce9Q2npY1VRnsFyihyzRBTXvY_Mkc4DGuUODjUbvQMNWY-x9QiiYUhoo5juAUZzrHrNap458QPa7ndThMBTpdSR2EA1qa1yH3Ub6XkiUqpC8cq-aDZTWRZjys_zudS_fWHaY5D5smsjkajZajqJa0qE1OuRwSQaPCD2jEL-yVffYGVZiLP0Xn3pGcPT2NM8OaufVg3sSKg6PCCWXnLg-UdCWiEiSVw",
+      "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN3wd7wzXvrjGRcDlCE_k3k7RI84fuc3XITTqhce0VGMQp3ZqvOHT54W-5LnkPxa4lxRFp5pt6LQL_64UYzrwruEdMeKcH8fkjj3pws4ysiUsUiOYDZ7otfroY6WwviyMDT5qG57QGBgng4m6wWUYuAmhhX2feHmPNygACjt-2uKj-i68HqmuG94MNdcqlIyYg-zMYRhNGKVzVvN9cQhk9unbK_UQZc-sniaTwx2RxKOqk8FNEjdG-NevD3clc6j94tsKDOiwl_0ntWIDziBpi0J5bwi3Q0uJYNKylXIMLTDOw",
+      "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN1iCVB5Y0kibx6-UjzucflMuzFMlsstO-UqIUbyWu8yKRqOKeKw_7kbEwOIdQTVIPU8Xy5zxYQMkDJBP8rtZcLGufOnOOhtFc3rjD5ntmrpz-sWfRsxkDTM4Arta8OFozHDSlZo8ys72tPu85ODADFLbGSphYJZuP5J12XPi9oPW-v84zCv4aEZOm14ZccKBcoqF0VTlO7CDT9arkZ_kghjLjl23N3tq5EIt9NlLS1fSwlkjTNynh0uYl_Ul_IaPk1Qye-ypvvV-93bE3VLKpCClEMRTnft7esDJrjpyejxCr2Az2J9ykvffXHg0vSupJJhMXubLhI9mOilylHeYEo3HiCZ6iP-caJhECY7I5XxgOv_d8SDHURuAh57X7XrwllFEdNIObLiGjltolWy7u-8SSg5rqOaKmHqBqzEEfL_DoTOhJXUTRA7R6Sonmvl",
+      "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN0_ulpFKBZ3UjBKkghSj3nsK0I0fjsItNbpa_sFmsilpcMgCA7dyIhmUSIAFbut2zeWbYedw1GbBxofyGWqh-hrdejdUUc4nvhBjwVEH7HD_QzFIBRZptE2gEdxTRmNR9aV3TClkGDtiCgSYBvvSjfhCntyrOVfj053W0id0k8Tr6SAnJrhCR6unifGY22X8a2iYuUgJKJX3J0z4uJxP-hMHGvglLDU_Axa0dMBvtVhpyDgSxXTmXMRgFJsS-hwVT2q9F2UKlH0eLigQcTG5CfiM5x2pPWfVuLLxPTlwW7KKXbG4inRvTr0hjU_m-YXWgmfQN6IS1TbuGNPcu9TnJ8Lkyq0z2TPApG1ZOddAufDj_6zM7oFji67hiLOMwL7r5UndWiWYgHQkNceQWuuY4Zuxqw439C95qUshQTdNEgMrQ7jxNvzJRSXB_tlUzHf",
+      "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN3dHTwdKXsA5ntb1yRL0rB86uMNVC4-tZNB5uYaY07e0IywJPbZYeK1LXe9aUNViYHAj9o4e5eX2LstEm2F1NvJPwVzHrrs15It5BjzC4VKKOGmoBKghiUvQM66oaZe4QUy76oymJC8KJ2GGijB7lKRmxwDouIPn3mhocGxmfXYsE1g40MhDDLC0YIKAb2K8CaJkseA4ueFqmE8hbWKqSI5K7I485EzloCSCXoHNqieNJy7WKQkbWgLIaWQ1-D5sT1MrQfmKtcx17cLW2BSkXs10wbSLRQ9EmclvXxFbn1hBYdBMkcAOYxrsjuUvOIMUawN80LFjllQNeNWUFtSiF2GQOTSQ-_IOkPURNPGzUfJQqcvBsi_mmPaIW_cQQ5V7IqZ2l4iM-C_X4cnXFzPNXmcmavxwI-al-qFNFsoXf3QAs2m",
+      "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN3T1RSRLeRk11M9-Q5-_UrppLz4MF4uB9zQbXfjJj2YeyWTQ08oPuuryU2xluTzp5UYjeyx_k7VqWmCzhvUgkbt7auGotGqLxCxXi9xbcxAM3N90mWh1MyNNKcrXKz-glzgLF2zZTTMpVaD-Rs7UCE6UkfC18axmKpuRgvm07moWzC046gGy-PmeRTQWYLNM9JLJcOftyl-XzOwzzJKSB4AkWBpDI1Y0MsDSKDAI_MeE5RSq5HhyH_JgxMYqnJZWEk7i1MFmPqZWl0vFxuVagTgm3Mi_0H1g4hZQmjb4AdI3cTujefk08RBKTaYIyUBm8AR82yGDjWPKxm3AjWKYjUKq0NQ78LsRpVmmSb86v5_vmsXU9kMZEoBkNXb5vHk7hjIpRy7t0eBfGalIYzu6qRsg4Qi2p_1mrzttDfFmWCOweWplISVTInHhiEmCgRJ",
+      "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN1dM4NWUJ6I0aHYmBgKsjGcrGHPoOL7UZls_i91pAroE0qNkJgYR7SjZSBeZzzpSpCF5Vanb9A6M_4XolImGza02Uqz6coFj5XEpnwgUHR-Fc1wbhN_d09mFvxdDUdydVtWbNOMfRccGueZdHIDEsWTo0Ky6F8GtQL_Hk2knMB1Eepm0vjpS-7tjIDakPAjDEcRTn-OHSxsWcbMFFkwHS1wMbT93kRo4fxIXjQbyd_KL_pcupBprfW4-VQS9Inhu7fO_bq9NND07SQLGbluGEpvUeLMzx453gjtZfbVN_YwWD-QiorQ4JH7k-nfTWSpxtBwsp--FUR9gq7kNLxgE7JVbmu8yOerZW6q3SDMgs_tJukOnn4J0TrZs5veWBj73-w-5Dbh1rKZ20BvHfGjitGenkqYB-fhQurvmf95CFpi1N8",
+      "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN1hAF75qQnBWUBx3vpEZ2O0lsvcA__iTagAyJXFT7oswqXcKVBIrezc_V1Kbm1vvAhBXvp0YpmdgADGhlBVUFkGWArN0UiQXZl2l_r5ay_Q-sni2IsB_Mx7FpZwHD463JpAn2YqP-dUdA6O4IubRWODfGNnTCyF0mSEkyQKSrEZ1BwFwC0eXwebibQaTg2acEMsYYvXAaRRYsEBjSAeJZHZPuYl_fP0qNvrNWu-IoGAx_WCRAuoP7OCVldNYogH8o6I7oE6CG78MqEHqwNWrEdA1-GrVZNLSEBePgSyeK1FV3PvB3SRaWj8uzKCgJ1IRadARBQI0rRmEIZvXmAflQX7LeO9GBSoN0z9lNSOR7PeatT0oUY_8LVtk46B0eEj_4fUcnePffBo4pHz5yK9gOsFpfEgBd-5uxrKI3vabX5JV_AG",
+      "places/ChIJFTW1AOdYwokRxcn0wNMDjuA/photos/AcnlKN1Xs2goUl0UHN1WbDxud_QuXfQakOvt_iNzwkBAfGTNpUZ_PhAo8PmeqRrFUoYU5Cd0MDpf-G5QoDnPDkttdR-4cbNSqjpUMZTIGsCb-U5OXMM40-PQ15J_Jzdxp-Z2pBDhedEO6wKYb3VtAzz5DYueBe1XReQ80K9UwPuiLNEKK88hcnvggOEmARymDVuyDyWPx0_WPxAOzy22CZ3m6d4-3XRc8jYcFA6ijdWsPjXwwpehoqWPFKPfkcCJG5z_BvLgHlYttSxkC6SqTAATykD5Fo9ZIenbw9ulHZn7_JCEQyf-pBQ3btEop3tR_3dY18p3ieBsHZgED45fntCawFs9WzL4eh2h5DiamAqz9YUD6pZViGusQ9q3-RiL6CWiq1BTBRePECsh9jcTzdtNwSamZ09I-Z3KYDIU_4ou6rM"
+    ],
+    "priceLevel": 1,
+    "rating": 4.5,
+    "status": "not_visited",
+    "types": ["bar", "wine_bar", "night_club", "food", "point_of_interest", "establishment"],
+    "updatedAt": {
+      "__time__": "2026-01-20T19:20:26.307Z"
+    },
+    "userRatingsTotal": 336,
+    "website": "http://www.suttonbarroom.com/"
+  },
+  "UakN0olyekptuIdXTqV3": {
+    "addedAt": {
+      "__time__": "2026-01-20T19:21:23.615Z"
+    },
+    "addedBy": "tDnVgrXLnkXJ4B9KeH7rGLueTyo2",
+    "address": "357 E 57th St, New York, NY 10022, USA",
+    "businessStatus": "OPERATIONAL",
+    "category": "Store",
+    "googleMapsUrl": "https://maps.google.com/?cid=1615466105298708109&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA",
+    "googlePlaceId": "ChIJd_CmwuZYwokRjWYDGd1JaxY",
+    "lat": 40.7586126,
+    "listId": "YEpdgH9Nh4eNMuBwPBXr",
+    "lng": -73.9630576,
+    "location": {
+      "lat": 40.7586126,
+      "lng": -73.9630576
+    },
+    "name": "Daniel's Jewelry and Watches",
+    "openNow": true,
+    "openingHours": [
+      "Monday: 12:00 – 5:00\u202fpm",
+      "Tuesday: 12:00 – 5:00\u202fpm",
+      "Wednesday: 12:00 – 5:00\u202fpm",
+      "Thursday: 12:00 – 5:00\u202fpm",
+      "Friday: Closed",
+      "Saturday: Closed",
+      "Sunday: Closed"
+    ],
+    "phoneNumber": "(212) 644-8314",
+    "photoUrls": [
+      "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN3g_oloyNCTVLrXDNHsgM7uT4kWYAnibCLT_uzu9k7k-7qozSboEClSA4BNaxx5UNdTloy79WK9nNj78GR8g5n9BLSzix1rRxK9SwLTF00K2Dsu0SkpxN4tLPgPmp4KMrwSHF7uGJOLrQYSAwgrW7LfbdcV7DGxHnjKtgbT3VbzZrQZl9iCnZjCpmB75QG90uyNHghP7ZiqgFUrxKGAGE2mhWszBtkPb2CG51QBFnmuEREO3K8NZxPz_jBu-jYJMUp_kty4nL_TbkE6E-hzFEUlJ_RGdr-btMBgXzT43eHyIZIAk-47lqAIKeukeqke6-TSrMuv9txaJu5oorUkD2YQUM0cIl1hOEHljZlbAZzlrN5gP7PQNlcQ-dxq-5ZX0U1cpNTadCdaDv-VFpB3Qpiodm0ccmAaXQv3RDDQ9RwLRIZU",
+      "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN2Bbcs9Fl3VpxZRXHAKxNeplFEfIvXBWqedwQDqyII3eM9pi7fG7rHkj_jTFcLaelzmdAkxcOCQ0VHxdS8Trdtc6oseDR-Iv2kTGIHPG9LmLPHHd6q0KsJI9dlytSHhN8KBCXESW99Sc7h3HFeQ4RbI_Ame89FsQ9_penMYgVdPzghMRjBBXv8N0_hknKzTiZZozplBni6QK_XNggkVL0sv-S5_2Y0-rOifutewTVNJ-iNwHP0Gi2L0BMZiFxH4VDXfhoCHTXeKWinZZNS-c7WoxniUOecOE0uQ49oZRaFJig",
+      "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN2lFYAz-DcMUuf5TSxN1eVvWs8gI_JoY8D0M1NmYiu8wh6Wja34AFXdFQP6-dYFM_2sQ5IQVq1KJyYAtuO8QgIa92LhbrnHfFVjl2oekQ45ChJgu7jSuVl5zNPgzVFwsTgMk-BN5j8-Yry1h_h2FVgBwWYJsHySmZXQGOv2CZMgDvD1NR2vVhEXtZU9eCuPd3OjVjjdkCFvQbPuYo-nf3hKpSryWtleHT9WjLZYdrjskJacUTmTEhccspaxGBKYsSpGWhqnm4ULQwsZR0_1iyULAviAbOuu-9rjLdXw3Q8__T0u9s_iE5tMxBbzySDbvnL7bgPeO6xNiIyqPW1fpqelwf1aqEnJGY0voVFRwsFHzGwylkGh_sWNgoA004EjLR9MV-JKZwBzXcd-yS4WOuIbpnusrzyDq-sfWxZtnX4FxX0",
+      "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN2eAlqLCPt2E-lVvpTj9LqdZIV_LlxOHQmc85cGCUoseCqGJ2OyTUdPo8Voh8ve18wJW21nA1fah_XSXqHpNo2eumDkm6aZNyhI1n1wNjwQf34OS8_1e2pCOTde0-I7fx8ugbJcEDDnnKNJSgEQerQDCBhUNlX0xoZKA-nHbHYb3P_1UY-cOp0F8rlXeoS1qNCIu2KHB6PIeOP_NyKxqGABgMzvx-AZJ8PLUPItr4kN3X6FIlwpWvuE38pIJyMSNS_tV_SFY0_Ok9Jz6Tx_gWeUHLNFmR6wy7e2uvye4YFkR2R7ZSkVQ5OrOlwQN9SWdv5mgp6yzrcL2pdnbqeK_gSABsDSL6hG6ZlByaBiyKWgegvRtmifMKENDpPAUDPZ6WQPTHWaXow1N4YejmSB0PvWNgvkokLTiA-6WtwskvKVYqeH",
+      "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN1aLqTyOUw8ZSsZp9kLelKqYYJ-dglTixKHQY2BU8xqnqWzrbssRm79LxKnWWFjWjDrfLwUfoMXOVKoPtxMncH4A7oVOC48QncGBOVbl2TJTIfUwx1jTqrLln1A7UueGTA0F19_qds38ngoezh6-b_hFBkom6nJ3ToblD1gZjMPTQOIqQ7S2KmxOQh2n5ByKjMyXiPL0u9LOho9k42QMUUt589j9KceEWeHIxjtmUzeLXSRPVFJydjFOMS_ajR3hJhPY2nCsY6NDA30bbk1cgS5wrG7Z16y83LBIqXYM_DJf4rV__MSBBnC0QdnQlBY4_qS5nhGYnTTMpf0l4a4SQ0BGuC39nhRVndsKNQzl_vfXVeFaiFkaIIk41yEbvq3K1TFuAibPa07ZPzVl9Oduyxo6HF9-UjXSFGPDUPgB0YRCQ",
+      "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN1Hs85NdRkh2GQxSAHcwtOHfqOahVqaBVmnFcO6pdMwrgCH6kBXioE6-k6820c6vQw33tF02pqYmgZQKQrMleWpmH55GL3IoC9Qv-XPakuggIcsMchRDUfcp3L1L_ipfUmFWWMunjbKhs5_q-JZ1Lc1TC-MtiWTLj83hMxx21eGXHtVdO-t-CpmB0uA7mczKS2WVEc_4rvbtcGBtWAbVdLhC7Nw9lYT1SDbPOjIfx1baka45FN4rHkra14VJ2Ps29QfDeE7I_UPnbR7GGwmJBonE_EdJTY1vqXd-KCg3ijR-_UmG8Y9D9lloHFkboUizWAZcBNUxsDHijNzM0mqw56iQ32Rec_yqOu6tjc7ImophS_6Q0FNsVZ8iAjFaVCCEKHOYw0m3Wzugw5puFDbu0Os4RTT34BRikF0-9hkHlE6JpFR",
+      "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN0bQKzchWnxYSoGvQIoxNeIy98nQoZhSkLN6qT8NT1Sq7WIX8tAHOT0g0ehg38Cib1FXLaiZCKC8fHLm9nqv2325eHPhBggUwCP2r1nLd_aiHzDM68vdhJoDuYEpldhi1AGtwXEA_2VWCZ3HqK3hGMqes09_LBbB9bYN6WVwMCcLpiYzgaD34FcuAM_ymZhmpyTKNxbG5EzxcNFX7IFYdJpTS1edkczrEmo54gstlSvZ3CmDnSfE_lF5ThUlp8TqqHwaodGsSggl-uOK_GPV-MrOgSO_gT_67brINW6LSckbg",
+      "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN14h8cZsTZsj1FAN98s18Ioor2y7EDmk0HVI-r0B4a_zKrXmLAyws8m4gTeaaSg-YWL-ERPJGtzXDhqYUMgsZeVse7fXecoGaKOaylFo9-yY9dNcTcejl7Gh_NUr6EvtOQ_ahXOUjqEbSLOvoFwfQVzMk4FLL5DXnfCns-rz1oND3R7vgXgNLHrT5lAbXUFSxTNZacyxdqSE1puo9m5qECtmTqHgv8dwaNJmvqSOMECvE9YLp-ZByS5Xcw-zmQhsh8AkT1INWoYWVXBjCgKMPAsmu0XG2XYBcdl8M1joVHf5w",
+      "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN3SM_KTMS8GCQCndPOYbw0QkcW1KahgJHdyPTOvJq21fX3tlaup8MO7KtL0IlZYGJWcqj2ErnTiaeDoLWlRKkUEwMdoRi-BbNXHQIRDyETWWtnKJD0GTkZhlgALLVdRrsdJ4MHAfI833LtkY_CW-mWSNx1nLv6uZA61yfpakaum2Tn1-W2VP-EnhU-dN41NcWOOtCRMLWA0-PmRg03qu6Y4gfRLH1E_7YInWYrxxwAspxOzvrMnYO9ofWEES86mGYadt7jaDdMubMkBzpeE8l0zuz9hyNixHYC4bopt9CmpCw",
+      "places/ChIJd_CmwuZYwokRjWYDGd1JaxY/photos/AcnlKN2yJ8opp-ULsaCxm1inMFh1VVcyZuNv9ACJoc_JAK07e4LEQPAbw4-veiwRDm4Yj7NfhPtCKUcNqPTr4CHha2_ZjmrftE7cWiVD4_gopfCHdtPVvdDMhg20J39qWIckdTWLBn2NESRMTvtlV39h54QB3T9wS6c400i4KKGpnAvhOoni0d6BVGg5wkX9DVbNJpjJyABLycfDO7uaM4QMAiI121YVU2Y-VGiVfIOv8AdbBhpMsstnRGc-nlgmOAKwJNZo4M_839_7okg5k_dYej91IKHiRZaHIYDvyGQIFpD8tcP1-suTEEb0IJWJvTNaV2OknqLILnWuIg_0a9v7FyLg9fmMZPyCdO7-tMdg7HiJwlsf6KEVyJDHqn-voFt1DFSq-Kn8pQgmGJKPr8wesTpxN74LPvdXb2YQ8i-F6Q0"
+    ],
+    "rating": 4.8,
+    "status": "not_visited",
+    "types": [
+      "jewelry_store",
+      "finance",
+      "wholesaler",
+      "store",
+      "point_of_interest",
+      "establishment"
+    ],
+    "updatedAt": {
+      "__time__": "2026-01-20T19:21:23.615Z"
+    },
+    "userRatingsTotal": 84,
+    "website": "http://danielsjewelryandwatches.site/"
+  },
+  "dU6z10kH5G5ikFzbR2Ey": {
+    "addedAt": {
+      "__time__": "2026-01-20T19:20:19.027Z"
+    },
+    "addedBy": "tDnVgrXLnkXJ4B9KeH7rGLueTyo2",
+    "address": "1063 1st Ave, New York, NY 10022, USA",
+    "businessStatus": "OPERATIONAL",
+    "category": "Restaurant",
+    "cuisine": "lebanese",
+    "googleMapsUrl": "https://maps.google.com/?cid=17542759738776396346&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA",
+    "googlePlaceId": "ChIJvVBJx45ZwokROqLKcQlndPM",
+    "lat": 40.7589866,
+    "listId": "YEpdgH9Nh4eNMuBwPBXr",
+    "lng": -73.96275159999999,
+    "location": {
+      "lat": 40.7589866,
+      "lng": -73.96275159999999
+    },
+    "name": "Au Za'atar - Midtown East",
+    "openNow": true,
+    "openingHours": [
+      "Monday: 10:00\u202fam – 2:00\u202fam",
+      "Tuesday: 10:00\u202fam – 2:00\u202fam",
+      "Wednesday: 10:00\u202fam – 2:00\u202fam",
+      "Thursday: 10:00\u202fam – 2:00\u202fam",
+      "Friday: 10:00\u202fam – 2:00\u202fam",
+      "Saturday: 10:00\u202fam – 2:00\u202fam",
+      "Sunday: 10:00\u202fam – 2:00\u202fam"
+    ],
+    "phoneNumber": "(212) 625-3982",
+    "photoUrls": [
+      "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN0M4k4KgM3nlfOIJ8tBE2M5Vq9YYO1xukfa5mfRBTqEBdgPu_WWYH_ZUQUxp49ThlMl5KcaBIed60vC6AbH7Xanrg0_Sz8y-OPJlaSbDzV3E3N-aGTwPv28nGeptO2IPtVTETabHKFhVp47gasZ1Wya1fVF3XI3FG_7v_7jIGfeEFOOLm7I-u5LREC-eaJNK0Km3sD9idLcXwqJHnPdLd8cCOMOsL0GNdWPaRcl0iOwdZIyuJ7syoT8EiiY07uNkmQgCZE7THWD3Qjj8DgyygETjIafEbx0jN81tMvt742Now",
+      "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN0KoDkfv-D5XCECeQ_HSzoa8OUeAIoBOn8RB9nxNuxn0TR2GYepX4JS96ldZ-xJJCZI6UKXVkzPRjo-ajMXrrfoHT3Um4tS8hIi2r2VyljZiqEKM9MJYPq7wT0di-VL1ubx_EGFYeJ4JhoWpEKgfQrg5XlKWlWGCcslK1jaT0jRJV0NtNzshRkdacjE-gskNB7TMyGIXx5Acppzxfr-PC3L9H5Hf2bNF5oQRJ8jaU3sdrnoTItYEJoJZfpz_qF23_jUKaow1eE9RlkkRSK9d83Vv2Ox144QzQMv8c6Yfy2ZpQ",
+      "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN1CtZQCM07_TR8Y4eEZa84YtxXPHxHTIvGKpDjOH8QjdLy-t19fwRE_dNxEfXsQHuX0QmJS80l9Gj7uUgMkd3jyvBl6hMtSJHf147LKRc8qGcnh2UuUXWmbnIUJaYXfLq4Y_A1Ri5BIQyFFINzImZptA5s4g6ptwvGGvQWkq54ZPezCNBXlS1I1RnA2KHu2clsmD3lAtR18VdJT6Dysi0i4_fxZEMUz5L1pIhus-jn7zMKk9q725nzZVGqUfBZDCAM6SYoUCUYgLooF41SVnPoEdFeiONWQl_wfCMaHkEcOQQZui0Xs91jnjoCWdDZkkkEWgovJHtEx_bnFeuyfA7Lr4X8QGF7t9OWtZISaubaaKrYHlpXcocez46NwHKWT8R-a5069ictAKgaUWveYZDfH8Dlq0ur11I_MyBXPWtUFpXqSELSPLPJoc58Nx-zs",
+      "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN1eMu-IbJ_LeDXSbXwQMcNQxt5axF2HHvoJ0IVxX3hlkjER1hQp4AvAVsS2Hw3LOu-d_K43ephnf1hDZ9SLX-qaUp5ABGAZZo9NPVC7Mg-YQlV9XNpg4_4JgfJjH6pmC7zN4T-Bj3b9YKpAIou6021hW7nbr-raicYb1HdWBRtp3P8FpuQ-IQfpBxew1Min6LbNhAOr1nsRHbaZIJ0-Tp74EqbaMGHEVHnyHlN8M15Se28qmUb8mqr9YI_9nlzDszd_uzTYKfDeFYAVIyFxsOxHqlKJL4gDvdET6ZQUhXzEld9I1oq7Aa_jp96JGZcgAOAnk_p6ZzJfhmjgb8HXRWxZgtn4-2Vy9PifQCEnnjVnb14hZhoIypl45oWZBTTC3F5yV46ZmPlAfuQNNQhubA1J7bTdyr0G3cJ11f6rSd_UEFT7xwMk6kk4nroLuYCE",
+      "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN0UdoqcDzHDgPuvidCWaZKvHAhCdqEzzuRaqujGpgLOjnRzqadAUA3-uayVtVw0xV-e9_Hb6ktnaWU-wMG3DVKsD6Ysu6VartBj_YOHdtzTtBxZxKLvzBa0hSkIaxM3UUKpFPtUouiBk5bATp9P9zQfYI9Q7_7Vt1TYbfXuyEi1jNNY0IYp-DzuAxxfmZELn7jyHHZhubU45DVJH_u5RrIUjOyna3smbMg80xiOX1l7ZcKvw5WvKCvLhNAL47rQh48w1SrsDuD20ELx7HfSro6ZxSUfguSWWAGy1GZsTYtzxDUhQjYW7VExSQQ1zfQcUsDIqmCY14lnZl8bCeBtcsjMlhtVQlFOqzI0fE3BhOZ21g65RtvzXEEpJr7V0EL3Eqjftcu32CLCDSrZvq14vAKY2waD2oM7C-_-rHldDmHBWkEXk8l6soumthymdAxM",
+      "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN2yx1Xgr6kjPbnuBWNwZjLSfpOU7KTqsrdolSGn5rp4tvkSTnrBr4R39SdUesFjFixksuKDxdwMNZXeRTSDX9mvMSwMy7JlNChyvX4FTLY4Tb-0Hkv5RjxBfQ8z1hxlPjEp64hPb9u3BR7voAdQZfp9SQ5U73Gu_fWvWZK_8intk0E_x187N3U92s4EnlPaQ6l-yjDpNY9NtYxBVsC0PVzHojl_fP5SOv1DFPi88AmEotZsGmR8c0_x7lEVTc4Z_yzU13L0CXkf0hFKuUd7Ehx95BgW0DijA6JC5BVy2C52Zg6goeJajSw2EbMxAN28grnDtZPgDeTz3oHzluyC4DlbGs7Y857qgN1orIb9lrBJ-DgV9dj9IeR_ZXpg2fBOzLJa72DB3kULviJ-bw7k7QseYZMxuz-j9U9SDnm9idc",
+      "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN2Ut-3tJyDE-g5Q577HJN1jQN4timVKMmnhlHPSLeIUaRxu0wvU0tCERNLI7h08g2Nu8eIHAaw0oqASMdvc3aYGtWViS0yDFW1wd3P8HkGMKG350ubXbMgX-qV8P-WvvN-JFuy1O7wZ9eTy4qhp6RlCsQIhWt_o5CSRNkcYk9wg2SEPlRmnv9hl2WKw1V_SoPmgMTTkRcjVYhLiX4QqgBzUr4csc8MCh-iXNyt0-8oGkxf0MyHbF6YpKgfoSOL726RLaCYVU6p6flA6g0l4pG6gMhL9ivebA-2d5V3KwZDw8YvHIvBiDGJa7Bb12kipATm0LtXv-TmmgNAki2DPRcqjScuYD16yxrokJ8ZRzF4Pb_sdWbfK0zqZbeNIk1ADmt4IDVtXhfUd4XU7AL21IrgSwk4vD6ntFMBH0MRe6fDQNz0W",
+      "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN2Wjfu7qiSoC3MLvgZue8CRto3ZAEHd5uQBxOAz6qydU3N_o8napEcutGh3K6wv042PKTlpXlxib3us2J21yxdOcdnNLnGUe-hYhw5FEPfEttSSLkJQNRUKCW2jjzHH6MORmIIKMPf-38opL-7YfBor7VTx6ejLqd5oZioPFUaxYTvQqhLktO-emz9Zkyo1hLKlEJK8ZA1W0KGaGVili6a1n6IUr4opEvtY3x6iCw2UU2TyD748LE3WIJJ-48Q3uR8oGIzbudRrfL1798jLpkHgacF5QDukKH6_uAJbKHvQFhD6EgBqqJ72l374HPan04-CwwCZpTRQggE4YUXcRZrCZzt2JZyj-7m8mFQ8flmpCJmRg9f6_hN4xynct7V4_8xfw-5dFgAVndM8qfMtnHBEAY5zqVoL94wWC1S-0pahRQ",
+      "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN1lepktTIHRxClvTVgcMRlcoQIBcpiBERAt0xsNdjvcjlhEvYyQgNbCpf8qe7LJOpVYhMO7zrf79ZxMIXNSIwUiWjmzfV8gz8op3wkyHUbmaDNJ9u1ZUfCWHwjfJ9NBz5ilydqaljjfJyr9K4xyjKuD-7yfht7LLqfpjcMvmnCMN6ew6xaJ7w0ZiIkauijOU8HsQvN_0rqJh9SSqlhm3LJfQ09B8_Q5UxXe93r5IOFZnsvdyS3XzPO7VJ6dd7dKc0nAq7xgId9cg91juVPmHleObQ9sPjH8cZonfR7kkDLoN6MSy0Mc7qArHCbepCczvnKnrSc0SVqVnBqj7NX94SJzbKpOiLkXYbppUC4xLYlYn5tnVx2gNZhkEzn9NekZ-q3ssGZOkHK4T3L8sPJkjsoyIHr-oRdBYg-fN_Orw1fOg7DZ12IiGEZu7O_cCfLL",
+      "places/ChIJvVBJx45ZwokROqLKcQlndPM/photos/AcnlKN05wztI5pbjVsWKK71ct-nQJf5GjZTbFhDtcU5iZ7aJPP40RCrUGWK46HjaQGWeo9LEJzSua-KsJ4J8qtT0LHxrBt3DVUeKaYKXB1EfT3XFwXoN-mNMMScJbdqjyePR3ygw8kkIApKh2MGOtFnalFDjfmc7-4syriPy_iYOWyRTwHghEyS_9x2rQ2x4BO1pr4X_gqFHP3iJv96bhTtAoogFRPIuThlO-13oHpTEGXhN3F9Tmk6zggc7CDbnKrKQ37GbHHJ1R2N5IDW3cE6_WzppTpEbeJDzg8J9wOy4nvkp_eTqC0B_PuXI8VibvGqYjor1N_0ZnkXMLo7jwVXmcUHX2XU_mnENuBdLs_6aSG5Tsa_FCZmIYeMhLhofLb-4Tf0AVt4xElenGv-nOaLu6ApKdQeYgbVSZzins9_FJEo"
+    ],
+    "priceLevel": 2,
+    "rating": 4.5,
+    "status": "not_visited",
+    "types": [
+      "lebanese_restaurant",
+      "bar_and_grill",
+      "vegetarian_restaurant",
+      "mediterranean_restaurant",
+      "middle_eastern_restaurant",
+      "bar",
+      "restaurant",
+      "point_of_interest",
+      "food",
+      "establishment"
+    ],
+    "updatedAt": {
+      "__time__": "2026-01-20T19:20:19.027Z"
+    },
+    "userRatingsTotal": 2348,
+    "website": "https://auzaatar.com/"
+  },
+  "xdr8pKqNGvuU9DRczhK5": {
+    "addedAt": {
+      "__time__": "2026-01-20T19:20:51.469Z"
+    },
+    "addedBy": "tDnVgrXLnkXJ4B9KeH7rGLueTyo2",
+    "address": "405 E 59th St, New York, NY 10022, USA",
+    "businessStatus": "OPERATIONAL",
+    "category": "Supermarket",
+    "googleMapsUrl": "https://maps.google.com/?cid=16185529579934534731&g_mp=CiVnb29nbGUubWFwcy5wbGFjZXMudjEuUGxhY2VzLkdldFBsYWNlEAIYASAA",
+    "googlePlaceId": "ChIJVaVhLKxZwokRS0yT-WWNnuA",
+    "lat": 40.759703200000004,
+    "listId": "YEpdgH9Nh4eNMuBwPBXr",
+    "lng": -73.9615347,
+    "location": {
+      "lat": 40.759703200000004,
+      "lng": -73.9615347
+    },
+    "name": "Trader Joe's",
+    "openNow": true,
+    "openingHours": [
+      "Monday: 8:00\u202fam – 9:00\u202fpm",
+      "Tuesday: 8:00\u202fam – 9:00\u202fpm",
+      "Wednesday: 8:00\u202fam – 9:00\u202fpm",
+      "Thursday: 8:00\u202fam – 9:00\u202fpm",
+      "Friday: 8:00\u202fam – 9:00\u202fpm",
+      "Saturday: 8:00\u202fam – 9:00\u202fpm",
+      "Sunday: 8:00\u202fam – 9:00\u202fpm"
+    ],
+    "phoneNumber": "(212) 935-3870",
+    "photoUrls": [
+      "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN32xEH9QQzH3WeMXaqmy_D6a6w6oR9IYkeKt9cACbR0aBKsSpppBbf5bEa9UR6l6wolAeoVcCrwULFNNlrMtUPlzt894FfH47yXxOwr8Uo6Bybw-ODixIrgfCTSzAvhM8_jhQ6Far4JCc42TTRncyo5QXwCjW3dYS2uB6UkiWvcHf3Fl06RSVmv927PUIMwbO0AW3r90cqYffoRZWMJ00_yqWbfcaktFqxO_Tz1AZDMhUA1IFz31VdWK9bAmmcgQPjjdZrMrP0EiT4AepL93F_rM3lMiuJ2WXXKW3FhajLT8OWkB9DtHgitWni2He_CABVyZncCLiA8Y_9ByRM0wlhnxOICvsZiCKK_gJjf-9KOsQLHHhQgSkxOXyNE4FxMgfLFaCtqUyS5l0xkBc4Egj2tzfwGJ69B_I1EmaBUfI93zA",
+      "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN0EWPF0JuMn6gOvrsAmb_PprMwCLDiiG5ASW9J2Lo1x8Nd_AglVbRXm2MJUuTFHQceLDOQxQe0yrWA1MTXy2OkwUgyzTG31933vBM5o7ILNEIVosM8mI108Wus8NWx9IQ8L16zM93nxqEctzUZDKn70svg6D59Do9mKO0oU_MiLNOnerBMgfqDZjDu3lVbJx9eWaYRd_OJTJt0wlk0rmvzjXJmCZx3L-nFHsBtkRA7sV2QVU7XjG8iq7JYYlZKMO7gQYVg8tvLjJO9EOubGTljGgIEPWs2rvgUV9u4vIBQIxV-eZC92H1ZzNWYJ4T_AiD7QE1VLtwzcSYfbUw9S5TY5NGdHvoGjkNFsfl7pFzdy-umDYmULByX30ZFDzTf4jqXkQU15HSkJ48GV8NQKEDurrhSzwHm44NcLT2rQh19FQjf_EzTwSz-ydVGR2tRm",
+      "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN178OFXzG4z4F4VoNx4JnQz0mHTG6JlNkpBlwpaOc0rM7bG3CTWYwFg_0uqaZZjM96_-ktzQgsjiLRj6DELsYj136g3TUQqooSYoFLbx9plQsPQZHFl0spXSc6HSR_sUm8PL-FOu3mexA_h0VZmbuYiKVgX8c3lBsYfCbxG6v-29yasj_WcgQgfQelM4dvYCAhp0qAoEGTDk0ut3_zoWZ1raqD_x4OCkO5VkDG0dpauppTb7bOxAUCPGxNEnK6IAOwCGDQ9WLeuuiS2T7yeCrQ9TB2r-ZphdMZeMavvtXG4E7XaI8ZTtirtuhFPzDWcdrgBwoww9oA_oSBqbgBJoNrBmg0nSSVb8fZXeUnPM3-Tl5bCKPrtmHfgc4U8abPM54NfPzgvdGAbM3TFkhmv-W3drhTSDdDipHqak_HOy1jhAEgy",
+      "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN2uPPL0bBkrfd6YtNbMPhvCr4I5em0FinOFgKMe7o4NfGN_dpvPWTQdEUS_NBKaRMYfgraoSnyoTbnDd-goTvg85uCTy3oQHibzC1usG3GH5T_0g1rG46zqYbFZYIXtpGhB5OLJiSdaTpD_afEnmsn2vsEWOfS1XwKuXFnoxjmAuK_LmsacIT4VwbIHJfWR0RoAhPAfyiGylRkwTHFaXBx3g8_lZFqO4XirvQ0MDVBOSnblUXdcNTo8Mu4KtFgGMVIyVkWE2Fz2vFn1UH3yrna2aDHMNz9aXGpj7XXXmqiGfKyzj6oRet4kZZrPpzK8hK4rL8hAs48SkGaUBTAKMgEa6IUo1HzjRPX3xNjmyeGgbuccLV-CUCSwuq37nsqI0s9uEyAXw-WSSoWwVO9M9h1t4WBRcQpvSDChTbOS-aY6oFxH",
+      "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN2MZXrk4k-_cZ4W-OlV3w6behxHq2UaGPIivZGDfXNG9pfcD5llaxE9tQ3DMQHY_jbJp5b8M83whMZsP2EKXWPiutQgZgENlOQs_iWmlgtJOikqAIon3MfTn15M3VZGuJEgWV7Jz1LYwHby79-7zEMMUMX8IxVozocbaU8ui4OpbONO5TCZn5Kfse1nRKPEx5-vKbv0PvmbOl0lSylIy3_HjOiUtI3iWMTN1Gj6ZG1GeNZE2oFckl89GHIh5rq-iRGk8tnqzc7j3_HR_Th-e2oJ6jBCm83SjhpPcEFC1RfiwZr9-GB7id8N-3kLpr6Fd9GPZsq1bVPOHLZ6IsDK43Gm88961CwkD3gq8Komr-X17iXuS-sIw_UQTUY5Ut7h6YVQn7PW1Zm1gLAJn30PpA5LozbqE5uajNYGNBLoDUaJ5Xru",
+      "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN3a3W1jmGmQE_5nHRpCpa-yzTKYQbG5-NTd55CpgvlnexpcaZWPBs5CUdhzW78CLtBtGJlMoQE4Pw_3CncTpscXb5ZfuxD8jS5z4LEMzQb2di6o1ePhtLNWP7dUMAU50vMGEJdmjF0On-3RzmNpgMPIEhQGs7d_wwhKI1EV93mTTEFRWko6AtBCyya7wtcE_psQgqwFMFNTS4drIK6taGv7nC5_fqgG9VWvBS00No26cN9HO2ffjwCMrWmO5QWzfA8KmYe32xYAhxNnqG0_pD9DYuZDpIssgSEpQjx5cI_rUsjo8WVHz6ernz9HIJgTn4ZTdrrOoxMOt6ACS8WfihdQKknVA3mOgmO8Raujk10EvPpjCy_QaR3Pi2fagHtMKBWg4c47VTzvOgTwnulvi-J4g4Tw0ec_Xs1ZMhgfIQ0",
+      "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN3CkZ63QhHN9s20qxrMJW-vuKrNDIC-HBQ4CkKPNsmF9OYzFA9nqVCL1-S5Wr-OVu606CgvFFdrcYKBu-opvAbMAy_s_BplC4skQ3ImD7aKyZtwu8Tv8Zkxit9BH5QEyY4R1ym5LWYyOfc8nXQTzQyyHsGauc-m2Dw1CPx5XHtokf1apEbpSACLDOD1qwo0O6SDhPE9fqdMl2iBIAp91y3GHe18zvoTX-h8T9PQQ_47cKtRn2myiOVG7x4F3mCm9K1D8_dNee3dDu9xpS8E7RR64xuuC5gOgxgFgoUjmPNkkyEDtKZG-dSc-vq-hHSK9Ru9D9hsOKBSCUqUNzMAqCUAXKerp94Q9Gup6qdT5Lq2kTQFeFiChrE6MPegVxC8zgUt2qNlLN-FKseU0bOod-rejvO4X2ap53cR72LobcIydCQ",
+      "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN0m8BTbGkPTN_t0aL2L1meuf9vghTPl5Da5VTqZJxqfsu-a0bn-eIjWbr4J3KoP6w81vINzh9w-3yeroZnmVMPzdnmhQXPES2cjPTsLLIEx3XdX0gfSvox2ii-NXdG1tzeRIaTxDmZ6s0NQabUaWl6htVr3rrOybLeBjvOpIQa_ghOXxYV0GHWhoFyS9JRg3Lme15PQqYp3kb_VtkyKNxTAPBirxeHwYpIBm-EXKIjCuz9VV4FnH9gPwXsJnf2HN4ktoSt7oGl4G6rI8fxODPR_VOtNJIkYQ_73gc1bUH1HSdYEJnYM1wnfpOvrN_B0pP7NZH_ssrI3bI-KPhIp3IQF3c6IWweI2TsZfQ9--yAqYitcbC331oghiRyKW3wRSyQpeUIeUd9PcxCjuccD4k-syZvtMzjFVMSjjseEnY2e2A",
+      "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN1gJHIAu-8FogeJug_YkzeIlnGmWNlWKEnqpTBESDEmCWo5DnygRxBkOTse1BWiAjrvFQpCrc-3i_HG76kht43PSg1TiCIs5vneipYEAjpX_y9NjyWLn--DLiNjdAeYzaRgYsb7O249MzVNh0aLbSS84DanZvW0UEXO_mWwpXx1W4qRMfpsaGqKZ9Iq-WypDAFKGQoOhgkb96Y602sI1Ojy7bwB9wBASw5e0Z8ApLmuWVloAgBrKYjvSaic4vM9yKZ4F_okxhDXtUA5XKthlt75ZqjHS7HPZ1DI7-XkMzjxAF6OjKTYtvOHAnLy_2q2TCSJenczTWh0oRecqw-2rASfps9YgsTtf6xgShcmE-4ONMQ0YjM0jyF0cRDcbMb6weqwb6YXrBszL-auEVkod5JXCCnIv6E8VXzkTigXQkHOcQ",
+      "places/ChIJVaVhLKxZwokRS0yT-WWNnuA/photos/AcnlKN1pUipmwuq9guftTMZ-8mDDOLQ37GOdNU3MXjOB27Egw65eXab0t6vVHO6PaiSrCVn5eS7_NHgXKsjTpyZmxSEXMVlmtMmoEajhL_0sGnJdVc1oWT9o8NgpfFMNfMqQZ9wQQNdlVmJg-6dBAz9lj5rmJWSZIXGiKvPOGoRQgFqFn3nyOrZcnpmcUd6R_Tq8zryRKalFJ0alYiCUXHhOFgESpIV1pZVa7EkA-YtF6t5tbx7mioeKe2xz7CRWH8t25H6UbZOVlb5a3WPGoZqVNAIUGweqlJ5OZjpC5wesunKJGxQ1RL1L80fbwIwVcf8k8STPaupLUNJIERJfEQ_U74_eAeRgeI2vaZq7NTZt718z2Go6S6c2ag04i8tajS6UnXpEctfMQpnAiFfV-rNSgcATtqz1zfgyi8eDO_PcsWBsCfs"
+    ],
+    "rating": 4.7,
+    "status": "not_visited",
+    "types": [
+      "grocery_store",
+      "supermarket",
+      "market",
+      "point_of_interest",
+      "health",
+      "food_store",
+      "store",
+      "food",
+      "establishment"
+    ],
+    "updatedAt": {
+      "__time__": "2026-01-20T19:20:51.469Z"
+    },
+    "userRatingsTotal": 1699,
+    "website": "https://locations.traderjoes.com/ny/new-york/571/?utm_source=gmb&utm_medium=organic&utm_campaign=local"
+  }
 }

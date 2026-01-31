@@ -14,6 +14,7 @@ SpotSync integrates with Google Maps for place search, details, and list importi
 ## API Key Restrictions
 
 For security, restrict your API key to:
+
 1. **HTTP Referrers**: Add your development and production domains (e.g., `localhost:5173/*`).
 2. **API Restrictions**: Limit the key specifically to the three APIs listed above.
 

@@ -9,24 +9,27 @@ export const useLists = (userId: string | undefined) => {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadUserLists = useCallback(async (options: { silent?: boolean } = {}) => {
-    if (!userId) return;
-    try {
-      if (!options.silent) {
-        setLoading(true);
+  const loadUserLists = useCallback(
+    async (options: { silent?: boolean } = {}) => {
+      if (!userId) return;
+      try {
+        if (!options.silent) {
+          setLoading(true);
+        }
+        const userLists = await ListService.getUserLists(userId);
+        setLists(userLists);
+        setError(null);
+      } catch (err) {
+        logger.error('Error loading lists:', err);
+        setError('Failed to load lists');
+      } finally {
+        if (!options.silent) {
+          setLoading(false);
+        }
       }
-      const userLists = await ListService.getUserLists(userId);
-      setLists(userLists);
-      setError(null);
-    } catch (err) {
-      logger.error('Error loading lists:', err);
-      setError('Failed to load lists');
-    } finally {
-      if (!options.silent) {
-        setLoading(false);
-      }
-    }
-  }, [userId]);
+    },
+    [userId]
+  );
 
   useEffect(() => {
     loadUserLists();
@@ -96,6 +99,6 @@ export const useLists = (userId: string | undefined) => {
     loadUserLists,
     createList,
     updateList,
-    deleteList
+    deleteList,
   };
 };

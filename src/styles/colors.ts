@@ -193,7 +193,8 @@ export const themeColors = {
 
   // Map elements
   map: {
-    label: 'bg-gray-950/95 dark:bg-white/95 text-white dark:text-gray-900 border border-gray-800 dark:border-gray-200',
+    label:
+      'bg-gray-950/95 dark:bg-white/95 text-white dark:text-gray-900 border border-gray-800 dark:border-gray-200',
     markerBorder: 'border-white dark:border-gray-900',
   },
 

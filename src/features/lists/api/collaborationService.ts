@@ -16,7 +16,10 @@ import type { PlaceList, Collaborator } from '@/features/lists/types/list';
 import { logger } from '@/utils/logger';
 
 export class CollaborationService {
-  static async getMyInvitations(email: string | null | undefined, username?: string | null): Promise<Invitation[]> {
+  static async getMyInvitations(
+    email: string | null | undefined,
+    username?: string | null
+  ): Promise<Invitation[]> {
     if (!email && !username) return [];
 
     try {
@@ -58,8 +61,14 @@ export class CollaborationService {
             invitations.push({
               id: doc.id,
               ...data,
-              createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
-              expiresAt: data.expiresAt instanceof Timestamp ? data.expiresAt.toDate() : new Date(data.expiresAt),
+              createdAt:
+                data.createdAt instanceof Timestamp
+                  ? data.createdAt.toDate()
+                  : new Date(data.createdAt),
+              expiresAt:
+                data.expiresAt instanceof Timestamp
+                  ? data.expiresAt.toDate()
+                  : new Date(data.expiresAt),
             } as Invitation);
           }
         });
@@ -74,18 +83,26 @@ export class CollaborationService {
 
   static async getPendingInvitationsForList(listId: string): Promise<Invitation[]> {
     try {
-      const snapshot = await getDocs(query(
-        collection(db, 'invitations'),
-        where('listId', '==', listId),
-        where('status', '==', 'pending')
-      ));
+      const snapshot = await getDocs(
+        query(
+          collection(db, 'invitations'),
+          where('listId', '==', listId),
+          where('status', '==', 'pending')
+        )
+      );
       const invitations: Invitation[] = snapshot.docs.map((doc) => {
         const data = doc.data();
         return {
           id: doc.id,
           ...data,
-          createdAt: data.createdAt instanceof Timestamp ? data.createdAt.toDate() : new Date(data.createdAt),
-          expiresAt: data.expiresAt instanceof Timestamp ? data.expiresAt.toDate() : new Date(data.expiresAt),
+          createdAt:
+            data.createdAt instanceof Timestamp
+              ? data.createdAt.toDate()
+              : new Date(data.createdAt),
+          expiresAt:
+            data.expiresAt instanceof Timestamp
+              ? data.expiresAt.toDate()
+              : new Date(data.expiresAt),
         } as Invitation;
       });
 
@@ -121,10 +138,17 @@ export class CollaborationService {
         throw new Error('You do not have permission to invite collaborators');
       }
 
-      // Check if user is already a collaborator
+      // Determine if this is an email invite and normalize to lowercase
       const isEmailInvite = inviteeIdentifier.includes('@');
+      const normalizedIdentifier = isEmailInvite
+        ? inviteeIdentifier.toLowerCase().trim()
+        : inviteeIdentifier.trim();
+
+      // Check if user is already a collaborator
       const existingCollab = list.collaborators.find((c) =>
-        isEmailInvite ? c.email === inviteeIdentifier : c.username === inviteeIdentifier
+        isEmailInvite
+          ? c.email?.toLowerCase() === normalizedIdentifier
+          : c.username === normalizedIdentifier
       );
 
       if (existingCollab) {
@@ -135,7 +159,7 @@ export class CollaborationService {
       const existingInviteQuery = query(
         collection(db, 'invitations'),
         where('listId', '==', listId),
-        where(isEmailInvite ? 'invitedEmail' : 'invitedUsername', '==', inviteeIdentifier),
+        where(isEmailInvite ? 'invitedEmail' : 'invitedUsername', '==', normalizedIdentifier),
         where('status', '==', 'pending')
       );
       const existingInvites = await getDocs(existingInviteQuery);
@@ -154,8 +178,8 @@ export class CollaborationService {
         invitedBy: inviterId,
         invitedByUsername: inviterUsername,
         ...(isEmailInvite
-          ? { invitedEmail: inviteeIdentifier }
-          : { invitedUsername: inviteeIdentifier }),
+          ? { invitedEmail: normalizedIdentifier }
+          : { invitedUsername: normalizedIdentifier }),
         role,
         status: 'pending',
         createdAt: now,
@@ -199,8 +223,11 @@ export class CollaborationService {
 
       // Check if expired
       const now = new Date();
-      const expiresAt = invitation.expiresAt instanceof Timestamp ? invitation.expiresAt.toDate() : invitation.expiresAt;
-      
+      const expiresAt =
+        invitation.expiresAt instanceof Timestamp
+          ? invitation.expiresAt.toDate()
+          : invitation.expiresAt;
+
       if (expiresAt < now) {
         await updateDoc(invitationRef, {
           status: 'expired',
@@ -234,11 +261,9 @@ export class CollaborationService {
 
       // Map existing collaborators to IDs and add the new one
       // Also ensure we capture any existing ids for robustness
-      const allCollaboratorIds = Array.from(new Set([
-        ...list.collaborators.map(c => c.userId),
-        list.ownerId,
-        userId
-      ]));
+      const allCollaboratorIds = Array.from(
+        new Set([...list.collaborators.map((c) => c.userId), list.ownerId, userId])
+      );
 
       // Update list with new collaborator and synced IDs
       await updateDoc(listRef, {
@@ -315,7 +340,7 @@ export class CollaborationService {
     try {
       const userDoc = await getDoc(doc(db, 'users', userId));
       if (!userDoc.exists()) return [];
-      
+
       const userData = userDoc.data();
       const email = userData.email;
       const username = userData.username;
@@ -323,7 +348,7 @@ export class CollaborationService {
       if (!email && !username) return [];
 
       const queries = [];
-      
+
       // Query by email if available
       if (email) {
         queries.push(
@@ -348,12 +373,12 @@ export class CollaborationService {
         );
       }
 
-      const querySnapshots = await Promise.all(queries.map(q => getDocs(q)));
+      const querySnapshots = await Promise.all(queries.map((q) => getDocs(q)));
 
       const invitations = new Map<string, Invitation>();
 
       // Combine results and remove duplicates
-      querySnapshots.forEach(snapshot => {
+      querySnapshots.forEach((snapshot) => {
         snapshot.docs.forEach((doc) => {
           const data = doc.data();
           invitations.set(doc.id, {

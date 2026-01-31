@@ -5,7 +5,7 @@ import type { FilterOptions } from '@/features/places/types/filters';
 export const usePlaceFilters = (places: Place[]) => {
   const [filters, setFilters] = useState<FilterOptions>({});
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-  
+
   const filteredPlaces = useMemo(() => {
     let filtered = [...places];
 
@@ -18,30 +18,31 @@ export const usePlaceFilters = (places: Place[]) => {
         if (place.address.toLowerCase().includes(query)) return true;
         if (place.category?.toLowerCase().includes(query)) return true;
         if (place.notes?.toLowerCase().includes(query)) return true;
-        
+
         // Cuisines (array)
-        if (place.cuisines?.some(c => c.toLowerCase().includes(query))) return true;
-        
+        if (place.cuisines?.some((c) => c.toLowerCase().includes(query))) return true;
+
         // Types (array)
-        if (place.types?.some(t => t.toLowerCase().includes(query))) return true;
-        
+        if (place.types?.some((t) => t.toLowerCase().includes(query))) return true;
+
         // Status
         if (place.status?.toLowerCase().includes(query)) return true;
         if (place.customStatus?.toLowerCase().includes(query)) return true;
-        
+
         // Open/Closed status
         if (query === 'open' && place.openNow === true) return true;
         if (query === 'closed' && place.openNow === false) return true;
-        
+
         // Price level (e.g., "cheap", "expensive", "$", "$$$$")
         const priceTerms: Record<number, string[]> = {
           1: ['cheap', 'inexpensive', '$', 'budget'],
           2: ['moderate', '$$', 'mid'],
           3: ['expensive', '$$$', 'pricey'],
-          4: ['very expensive', '$$$$', 'luxury', 'fine dining']
+          4: ['very expensive', '$$$$', 'luxury', 'fine dining'],
         };
-        if (place.priceLevel && priceTerms[place.priceLevel]?.some(term => term.includes(query))) return true;
-        
+        if (place.priceLevel && priceTerms[place.priceLevel]?.some((term) => term.includes(query)))
+          return true;
+
         return false;
       });
     }
@@ -64,8 +65,8 @@ export const usePlaceFilters = (places: Place[]) => {
 
     // Cuisine filter
     if (filters.cuisine) {
-      filtered = filtered.filter(
-        (place) => place.cuisines?.some(c => c.toLowerCase() === filters.cuisine?.toLowerCase())
+      filtered = filtered.filter((place) =>
+        place.cuisines?.some((c) => c.toLowerCase() === filters.cuisine?.toLowerCase())
       );
     }
 
@@ -98,6 +99,6 @@ export const usePlaceFilters = (places: Place[]) => {
     filteredPlaces,
     viewMode,
     setViewMode,
-    clearFilters
+    clearFilters,
   };
 };

@@ -49,20 +49,21 @@ export const useListDetails = (listId: string | undefined) => {
   }, [listId, loadListData]);
 
   // Update a single place in the local state (optimistic update)
-  const updatePlace = useCallback(async (placeId: string) => {
-    try {
-      const updatedPlace = await PlaceService.getPlace(placeId);
-      if (updatedPlace) {
-        setPlaces(prevPlaces =>
-          prevPlaces.map(p => p.id === placeId ? updatedPlace : p)
-        );
+  const updatePlace = useCallback(
+    async (placeId: string) => {
+      try {
+        const updatedPlace = await PlaceService.getPlace(placeId);
+        if (updatedPlace) {
+          setPlaces((prevPlaces) => prevPlaces.map((p) => (p.id === placeId ? updatedPlace : p)));
+        }
+      } catch (err) {
+        logger.error('Error updating place:', err);
+        // If update fails, reload all data
+        loadListData();
       }
-    } catch (err) {
-      logger.error('Error updating place:', err);
-      // If update fails, reload all data
-      loadListData();
-    }
-  }, [loadListData]);
+    },
+    [loadListData]
+  );
 
   return {
     list,
@@ -70,6 +71,6 @@ export const useListDetails = (listId: string | undefined) => {
     loading,
     error,
     loadListData,
-    updatePlace
+    updatePlace,
   };
 };

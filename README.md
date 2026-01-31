@@ -5,28 +5,33 @@ A real-time collaborative map app for organizing shared places. Import directly 
 ## Visual Overview
 
 ### Getting Started
-| Login | Register |
-|:---:|:---:|
+
+|              Login              |               Register                |
+| :-----------------------------: | :-----------------------------------: |
 | ![Login](docs/images/login.png) | ![Register](docs/images/register.png) |
 
 ### Dashboard & Settings
-| Dashboard | Settings | Account Linking | Theme Options |
-|:---:|:---:|:---:|:---:|
+
+|                Dashboard                |               Settings                |                       Account Linking                        |          Theme Options          |
+| :-------------------------------------: | :-----------------------------------: | :----------------------------------------------------------: | :-----------------------------: |
 | ![Dashboard](docs/images/dashboard.png) | ![Settings](docs/images/settings.png) | ![Account Linking](docs/images/settings_account_linking.png) | ![Theme](docs/images/theme.png) |
 
 ### List Management
-| List View | Expanded View | Collaboration |
-|:---:|:---:|:---:|
+
+|                List View                |                    Expanded View                     |                   Collaboration                    |
+| :-------------------------------------: | :--------------------------------------------------: | :------------------------------------------------: |
 | ![List View](docs/images/list_view.png) | ![Expanded View](docs/images/list_view_expanded.png) | ![Collaborators](docs/images/list_collabrator.png) |
 
 ### Place Discovery & Details
-| Search | Map Selection | Selection Details | Place Details |
-|:---:|:---:|:---:|:---:|
+
+|              Search               |                     Map Selection                     |                       Selection Details                       |                  Place Details                  |
+| :-------------------------------: | :---------------------------------------------------: | :-----------------------------------------------------------: | :---------------------------------------------: |
 | ![Search](docs/images/search.png) | ![Map Selection](docs/images/place_selection_map.png) | ![Selection Details](docs/images/place_selection_details.png) | ![Place Details](docs/images/place_details.png) |
 
 ### Google Maps Import
-| Import Preview | Success State |
-|:---:|:---:|
+
+|               Import Preview               |               Success State                |
+| :----------------------------------------: | :----------------------------------------: |
 | ![Preview](docs/images/import_preview.png) | ![Success](docs/images/import_success.png) |
 
 ## Core Functionality
@@ -51,17 +56,17 @@ A real-time collaborative map app for organizing shared places. Import directly 
 1.  **Authentication**: Users sign up via Email/Password or Google OAuth. Profiles are created in Firestore.
 2.  **Dashboard**: Users land on the dashboard to view their lists and syncing status.
 3.  **List Creation**:
-    *   **Manual**: Create a fresh empty list.
-    *   **Import**: Paste a Google Maps shared link to automatically scrape and import places.
+    - **Manual**: Create a fresh empty list.
+    - **Import**: Paste a Google Maps shared link to automatically scrape and import places.
 4.  **Place Management**:
-    *   **Search**: Use the integrated Google Places Autocomplete to find locations.
-    *   **AI Search**: Ask natural language questions like "Find Italian restaurants" to filter your list.
-    *   **Details**: View place photos, ratings, hours, and service options.
-    *   **Status**: Mark places as "To Visit", "Visited", or "Skipped".
+    - **Search**: Use the integrated Google Places Autocomplete to find locations.
+    - **AI Search**: Ask natural language questions like "Find Italian restaurants" to filter your list.
+    - **Details**: View place photos, ratings, hours, and service options.
+    - **Status**: Mark places as "To Visit", "Visited", or "Skipped".
 5.  **Collaboration**:
-    *   **Invite**: Send invitations by email or username.
-    *   **Real-time Interaction**: Changes made by any member are instantly reflected for all.
-    *   **Notifications**: Push notifications alert members of additions, updates, or invites.
+    - **Invite**: Send invitations by email or username.
+    - **Real-time Interaction**: Changes made by any member are instantly reflected for all.
+    - **Notifications**: Push notifications alert members of additions, updates, or invites.
 
 ## Firestore Structure
 
@@ -124,17 +129,20 @@ src/
 ### Installation
 
 1. Clone the repository:
+
    ```bash
    git clone https://github.com/aseef17/SpotSync.git
    cd spot-sync
    ```
 
 2. Install dependencies:
+
    ```bash
    npm install
    ```
 
 3. Configure environment variables in a `.env` file:
+
    ```env
    VITE_FIREBASE_API_KEY=your_key
    VITE_FIREBASE_AUTH_DOMAIN=your_project.firebaseapp.com
@@ -145,20 +153,22 @@ src/
    VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key
    ```
 
-4.  **Configure Service Worker**:
-    Copy the example service worker and update it with your Firebase config:
-    ```bash
-    cp public/firebase-messaging-sw.example.js public/firebase-messaging-sw.js
-    ```
-    Then edit `public/firebase-messaging-sw.js` to include your specific Firebase keys.
+4. **Configure Service Worker**:
+   Copy the example service worker and update it with your Firebase config:
 
-5.  **Configure Cloud Functions** (optional, for AI Search):
-    See [Cloud Functions Setup](docs/setup/cloud-functions.md) for Gemini AI configuration.
+   ```bash
+   cp public/firebase-messaging-sw.example.js public/firebase-messaging-sw.js
+   ```
 
-6.  Launch development server:
-    ```bash
-    npm run dev
-    ```
+   Then edit `public/firebase-messaging-sw.js` to include your specific Firebase keys.
+
+5. **Configure Cloud Functions** (optional, for AI Search):
+   See [Cloud Functions Setup](docs/setup/cloud-functions.md) for Gemini AI configuration.
+
+6. Launch development server:
+   ```bash
+   npm run dev
+   ```
 
 ## Detailed Documentation
 

@@ -1,15 +1,15 @@
 {
-    "short_name": "Place Lists",
-    "name": "Place Lists - Your Places, Together",
-    "icons": [
-        {
-            "src": "mappin-icon.svg",
-            "type": "image/svg+xml",
-            "sizes": "any"
-        }
-    ],
-    "start_url": ".",
-    "display": "standalone",
-    "theme_color": "#3B82F6",
-    "background_color": "#ffffff"
+  "short_name": "Place Lists",
+  "name": "Place Lists - Your Places, Together",
+  "icons": [
+    {
+      "src": "mappin-icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#3B82F6",
+  "background_color": "#ffffff"
 }

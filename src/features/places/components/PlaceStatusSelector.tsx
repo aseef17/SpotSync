@@ -45,25 +45,25 @@ export const PlaceStatusSelector: React.FC<PlaceStatusSelectorProps> = ({
     color: string;
     customValue?: string;
   }[] = [
-      {
-        value: 'not_visited',
-        label: 'Not Visited',
-        icon: <Circle className="h-4 w-4" />,
-        color: 'bg-gray-100 text-gray-800',
-      },
-      {
-        value: 'visited',
-        label: 'Visited',
-        icon: <CheckCircle className="h-4 w-4" />,
-        color: 'bg-green-100 text-green-800',
-      },
-      {
-        value: 'not_going',
-        label: 'Not Going',
-        icon: <XCircle className="h-4 w-4" />,
-        color: 'bg-red-100 text-red-800',
-      },
-    ];
+    {
+      value: 'not_visited',
+      label: 'Not Visited',
+      icon: <Circle className="h-4 w-4" />,
+      color: 'bg-gray-100 text-gray-800',
+    },
+    {
+      value: 'visited',
+      label: 'Visited',
+      icon: <CheckCircle className="h-4 w-4" />,
+      color: 'bg-green-100 text-green-800',
+    },
+    {
+      value: 'not_going',
+      label: 'Not Going',
+      icon: <XCircle className="h-4 w-4" />,
+      color: 'bg-red-100 text-red-800',
+    },
+  ];
 
   const allStatuses = [
     ...defaultStatuses,
@@ -111,8 +111,9 @@ export const PlaceStatusSelector: React.FC<PlaceStatusSelectorProps> = ({
           setIsOpen(!isOpen);
         }}
         disabled={isChanging}
-        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-colors ${currentStatus?.color || 'bg-gray-100 text-gray-800'
-          } ${isChanging ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}`}
+        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-colors ${
+          currentStatus?.color || 'bg-gray-100 text-gray-800'
+        } ${isChanging ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}`}
       >
         {currentStatus?.icon}
         <span className="ml-1">{currentStatus?.label || place.customStatus || 'Unknown'}</span>

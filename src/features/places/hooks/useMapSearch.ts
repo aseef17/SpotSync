@@ -24,17 +24,20 @@ export const useMapSearch = ({ listId, userLocation, currentUserId }: UseMapSear
     return () => clearTimeout(timer);
   }, [mapSearchQuery]);
 
-  const performMapSearch = useCallback(async (query: string) => {
-    setIsSearchLoading(true);
-    try {
-      const results = await GoogleMapsService.searchPlaces(query, userLocation || undefined);
-      setMapSearchResults(results);
-    } catch (err) {
-      console.error('Map search failed:', err);
-    } finally {
-      setIsSearchLoading(false);
-    }
-  }, [userLocation]);
+  const performMapSearch = useCallback(
+    async (query: string) => {
+      setIsSearchLoading(true);
+      try {
+        const results = await GoogleMapsService.searchPlaces(query, userLocation || undefined);
+        setMapSearchResults(results);
+      } catch (err) {
+        console.error('Map search failed:', err);
+      } finally {
+        setIsSearchLoading(false);
+      }
+    },
+    [userLocation]
+  );
 
   useEffect(() => {
     if (debouncedMapSearchQuery.trim().length >= 3) {
@@ -84,6 +87,6 @@ export const useMapSearch = ({ listId, userLocation, currentUserId }: UseMapSear
     isSearchLoading,
     handleSelectSearchResult,
     clearSearch,
-    debouncedMapSearchQuery
+    debouncedMapSearchQuery,
   };
 };

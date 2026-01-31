@@ -50,7 +50,8 @@ export const PlaceSearchModal: React.FC<PlaceSearchModalProps> = ({
       GoogleMapsService.initialize().catch((err) => {
         logger.error('Failed to initialize Google Maps:', err);
         setError(
-          `Failed to load Google Maps. ${err instanceof Error ? err.message : 'Please check your API key and restrictions.'
+          `Failed to load Google Maps. ${
+            err instanceof Error ? err.message : 'Please check your API key and restrictions.'
           }`
         );
       });
@@ -93,9 +94,9 @@ export const PlaceSearchModal: React.FC<PlaceSearchModalProps> = ({
         );
 
         // Populate cuisines for search results
-        const resultsWithCuisines = results.map(r => ({
+        const resultsWithCuisines = results.map((r) => ({
           ...r,
-          cuisines: r.types ? extractCuisines(r.types) : []
+          cuisines: r.types ? extractCuisines(r.types) : [],
         }));
 
         setSearchResults(resultsWithCuisines);
@@ -128,7 +129,6 @@ export const PlaceSearchModal: React.FC<PlaceSearchModalProps> = ({
     }
 
     try {
-
       // Fetch complete place details (includes delivery, dineIn, etc.)
       const fullDetails = await GoogleMapsService.getPlaceDetails(googlePlace.place_id);
 
@@ -212,7 +212,9 @@ export const PlaceSearchModal: React.FC<PlaceSearchModalProps> = ({
               <form onSubmit={handleSearch} className="mb-6">
                 <div className="flex gap-2">
                   <div className="flex-1 relative">
-                    <Search className={`absolute left-3 top-3 h-5 w-5 ${themeColors.text.secondary}`} />
+                    <Search
+                      className={`absolute left-3 top-3 h-5 w-5 ${themeColors.text.secondary}`}
+                    />
                     <input
                       type="text"
                       value={searchQuery}
@@ -249,7 +251,9 @@ export const PlaceSearchModal: React.FC<PlaceSearchModalProps> = ({
               <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar">
                 {loading || isDebouncing ? (
                   <div className="text-center py-8">
-                    <Loader className={`h-8 w-8 animate-spin mx-auto ${themeColors.text.secondary}`} />
+                    <Loader
+                      className={`h-8 w-8 animate-spin mx-auto ${themeColors.text.secondary}`}
+                    />
                     <p className={`mt-2 ${themeColors.text.secondary}`}>
                       {isDebouncing ? 'Typing...' : 'Searching for places...'}
                     </p>
@@ -277,9 +281,9 @@ export const PlaceSearchModal: React.FC<PlaceSearchModalProps> = ({
                       visible: {
                         opacity: 1,
                         transition: {
-                          staggerChildren: 0.05
-                        }
-                      }
+                          staggerChildren: 0.05,
+                        },
+                      },
                     }}
                     className="grid grid-cols-1 md:grid-cols-2 gap-4"
                   >
@@ -288,7 +292,7 @@ export const PlaceSearchModal: React.FC<PlaceSearchModalProps> = ({
                         key={place.place_id}
                         variants={{
                           hidden: { opacity: 0, x: -10 },
-                          visible: { opacity: 1, x: 0 }
+                          visible: { opacity: 1, x: 0 },
                         }}
                         className={`border ${themeColors.border.default} rounded-lg p-4 hover:border-${colors.primary[400]} transition-colors`}
                       >
@@ -320,7 +324,9 @@ export const PlaceSearchModal: React.FC<PlaceSearchModalProps> = ({
 
                             <div className="mt-2 flex items-center flex-wrap gap-2">
                               {/* Display standardized category/cuisine string */}
-                              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${themeColors.text.secondary} bg-gray-50 dark:bg-gray-800 border ${themeColors.border.default}`}>
+                              <span
+                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${themeColors.text.secondary} bg-gray-50 dark:bg-gray-800 border ${themeColors.border.default}`}
+                              >
                                 {getCategoryDisplayText(place)}
                               </span>
                             </div>

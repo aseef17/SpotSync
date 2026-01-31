@@ -95,12 +95,9 @@ export class ListService {
       // This will automatically find legacy lists (via ownerId) and shared lists (via collaboratorIds)
       const q = query(
         collection(db, 'lists'),
-        or(
-          where('ownerId', '==', userId),
-          where('collaboratorIds', 'array-contains', userId)
-        )
+        or(where('ownerId', '==', userId), where('collaboratorIds', 'array-contains', userId))
       );
-      
+
       const snapshot = await getDocs(q);
       const batch = writeBatch(db);
       let updatesNeeded = false;
@@ -111,10 +108,9 @@ export class ListService {
         lists.push(list);
 
         // Self-healing: Ensure collaboratorIds includes owner
-        const expectedIds = Array.from(new Set([
-          data.ownerId,
-          ...(data.collaborators?.map(c => c.userId) || [])
-        ]));
+        const expectedIds = Array.from(
+          new Set([data.ownerId, ...(data.collaborators?.map((c) => c.userId) || [])])
+        );
 
         if (!data.collaboratorIds || data.collaboratorIds.length !== expectedIds.length) {
           batch.update(snapDoc.ref, { collaboratorIds: expectedIds });
@@ -123,7 +119,7 @@ export class ListService {
       });
 
       if (updatesNeeded) {
-        batch.commit().catch(err => logger.error('Error in list self-healing:', err));
+        batch.commit().catch((err) => logger.error('Error in list self-healing:', err));
       }
 
       // Sort client-side by updatedAt descending
@@ -155,18 +151,22 @@ export class ListService {
     }
   }
 
-  static async updateList(listId: string, updates: Partial<PlaceList>, userId?: string): Promise<void> {
-  try {
-    const updateData: Partial<PlaceList> & { updatedAt: Date; updatedBy?: string } = {
-      ...updates,
-      updatedAt: new Date(),
-    };
-    
-    if (userId) {
-      updateData.updatedBy = userId;
-    }
-    
-    await updateDoc(doc(db, 'lists', listId), updateData);
+  static async updateList(
+    listId: string,
+    updates: Partial<PlaceList>,
+    userId?: string
+  ): Promise<void> {
+    try {
+      const updateData: Partial<PlaceList> & { updatedAt: Date; updatedBy?: string } = {
+        ...updates,
+        updatedAt: new Date(),
+      };
+
+      if (userId) {
+        updateData.updatedBy = userId;
+      }
+
+      await updateDoc(doc(db, 'lists', listId), updateData);
     } catch (error) {
       logger.error('Error updating list:', error);
       throw error;
@@ -174,33 +174,33 @@ export class ListService {
   }
 
   static async deleteList(listId: string): Promise<void> {
-  try {
-    // 1. Find all places in the list
-    const placesQuery = query(collection(db, 'places'), where('listId', '==', listId));
-    const placesSnapshot = await getDocs(placesQuery);
-      
+    try {
+      // 1. Find all places in the list
+      const placesQuery = query(collection(db, 'places'), where('listId', '==', listId));
+      const placesSnapshot = await getDocs(placesQuery);
+
       const places = placesSnapshot.docs;
-      
+
       if (places.length === 0) {
         await deleteDoc(doc(db, 'lists', listId));
         return;
       }
 
-      const BATCH_SIZE = 499; 
-      
+      const BATCH_SIZE = 499;
+
       for (let i = 0; i < places.length; i += BATCH_SIZE) {
         const batch = writeBatch(db);
         const chunk = places.slice(i, i + BATCH_SIZE);
-        
+
         chunk.forEach((placeDoc) => {
           batch.delete(placeDoc.ref);
         });
-        
+
         // If this is the last chunk, OR the only chunk, include the list deletion in this batch
         if (i + BATCH_SIZE >= places.length) {
           batch.delete(doc(db, 'lists', listId));
         }
-        
+
         await batch.commit();
       }
     } catch (error) {

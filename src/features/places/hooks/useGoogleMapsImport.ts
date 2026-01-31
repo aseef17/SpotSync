@@ -25,16 +25,14 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
   const [skippedPlaces, setSkippedPlaces] = useState<ParsedPlace[]>([]);
   const [failedPlaces, setFailedPlaces] = useState<ParsedPlace[]>([]);
 
-
   const [targetListId, setTargetListId] = useState<string>('new');
-  const [newListName, setNewListName] = useState('Imported from Google Maps');
-  const [newListDescription, setNewListDescription] = useState('Imported from Google Maps');
+  const [newListName, setNewListName] = useState('');
+  const [newListDescription, setNewListDescription] = useState('');
   // Initialize with passed lists
   const [userLists, setUserLists] = useState<{ id: string; name: string }[]>(existingLists);
 
-
   const [importUrl, setImportUrl] = useState('');
-  
+
   const [enriching, setEnriching] = useState(false);
   const [enrichProgress, setEnrichProgress] = useState(0);
 
@@ -92,7 +90,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       }));
 
       setPlacesFound(parsed);
-      setNewListName(result.title || 'Imported List');
+      setNewListName(result.title);
     } catch (error: unknown) {
       logger.error('URL parse error:', error);
       toast.error(`Failed to parse list: ${(error as Error).message}`);
@@ -100,7 +98,6 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       setParsing(false);
     }
   };
-
 
   const handleImport = async () => {
     if (!user || placesFound.length === 0) return;
@@ -137,7 +134,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       // Internal Dedupe Set (to avoid duplicates within the import batch itself)
       const batchMap = new Set<string>();
 
-      listPlaces.forEach(p => {
+      listPlaces.forEach((p) => {
         if (p.googlePlaceId) existingMap.set(p.googlePlaceId, true);
         const addr = p.address ? p.address.toLowerCase().trim() : '';
         const name = p.name.toLowerCase().trim();
@@ -146,35 +143,35 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       });
 
       // 3. Pre-Enrichment Filter
-      const uniquePlaces = placesFound.filter(p => {
+      const uniquePlaces = placesFound.filter((p) => {
         // Internal Batch Dedupe
         const pAddr = p.address ? p.address.toLowerCase().trim() : '';
         const pName = p.title.toLowerCase().trim();
         const batchKey = p.googlePlaceId || `${pName}|${pAddr}`;
-        
+
         if (batchMap.has(batchKey)) {
-             setSkippedPlaces(prev => [...prev, p]);
-             return false;
+          setSkippedPlaces((prev) => [...prev, p]);
+          return false;
         }
         batchMap.add(batchKey);
 
         // Existing List Dedupe
         if (p.googlePlaceId && existingMap.has(p.googlePlaceId)) {
-             setSkippedPlaces(prev => [...prev, p]);
-             return false;
+          setSkippedPlaces((prev) => [...prev, p]);
+          return false;
         }
         if (p.placeId && existingMap.has(p.placeId)) {
-             setSkippedPlaces(prev => [...prev, p]);
-             return false;
+          setSkippedPlaces((prev) => [...prev, p]);
+          return false;
         }
 
         if (existingMap.has(`${pName}|${pAddr}`)) {
-             setSkippedPlaces(prev => [...prev, p]);
-             return false;
+          setSkippedPlaces((prev) => [...prev, p]);
+          return false;
         }
         if (!pAddr && existingMap.has(`${pName}|`)) {
-             setSkippedPlaces(prev => [...prev, p]);
-             return false;
+          setSkippedPlaces((prev) => [...prev, p]);
+          return false;
         }
 
         return true;
@@ -193,7 +190,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       // 4. Data Enrichment & Post-Enrichment Dedupe
       logger.info(`Enriching ${uniquePlaces.length} places...`);
       setEnriching(true);
-      
+
       const placesToImport: ParsedPlace[] = [];
 
       const BATCH_SIZE = 5;
@@ -209,72 +206,86 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
           // ... (Existing enrichment logic) ...
           // Strategy 1: Try ID
           if (enriched.googlePlaceId) {
-            try { 
-              details = await GoogleMapsService.getPlaceDetails(enriched.googlePlaceId); 
-            } catch { /* ignore */ }
+            try {
+              details = await GoogleMapsService.getPlaceDetails(enriched.googlePlaceId);
+            } catch {
+              /* ignore */
+            }
           }
 
           // Strategy 2: Fallback Search
           if (!details && enriched.title) {
-             try {
-                const results = await GoogleMapsService.searchPlaces(enriched.title, enriched.location);
-                if (results.length > 0) {
-                   details = results[0];
-                   enriched.googlePlaceId = details.place_id;
-                }
-             } catch { /* warn */ }
+            try {
+              const results = await GoogleMapsService.searchPlaces(
+                enriched.title,
+                enriched.location
+              );
+              if (results.length > 0) {
+                details = results[0];
+                enriched.googlePlaceId = details.place_id;
+              }
+            } catch {
+              /* warn */
+            }
           }
 
           if (details) {
-                if (details.formatted_phone_number) enriched.phoneNumber = details.formatted_phone_number;
-                if (details.website) enriched.website = details.website;
-                if (details.rating) enriched.rating = details.rating;
-                if (details.user_ratings_total) enriched.userRatingsTotal = details.user_ratings_total;
-                if (details.price_level) enriched.priceLevel = details.price_level;
-                if (details.photos?.length) {
-                  enriched.photoUrls = details.photos.map(p => p.getUrl({ maxWidth: 400, maxHeight: 300 }));
-                }
-                if (!enriched.address && details.formatted_address) enriched.address = details.formatted_address;
-                if (!enriched.location && details.geometry?.location) {
-                    enriched.location = { 
-                        lat: details.geometry.location.lat(), 
-                        lng: details.geometry.location.lng() 
-                    };
-                }
+            if (details.formatted_phone_number)
+              enriched.phoneNumber = details.formatted_phone_number;
+            if (details.website) enriched.website = details.website;
+            if (details.rating) enriched.rating = details.rating;
+            if (details.user_ratings_total) enriched.userRatingsTotal = details.user_ratings_total;
+            if (details.price_level) enriched.priceLevel = details.price_level;
+            if (details.photos?.length) {
+              enriched.photoUrls = details.photos.map((p) =>
+                p.getUrl({ maxWidth: 400, maxHeight: 300 })
+              );
+            }
+            if (!enriched.address && details.formatted_address)
+              enriched.address = details.formatted_address;
+            if (!enriched.location && details.geometry?.location) {
+              enriched.location = {
+                lat: details.geometry.location.lat(),
+                lng: details.geometry.location.lng(),
+              };
+            }
 
-                // Enrich Category & Cuisines
-                if (details.category) enriched.category = details.category;
-                if (details.types) enriched.types = details.types;
-                if (details.cuisines) enriched.cuisines = details.cuisines;
-                if (details.opening_hours?.weekday_text) enriched.openingHours = details.opening_hours.weekday_text;
+            // Enrich Category & Cuisines
+            if (details.category) enriched.category = details.category;
+            if (details.types) enriched.types = details.types;
+            if (details.cuisines) enriched.cuisines = details.cuisines;
+            if (details.opening_hours?.weekday_text)
+              enriched.openingHours = details.opening_hours.weekday_text;
 
-                // Enrich Service Options
-                if (details.delivery !== undefined) enriched.delivery = details.delivery;
-                if (details.dine_in !== undefined) enriched.dineIn = details.dine_in;
-                if (details.takeout !== undefined) enriched.takeout = details.takeout;
-                if (details.reservable !== undefined) enriched.reservable = details.reservable;
-                if (details.serves_beer !== undefined) enriched.servesBeer = details.serves_beer;
-                if (details.serves_wine !== undefined) enriched.servesWine = details.serves_wine;
-                if (details.serves_vegetarian_food !== undefined) enriched.servesVegetarianFood = details.serves_vegetarian_food;
-                if (details.wheelchair_accessible_entrance !== undefined) enriched.wheelchairAccessible = details.wheelchair_accessible_entrance;
+            // Enrich Service Options
+            if (details.delivery !== undefined) enriched.delivery = details.delivery;
+            if (details.dine_in !== undefined) enriched.dineIn = details.dine_in;
+            if (details.takeout !== undefined) enriched.takeout = details.takeout;
+            if (details.reservable !== undefined) enriched.reservable = details.reservable;
+            if (details.serves_beer !== undefined) enriched.servesBeer = details.serves_beer;
+            if (details.serves_wine !== undefined) enriched.servesWine = details.serves_wine;
+            if (details.serves_vegetarian_food !== undefined)
+              enriched.servesVegetarianFood = details.serves_vegetarian_food;
+            if (details.wheelchair_accessible_entrance !== undefined)
+              enriched.wheelchairAccessible = details.wheelchair_accessible_entrance;
           }
           return enriched;
         });
 
         const batchResults = await Promise.all(batchPromises);
-        
+
         // Post-Enrichment Dedupe: Check if the discovered ID already exists
-        batchResults.forEach(enriched => {
-           if (enriched.googlePlaceId && existingMap.has(enriched.googlePlaceId)) {
-             skippedCount++;
-             setSkippedPlaces(prev => [...prev, enriched]);
-             return; // Skip duplicate
-           }
-           placesToImport.push(enriched);
+        batchResults.forEach((enriched) => {
+          if (enriched.googlePlaceId && existingMap.has(enriched.googlePlaceId)) {
+            skippedCount++;
+            setSkippedPlaces((prev) => [...prev, enriched]);
+            return; // Skip duplicate
+          }
+          placesToImport.push(enriched);
         });
 
         if (i + BATCH_SIZE < uniquePlaces.length) {
-          await new Promise(r => setTimeout(r, 200));
+          await new Promise((r) => setTimeout(r, 200));
         }
       }
 
@@ -287,7 +298,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
         setResolving(false);
         return;
       }
-      
+
       const total = placesToImport.length;
       logger.info(`Preparing ${total} places for bulk import...`);
 
@@ -297,7 +308,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
           address: placeData.address || '',
           googleMapsUrl: placeData.url,
           status: 'not_visited',
-          addedBy: user.id
+          addedBy: user.id,
         };
 
         const placeToSave = {
@@ -323,12 +334,12 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
           servesBeer: placeData.servesBeer,
           servesWine: placeData.servesWine,
           servesVegetarianFood: placeData.servesVegetarianFood,
-          wheelchairAccessible: placeData.wheelchairAccessible
+          wheelchairAccessible: placeData.wheelchairAccessible,
         };
 
-        (Object.keys(placeToSave) as Array<keyof typeof placeToSave>).forEach(key => {
+        (Object.keys(placeToSave) as Array<keyof typeof placeToSave>).forEach((key) => {
           if (placeToSave[key] === undefined) {
-             delete placeToSave[key];
+            delete placeToSave[key];
           }
         });
 
@@ -343,12 +354,12 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
 
       // Identify failed items based on returned error indices
       if (result.errors && result.errors.length > 0) {
-          const failures = result.errors.map(err => {
-             // Map the index back to the source array (placesToImport)
-             // placesToCreate was mapped 1:1 from placesToImport
-             return placesToImport[err.index]; 
-          });
-          setFailedPlaces(failures);
+        const failures = result.errors.map((err) => {
+          // Map the index back to the source array (placesToImport)
+          // placesToCreate was mapped 1:1 from placesToImport
+          return placesToImport[err.index];
+        });
+        setFailedPlaces(failures);
       }
 
       setProgress(100);
@@ -362,7 +373,6 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       }
 
       logger.info(`Import complete: ${successCount} added, ${failedCount} failed`);
-
     } catch (error) {
       logger.error('Import process failed:', error);
     } finally {
@@ -370,7 +380,6 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
     }
   };
 
-  
   // Reset helper
   const resetPlaces = () => {
     setPlacesFound([]);
@@ -394,7 +403,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       userLists,
       importUrl,
       enriching,
-      enrichProgress
+      enrichProgress,
     },
     actions: {
       setImportUrl,
@@ -405,7 +414,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       handleParseFile,
       handleParseUrl,
       handleImport,
-      resetPlaces
-    }
+      resetPlaces,
+    },
   };
 };
