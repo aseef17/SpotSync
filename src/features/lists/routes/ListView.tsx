@@ -14,6 +14,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
+import { logger } from '@/utils/logger';
 import { ListService } from '@/features/lists/api/listService';
 import { PlaceService } from '@/features/places/api/placeService';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -128,7 +129,7 @@ export const ListView: React.FC = () => {
           setSelectedPlace(savedPlace);
         }
       } catch (err) {
-        console.error('Failed to add external place:', err);
+        logger.error('Failed to add external place:', err);
       }
     },
     [listId, user, loadListData]

@@ -75,7 +75,7 @@ export const MobilePlaceDetailHeader: React.FC<MobilePlaceDetailHeaderProps> = (
           text: `Check out ${place.name}`,
           url: place.googleMapsUrl || window.location.href,
         })
-        .catch(console.error);
+        .catch((err) => logger.error('Share failed:', err));
     }
   };
 

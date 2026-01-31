@@ -7,6 +7,7 @@ import { PlaceService } from '@/features/places/api/placeService';
 import { useToast } from '@/hooks/useToast';
 import { MobileBottomSheet } from '@/components/Layout/MobileBottomSheet/MobileBottomSheet';
 import { PlaceFilters } from '@/features/places/components/PlaceFilters';
+import { logger } from '@/utils/logger';
 import { MobilePlaceCard } from '@/features/places/components/MobilePlaceCard';
 import {
   MobilePlaceDetailHeader,
@@ -87,7 +88,7 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
         toast.error('No matches found for that query.');
       }
     } catch (error) {
-      console.error(error);
+      logger.error('Ai search failed:', error);
       toast.error('Failed to ask AI.');
     } finally {
       setIsAiSearching(false);

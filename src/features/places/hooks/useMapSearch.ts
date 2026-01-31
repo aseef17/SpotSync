@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import type { Place } from '@/features/places/types/place';
 import type { LegacyGooglePlace } from '@/features/places/api/googleMapsService';
+import { logger } from '@/utils/logger';
 
 interface UseMapSearchProps {
   listId: string;
@@ -31,7 +32,7 @@ export const useMapSearch = ({ listId, userLocation, currentUserId }: UseMapSear
         const results = await GoogleMapsService.searchPlaces(query, userLocation || undefined);
         setMapSearchResults(results);
       } catch (err) {
-        console.error('Map search failed:', err);
+        logger.error('Map search failed:', err);
       } finally {
         setIsSearchLoading(false);
       }
@@ -65,7 +66,7 @@ export const useMapSearch = ({ listId, userLocation, currentUserId }: UseMapSear
         return previewPlace;
       }
     } catch (err) {
-      console.error('Failed to get search result details:', err);
+      logger.error('Failed to get search result details:', err);
     } finally {
       setIsSearchLoading(false);
     }

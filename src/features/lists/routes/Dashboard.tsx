@@ -14,6 +14,7 @@ import { useLists } from '@/features/lists/hooks/useLists';
 import { useToast } from '@/hooks/useToast';
 import { ListIcon } from '@/features/lists/components/ListIcon';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
+import { logger } from '@/utils/logger';
 
 export const Dashboard: React.FC = () => {
   const { user, logout } = useAuth();
@@ -82,7 +83,7 @@ export const Dashboard: React.FC = () => {
       await deleteList(showDeleteConfirm);
       setShowDeleteConfirm(null);
     } catch (error) {
-      console.error(error);
+      logger.error('Failed to delete list:', error);
     } finally {
       setDeletingListId(null);
     }
