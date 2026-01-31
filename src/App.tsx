@@ -3,7 +3,7 @@ import { AuthProvider } from '@/features/auth/context/AuthContext';
 import { NotificationProvider } from '@/features/notifications/context';
 import { ThemeProvider } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
-import { ThemeLoader } from '@/components/ui/ThemeLoader';
+import { ThemeLoader } from '@/components/Elements/Theme/ThemeLoader';
 import { AppRoutes } from '@/routes';
 
 function App() {

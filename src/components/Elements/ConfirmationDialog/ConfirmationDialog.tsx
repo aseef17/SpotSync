@@ -1,5 +1,5 @@
 import React from 'react';
-import { LoadingButton } from '@/components/ui/LoadingButton';
+import { LoadingButton } from '@/components/Elements/Button/LoadingButton';
 import { themeColors } from '@/styles/colors';
 import { motion, AnimatePresence } from 'framer-motion';
 

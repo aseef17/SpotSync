@@ -2,8 +2,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Users, Mail, UserX, Clock, X } from 'lucide-react';
 import { CollaborationService } from '@/features/lists/api/collaborationService';
 import { themeColors } from '@/styles/colors';
-import { CustomDropdown } from '@/components/ui/CustomDropdown';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { CustomDropdown } from '@/components/Elements/Dropdown/CustomDropdown';
+import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
 import type { PlaceList, Collaborator } from '@/features/lists/types/list';
 import type { Invitation } from '@/features/lists/types/invitation';
 import { logger } from '@/utils/logger';
@@ -36,8 +36,8 @@ export const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({
     isOpen: false,
     title: '',
     message: '',
-    onConfirm: () => { },
-    variant: 'info'
+    onConfirm: () => {},
+    variant: 'info',
   });
 
   const currentUser = list.collaborators.find((c: Collaborator) => c.userId === currentUserId);
@@ -52,7 +52,7 @@ export const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({
 
     // Client-side validation: Check if user already has a pending invitation
     const isEmailInvite = inviteeIdentifier.includes('@');
-    const alreadyPending = pendingInvitations.some(inv =>
+    const alreadyPending = pendingInvitations.some((inv) =>
       isEmailInvite
         ? inv.invitedEmail === inviteeIdentifier.trim()
         : inv.invitedUsername === inviteeIdentifier.trim()
@@ -94,14 +94,14 @@ export const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({
         try {
           await CollaborationService.removeCollaborator(list.id, collaboratorId, currentUserId);
           onUpdate();
-          setConfirmState(prev => ({ ...prev, isOpen: false }));
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to remove collaborator');
-          setConfirmState(prev => ({ ...prev, isOpen: false }));
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
         } finally {
           setLoading(false);
         }
-      }
+      },
     });
   };
 
@@ -145,14 +145,14 @@ export const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({
         try {
           await CollaborationService.cancelInvitation(invitationId);
           loadPendingInvitations();
-          setConfirmState(prev => ({ ...prev, isOpen: false }));
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to cancel invitation');
-          setConfirmState(prev => ({ ...prev, isOpen: false }));
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
         } finally {
           setLoading(false);
         }
-      }
+      },
     });
   };
 
@@ -161,9 +161,7 @@ export const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({
   }, [list.id, loadPendingInvitations]);
 
   return (
-    <div
-      className={`${themeColors.background.card} p-4 sm:p-8`}
-    >
+    <div className={`${themeColors.background.card} p-4 sm:p-8`}>
       <div className="flex items-center gap-2 mb-8">
         <Users className={`h-5 w-5 ${themeColors.text.primary}`} />
         <h3 className={`text-lg font-semibold ${themeColors.text.primary}`}>Collaborators</h3>
@@ -189,7 +187,9 @@ export const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({
                     <span className={`ml-2 text-xs ${themeColors.text.secondary}`}>(You)</span>
                   )}
                 </div>
-                <div className={`text-sm ${themeColors.text.secondary} break-words`}>{collaborator.email}</div>
+                <div className={`text-sm ${themeColors.text.secondary} break-words`}>
+                  {collaborator.email}
+                </div>
               </div>
             </div>
 
@@ -202,7 +202,9 @@ export const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({
                     { value: 'editor', label: 'Editor' },
                     { value: 'viewer', label: 'Viewer' },
                   ]}
-                  onChange={(value) => handleChangeRole(collaborator.userId, value as 'editor' | 'viewer')}
+                  onChange={(value) =>
+                    handleChangeRole(collaborator.userId, value as 'editor' | 'viewer')
+                  }
                   className="w-20"
                 />
               ) : (
@@ -249,7 +251,8 @@ export const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({
                     {invitation.invitedEmail || invitation.invitedUsername}
                   </div>
                   <div className={`text-xs ${themeColors.text.secondary}`}>
-                    {invitation.role === 'editor' ? 'Editor' : 'Viewer'} • Expires {new Date(invitation.expiresAt).toLocaleDateString()}
+                    {invitation.role === 'editor' ? 'Editor' : 'Viewer'} • Expires{' '}
+                    {new Date(invitation.expiresAt).toLocaleDateString()}
                   </div>
                 </div>
                 <button
@@ -278,8 +281,6 @@ export const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({
               {error}
             </div>
           )}
-
-
 
           <form onSubmit={handleSendInvitation} className="space-y-4">
             <div>
@@ -322,7 +323,7 @@ export const CollaboratorManager: React.FC<CollaboratorManagerProps> = ({
         title={confirmState.title}
         message={confirmState.message}
         onConfirm={confirmState.onConfirm}
-        onCancel={() => setConfirmState(prev => ({ ...prev, isOpen: false }))}
+        onCancel={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
         variant={confirmState.variant}
         isLoading={loading}
       />

@@ -1,21 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { LoadingButton } from '@/components/ui/LoadingButton';
-import {
-  Edit3,
-  MapPin,
-  Star,
-  DollarSign,
-  Globe,
-  Calendar,
-  X,
-  Maximize2,
-} from 'lucide-react';
+import { LoadingButton } from '@/components/Elements/Button/LoadingButton';
+import { Edit3, MapPin, Star, DollarSign, Globe, Calendar, X, Maximize2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PlaceService } from '@/features/places/api/placeService';
 import { logger } from '@/utils/logger';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { ImageGalleryModal } from '@/features/places/components/ImageGalleryModal';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import type { Place } from '@/features/places/types/place';
 import { useToast } from '@/hooks/useToast';
@@ -97,7 +88,6 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
     }
   };
 
-
   const formatPriceLevel = (level?: number) => {
     if (!level) return '';
     return '$'.repeat(Math.min(level, 4));
@@ -153,9 +143,9 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                   visible: {
                     opacity: 1,
                     transition: {
-                      staggerChildren: 0.1
-                    }
-                  }
+                      staggerChildren: 0.1,
+                    },
+                  },
                 }}
                 className="p-6 space-y-6"
               >
@@ -163,14 +153,16 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                 <motion.div
                   variants={{
                     hidden: { opacity: 0, y: 10 },
-                    visible: { opacity: 1, y: 0 }
+                    visible: { opacity: 1, y: 0 },
                   }}
                   className="grid grid-cols-1 gap-4"
                 >
                   {/* Google Places Photos */}
                   {place.photoUrls && place.photoUrls.length > 0 && (
                     <div>
-                      <h3 className="text-sm font-medium light-text-secondary mb-2">Place Photos</h3>
+                      <h3 className="text-sm font-medium light-text-secondary mb-2">
+                        Place Photos
+                      </h3>
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 relative">
                         {place.photoUrls.slice(0, 4).map((photoUrl: string, index: number) => {
                           const imageUrl = getImageUrl(photoUrl);
@@ -218,7 +210,7 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                 <motion.div
                   variants={{
                     hidden: { opacity: 0, y: 10 },
-                    visible: { opacity: 1, y: 0 }
+                    visible: { opacity: 1, y: 0 },
                   }}
                   className="grid grid-cols-1 md:grid-cols-2 gap-6"
                 >
@@ -324,10 +316,11 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                       <div className="flex items-center gap-4">
                         {place.businessStatus && (
                           <span
-                            className={`px-2 py-1 rounded text-xs font-bold ${place.businessStatus === 'OPERATIONAL'
-                              ? 'bg-green-100/80 text-black border border-green-200 dark:bg-green-900/40 dark:text-white dark:border-green-800'
-                              : 'bg-red-100/80 text-black border border-red-200 dark:bg-red-900/40 dark:text-white dark:border-red-800'
-                              }`}
+                            className={`px-2 py-1 rounded text-xs font-bold ${
+                              place.businessStatus === 'OPERATIONAL'
+                                ? 'bg-green-100/80 text-black border border-green-200 dark:bg-green-900/40 dark:text-white dark:border-green-800'
+                                : 'bg-red-100/80 text-black border border-red-200 dark:bg-red-900/40 dark:text-white dark:border-red-800'
+                            }`}
                           >
                             {place.businessStatus === 'OPERATIONAL' ? '✓ Open' : '✗ Closed'}
                           </span>
@@ -335,8 +328,9 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                         {place.openNow !== undefined && (
                           <div className="flex items-center gap-2">
                             <div
-                              className={`w-2 h-2 rounded-full ${place.openNow ? 'bg-green-500' : 'bg-red-500'
-                                }`}
+                              className={`w-2 h-2 rounded-full ${
+                                place.openNow ? 'bg-green-500' : 'bg-red-500'
+                              }`}
                             />
                             <span className="text-sm light-text-secondary">
                               {place.openNow ? 'Open now' : 'Closed now'}
@@ -389,7 +383,9 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                         </button>
                         <ul className="text-sm light-text-secondary space-y-0.5">
                           {hoursExpanded ? (
-                            place.openingHours.map((hours: string, index: number) => <li key={index}>{hours}</li>)
+                            place.openingHours.map((hours: string, index: number) => (
+                              <li key={index}>{hours}</li>
+                            ))
                           ) : (
                             <li>{place.openingHours[new Date().getDay()]}</li>
                           )}
@@ -403,7 +399,7 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
                 <motion.div
                   variants={{
                     hidden: { opacity: 0, y: 10 },
-                    visible: { opacity: 1, y: 0 }
+                    visible: { opacity: 1, y: 0 },
                   }}
                 >
                   <div className="flex items-center justify-between mb-2">
@@ -497,7 +493,10 @@ export const PlaceDetailsModal: React.FC<PlaceDetailsModalProps> = ({
       <ImageGalleryModal
         isOpen={showGallery}
         onClose={() => setShowGallery(false)}
-        images={place.photoUrls?.map((url) => getImageUrl(url)).filter((url): url is string => !!url) || []}
+        images={
+          place.photoUrls?.map((url) => getImageUrl(url)).filter((url): url is string => !!url) ||
+          []
+        }
         initialIndex={galleryIndex}
         placeName={place.name}
       />

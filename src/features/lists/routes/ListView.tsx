@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Plus,
@@ -20,7 +20,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { PlaceSearchModal } from '@/features/places/components/PlaceSearchModal';
 import { PlaceStatusSelector } from '@/features/places/components/PlaceStatusSelector';
 import { PlaceDetailsModal } from '@/features/places/components/PlaceDetailsModal';
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
 import { PlaceFilters } from '@/features/places/components/PlaceFilters';
 import type { Place } from '@/features/places/types/place';
 import { themeColors } from '@/styles/colors';
@@ -28,8 +28,8 @@ import { MapView } from '@/features/maps/components/MapView';
 import { CollaboratorManager } from '@/features/lists/components/CollaboratorManager';
 import { CreateListModal } from '@/features/lists/components/CreateListModal';
 import { MobileListView } from '@/features/lists/components/MobileListView';
-import { OptionsMenu } from '@/components/ui/OptionsMenu';
-import { FAB } from '@/components/ui/FAB';
+import { OptionsMenu } from '@/components/Elements/Menu/OptionsMenu';
+import { FAB } from '@/components/Elements/Button/FAB';
 import { useListDetails } from '@/features/lists/hooks/useListDetails';
 import { usePlaceFilters } from '@/features/places/hooks/usePlaceFilters';
 import { useIsMobile } from '@/hooks/useMediaQuery';
@@ -51,53 +51,93 @@ export const ListView: React.FC = () => {
   const [showEditList, setShowEditList] = useState(false);
   const [deletingListId, setDeletingListId] = useState<string | null>(null);
 
-  // Optimized callback - updates single place instead of reloading all
-  const handlePlaceUpdated = useCallback((place?: Place) => {
-    if (place?.id) {
-      updatePlace(place.id);
-      // Update selectedPlace if it's the one that was updated
-      setSelectedPlace(prev => prev?.id === place.id ? { ...prev, ...place } : prev);
-    } else {
-      loadListData().then(() => {
-        // After full reload, try to find the selected place in the new list to update its data
-        setSelectedPlace(prev => {
-          if (!prev) return null;
-          // Note: places is from the outer scope, but after loadListData completes, 
-          // the next render would have the new places. 
-          // For immediate sync, we might need more effort, but updatePlace(id) is better.
-          return prev;
-        });
-      });
-    }
-  }, [updatePlace, loadListData]);
+  // Sync selectedPlace with places array - if a preview place is now in the list, use the saved version
+  useEffect(() => {
+    if (selectedPlace && selectedPlace.isPreview && places.length > 0) {
+      // Normalize IDs for comparison (handle both old format places/ChIJ... and new format ChIJ...)
+      const normalizeId = (id: string | undefined) => id?.replace(/^places\//, '') || '';
+      const selectedId = normalizeId(selectedPlace.googlePlaceId);
 
-  const handleAddExternalPlace = useCallback(async (placeData: Partial<Place>) => {
-    if (!listId || !user) return;
-
-    try {
-      let finalPlaceData: Partial<Place> = { ...placeData };
-
-      // If we only have googlePlaceId, fetch full details first
-      if (placeData.googlePlaceId && (!placeData.address || !placeData.category)) {
-        const fullDetails = await GoogleMapsService.getPlaceDetails(placeData.googlePlaceId);
-        if (fullDetails) {
-          const converted = GoogleMapsService.convertGooglePlaceToPlace(fullDetails, listId);
-          finalPlaceData = { ...converted, ...placeData };
-        }
+      const savedPlace = places.find(
+        (p) => normalizeId(p.googlePlaceId) === selectedId || p.id === selectedPlace.id
+      );
+      if (savedPlace) {
+        // Replace preview with saved version (which doesn't have isPreview)
+        setSelectedPlace(savedPlace);
       }
-
-      const newPlace = {
-        ...finalPlaceData,
-        addedBy: user.id,
-        status: finalPlaceData.status || 'not_visited',
-      } as Omit<Place, 'id' | 'addedAt' | 'updatedAt'>;
-
-      await PlaceService.createPlace(listId, newPlace);
-      await loadListData();
-    } catch (err) {
-      console.error('Failed to add external place:', err);
     }
-  }, [listId, user, loadListData]);
+  }, [places, selectedPlace]);
+
+  // Optimized callback - updates single place instead of reloading all
+  const handlePlaceUpdated = useCallback(
+    (place?: Place) => {
+      if (place?.id) {
+        updatePlace(place.id);
+        // Update selectedPlace if it's the one that was updated
+        setSelectedPlace((prev) => (prev?.id === place.id ? { ...prev, ...place } : prev));
+      } else {
+        loadListData().then(() => {
+          // After full reload, try to find the selected place in the new list to update its data
+          setSelectedPlace((prev) => {
+            if (!prev) return null;
+            // Note: places is from the outer scope, but after loadListData completes,
+            // the next render would have the new places.
+            // For immediate sync, we might need more effort, but updatePlace(id) is better.
+            return prev;
+          });
+        });
+      }
+    },
+    [updatePlace, loadListData]
+  );
+
+  const handleAddExternalPlace = useCallback(
+    async (placeData: Partial<Place>) => {
+      if (!listId || !user) return;
+
+      try {
+        // We need to fetch full details to get all fields that might be missing from the search result
+        const fullDetails = await GoogleMapsService.getPlaceDetails(placeData.googlePlaceId!);
+
+        if (!fullDetails) {
+          throw new Error('Failed to fetch place details');
+        }
+
+        const converted = GoogleMapsService.convertGooglePlaceToPlace(fullDetails, listId!);
+        const finalPlaceData: Partial<Place> = { ...converted, ...placeData };
+
+        // CRITICAL: Strip UI flags and temporary IDs before saving
+        // Otherwise 'isPreview: true' persists to DB and causes UI to show 'Add' button for existing places
+        if ('isPreview' in finalPlaceData) {
+          delete finalPlaceData.isPreview;
+        }
+        if (finalPlaceData.id && finalPlaceData.id.startsWith('temp-')) {
+          delete finalPlaceData.id;
+        }
+
+        const newPlace = {
+          ...finalPlaceData,
+          listId,
+          addedBy: user.id || 'anonymous',
+          status: 'not_visited',
+          addedAt: new Date(),
+          updatedAt: new Date(),
+        } as Omit<Place, 'id'>;
+
+        const newPlaceId = await PlaceService.createPlace(listId, newPlace);
+        await loadListData();
+
+        // Fetch the newly created place and select it to show details (not preview)
+        const savedPlace = await PlaceService.getPlace(newPlaceId);
+        if (savedPlace) {
+          setSelectedPlace(savedPlace);
+        }
+      } catch (err) {
+        console.error('Failed to add external place:', err);
+      }
+    },
+    [listId, user, loadListData]
+  );
 
   const formatPriceLevel = (level?: number) => {
     if (!level) return '';
@@ -323,7 +363,8 @@ export const ListView: React.FC = () => {
                   </span>
                   <span className="flex items-center">
                     <Users className="h-4 w-4 mr-1" />
-                    {list.collaborators.length} {list.collaborators.length === 1 ? 'collaborator' : 'collaborators'}
+                    {list.collaborators.length}{' '}
+                    {list.collaborators.length === 1 ? 'collaborator' : 'collaborators'}
                   </span>
                 </div>
               </div>
@@ -368,7 +409,9 @@ export const ListView: React.FC = () => {
               ...new Set(places.map((p) => p.category).filter((c): c is string => Boolean(c))),
             ]}
             availableCuisines={[
-              ...new Set(places.flatMap((p) => p.cuisines || []).filter((c): c is string => Boolean(c))),
+              ...new Set(
+                places.flatMap((p) => p.cuisines || []).filter((c): c is string => Boolean(c))
+              ),
             ]}
             customStatuses={list.customStatuses}
             totalPlaces={places.length}
@@ -423,9 +466,9 @@ export const ListView: React.FC = () => {
               visible: {
                 opacity: 1,
                 transition: {
-                  staggerChildren: 0.05
-                }
-              }
+                  staggerChildren: 0.05,
+                },
+              },
             }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
@@ -434,7 +477,7 @@ export const ListView: React.FC = () => {
                 key={place.id}
                 variants={{
                   hidden: { opacity: 0, scale: 0.95 },
-                  visible: { opacity: 1, scale: 1 }
+                  visible: { opacity: 1, scale: 1 },
                 }}
                 className={`relative ${themeColors.background.card} rounded-lg shadow-sm border hover:shadow-md transition-shadow cursor-pointer`}
                 onClick={() => {
@@ -498,7 +541,9 @@ export const ListView: React.FC = () => {
                     </div>
                     {place.category && (
                       <div className="flex flex-wrap gap-2">
-                        <span className={`px-3 py-1 rounded-full text-xs font-medium border ${themeColors.border.default} ${themeColors.text.primary}`}>
+                        <span
+                          className={`px-3 py-1 rounded-full text-xs font-medium border ${themeColors.border.default} ${themeColors.text.primary}`}
+                        >
                           {place.category}
                         </span>
                         {place.cuisines?.map((cuisine) => (

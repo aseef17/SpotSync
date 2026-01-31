@@ -82,8 +82,9 @@ export const CustomDropdown: React.FC<CustomDropdownProps> = ({
                 onChange(option.value);
                 setIsOpen(false);
               }}
-              className={`w-full px-3 py-2 text-left ${themeColors.text} ${themeColors.hover} transition-colors first:rounded-t-lg last:rounded-b-lg ${option.value === value ? 'bg-blue-50 dark:bg-blue-900/20' : ''
-                }`}
+              className={`w-full px-3 py-2 text-left ${themeColors.text} ${themeColors.hover} transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                option.value === value ? 'bg-blue-50 dark:bg-blue-900/20' : ''
+              }`}
             >
               {option.label}
             </button>
