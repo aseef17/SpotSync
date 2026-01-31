@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Search,
   X,
@@ -13,7 +13,7 @@ import type { PlaceStatus } from '@/features/places/types/place';
 import type { FilterOptions } from '@/features/places/types/filters';
 import { themeColors } from '@/styles/colors';
 
-import { CustomDropdown } from '@/components/ui/CustomDropdown';
+import { CustomDropdown } from '@/components/Elements/Dropdown/CustomDropdown';
 
 interface PlaceFiltersProps {
   filters: FilterOptions;
@@ -50,11 +50,13 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
 }) => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [localSearchQuery, setLocalSearchQuery] = useState(filters.searchQuery || '');
+  const [prevSearchQuery, setPrevSearchQuery] = useState(filters.searchQuery);
 
-  // Sync local state with props
-  useEffect(() => {
+  // Sync local state with props (Derived State Pattern)
+  if (filters.searchQuery !== prevSearchQuery) {
+    setPrevSearchQuery(filters.searchQuery);
     setLocalSearchQuery(filters.searchQuery || '');
-  }, [filters.searchQuery]);
+  }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -119,18 +121,21 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
         {/* Search */}
         <div className="relative flex gap-2">
           <div className="relative flex-1 group">
-            <Search className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 ${isAiMode ? 'text-purple-500' : 'text-gray-400'}`} />
+            <Search
+              className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 ${isAiMode ? 'text-purple-500' : 'text-gray-400'}`}
+            />
             <input
               type="text"
-              placeholder={isAiMode ? "Ask your list (e.g. Best brunch)..." : "Search places..."}
-              value={isAiMode ? localSearchQuery : (filters.searchQuery || '')}
+              placeholder={isAiMode ? 'Ask your list (e.g. Best brunch)...' : 'Search places...'}
+              value={isAiMode ? localSearchQuery : filters.searchQuery || ''}
               onChange={handleSearchChange}
               onKeyDown={handleKeyDown}
               disabled={isAiLoading}
-              className={`w-full pl-10 pr-10 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 transition-all ${isAiMode
-                ? 'border-purple-300 focus:ring-purple-500 bg-purple-50/50 dark:bg-purple-900/20'
-                : 'light-border-default light-bg-card light-text-primary focus:ring-blue-500'
-                }`}
+              className={`w-full pl-10 pr-10 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 transition-all ${
+                isAiMode
+                  ? 'border-purple-300 focus:ring-purple-500 bg-purple-50/50 dark:bg-purple-900/20'
+                  : 'light-border-default light-bg-card light-text-primary focus:ring-blue-500'
+              }`}
             />
             {isAiMode && (
               <>
@@ -149,15 +154,18 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
             <button
               onClick={() => onAiModeChange(!isAiMode)}
               disabled={isAiLoading}
-              className={`p-2 aspect-square rounded-lg shadow-sm active:scale-95 transition-all ${isAiMode
-                ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white ring-2 ring-purple-200'
-                : 'bg-white dark:bg-gray-800 text-gray-400 border light-border-default hover:text-purple-500'
-                }`}
+              className={`p-2 aspect-square rounded-lg shadow-sm active:scale-95 transition-all ${
+                isAiMode
+                  ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white ring-2 ring-purple-200'
+                  : 'bg-white dark:bg-gray-800 text-gray-400 border light-border-default hover:text-purple-500'
+              }`}
             >
               {isAiLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
-                <Sparkles className={`h-5 w-5 ${!isAiMode && 'group-hover:scale-110 transition-transform'}`} />
+                <Sparkles
+                  className={`h-5 w-5 ${!isAiMode && 'group-hover:scale-110 transition-transform'}`}
+                />
               )}
             </button>
           )}
@@ -187,29 +195,31 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
             </div>
             <button
               onClick={() => setShowMobileFilters(true)}
-              className={`flex items-center justify-center px-3 py-2 border light-border-default rounded-lg transition-colors shrink-0 ${hasActiveFilters
-                ? 'bg-blue-50 text-blue-600 border-blue-200'
-                : 'light-bg-card light-text-secondary hover:bg-blue-50 hover:text-blue-600'
-                }`}
+              className={`flex items-center justify-center px-3 py-2 border light-border-default rounded-lg transition-colors shrink-0 ${
+                hasActiveFilters
+                  ? 'bg-blue-50 text-blue-600 border-blue-200'
+                  : 'light-bg-card light-text-secondary hover:bg-blue-50 hover:text-blue-600'
+              }`}
             >
               <SlidersHorizontal className="h-5 w-5" />
             </button>
           </div>
 
           {/* Direct Cuisine Filter on Mobile */}
-          {filters.category?.toLowerCase().includes('restaurant') && availableCuisines.length > 0 && (
-            <div className="w-full animate-in fade-in slide-in-from-top-1 duration-200">
-              <CustomDropdown
-                value={filters.cuisine || ''}
-                options={[
-                  { value: '', label: 'All Cuisines' },
-                  ...availableCuisines.map((c) => ({ value: c, label: c })),
-                ]}
-                onChange={(value) => updateFilter('cuisine', value || undefined)}
-                placeholder="Any Cuisine"
-              />
-            </div>
-          )}
+          {filters.category?.toLowerCase().includes('restaurant') &&
+            availableCuisines.length > 0 && (
+              <div className="w-full animate-in fade-in slide-in-from-top-1 duration-200">
+                <CustomDropdown
+                  value={filters.cuisine || ''}
+                  options={[
+                    { value: '', label: 'All Cuisines' },
+                    ...availableCuisines.map((c) => ({ value: c, label: c })),
+                  ]}
+                  onChange={(value) => updateFilter('cuisine', value || undefined)}
+                  placeholder="Any Cuisine"
+                />
+              </div>
+            )}
         </div>
 
         {/* Mobile Filter Sheet */}
@@ -274,10 +284,11 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
                             filters.priceLevel === parseInt(price) ? undefined : parseInt(price)
                           )
                         }
-                        className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${filters.priceLevel === parseInt(price)
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : `light-border-default ${themeColors.text.primary} ${themeColors.button.icon}`
-                          }`}
+                        className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                          filters.priceLevel === parseInt(price)
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : `light-border-default ${themeColors.text.primary} ${themeColors.button.icon}`
+                        }`}
                       >
                         {Array(parseInt(price)).fill('$').join('')}
                       </button>
@@ -300,10 +311,11 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
                             filters.minRating === rating ? undefined : rating
                           )
                         }
-                        className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${filters.minRating === rating
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : `light-border-default ${themeColors.text.primary} ${themeColors.button.icon}`
-                          }`}
+                        className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                          filters.minRating === rating
+                            ? 'bg-blue-600 text-white border-blue-600'
+                            : `light-border-default ${themeColors.text.primary} ${themeColors.button.icon}`
+                        }`}
                       >
                         {rating}+
                       </button>
@@ -318,12 +330,14 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
                   </span>
                   <button
                     onClick={() => updateFilter('openNow', !filters.openNow ? true : undefined)}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${filters.openNow ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-                      }`}
+                    className={`w-12 h-6 rounded-full transition-colors relative ${
+                      filters.openNow ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                    }`}
                   >
                     <div
-                      className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${filters.openNow ? 'translate-x-6' : 'translate-x-0'
-                        }`}
+                      className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                        filters.openNow ? 'translate-x-6' : 'translate-x-0'
+                      }`}
                     />
                   </button>
                 </div>
@@ -440,7 +454,6 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
             onChange={(value) => updateFilter('priceLevel', value ? parseInt(value) : undefined)}
             placeholder="Any Price"
           />
-
         </div>
       </div>
 
@@ -453,8 +466,8 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
               <span className="text-blue-600 font-medium">
                 ({Object.keys(filters).filter((key) => filters[key as keyof FilterOptions]).length}{' '}
                 filter
-                {Object.keys(filters).filter((key) => filters[key as keyof FilterOptions]).length ===
-                  1
+                {Object.keys(filters).filter((key) => filters[key as keyof FilterOptions])
+                  .length === 1
                   ? ''
                   : 's'}{' '}
                 applied
@@ -477,20 +490,22 @@ export const PlaceFilters: React.FC<PlaceFiltersProps> = ({
           <div className="flex rounded-lg overflow-hidden border light-border-default">
             <button
               onClick={() => onViewModeChange('list')}
-              className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'list'
-                ? 'bg-blue-600 text-white'
-                : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-                }`}
+              className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === 'list'
+                  ? 'bg-blue-600 text-white'
+                  : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+              }`}
             >
               <ListIcon className="h-4 w-4 mr-2" />
               List
             </button>
             <button
               onClick={() => onViewModeChange('map')}
-              className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'map'
-                ? 'bg-blue-600 text-white'
-                : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-                }`}
+              className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${
+                viewMode === 'map'
+                  ? 'bg-blue-600 text-white'
+                  : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+              }`}
             >
               <MapIcon className="h-4 w-4 mr-2" />
               Map
