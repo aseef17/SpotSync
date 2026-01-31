@@ -474,9 +474,8 @@ export class GoogleMapsService {
     });
   }
 
-  // Note: Google Maps doesn't provide a direct API to access saved places
-  // This would require OAuth 2.0 and Google People API or Google My Business API
-  // For now, we'll provide a way for users to manually add places or search
+  // Google Maps currently lacks a direct API to access saved places without extensive OAuth scopes.
+  // Placeholder for future implementation.
   static async importSavedPlaces(): Promise<LegacyGooglePlace[]> {
     // This is a placeholder for future implementation
     // Would require OAuth consent and Google APIs

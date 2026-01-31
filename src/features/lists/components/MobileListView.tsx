@@ -223,7 +223,7 @@ export const MobileListView: React.FC<MobileListViewProps> = ({
           totalPlaces={places.length}
           filteredCount={effectiveFilteredPlaces.length}
           viewMode="list"
-          onViewModeChange={() => { }}
+          onViewModeChange={() => {}}
           hideViewToggle={true}
           onAiSearch={handleAiSearchSubmit}
           isAiMode={isAiMode}

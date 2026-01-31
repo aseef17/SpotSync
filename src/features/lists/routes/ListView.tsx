@@ -91,7 +91,7 @@ export const ListView: React.FC = () => {
       if (!listId || !user) return;
 
       try {
-        // We need to fetch full details to get all fields that might be missing from the search result
+        // Fetch full details to get all fields that might be missing from the search result
         const fullDetails = await GoogleMapsService.getPlaceDetails(placeData.googlePlaceId!);
 
         if (!fullDetails) {

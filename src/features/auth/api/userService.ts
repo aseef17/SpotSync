@@ -57,7 +57,7 @@ export class UserService {
 
   static async searchUsers(searchTerm: string): Promise<User[]> {
     try {
-      // Note: This is a simple search. For production, consider using Algolia or Firebase Extensions
+      // TODO: Implement full-text search using Algolia or Firebase Extensions
       const users: User[] = [];
       const q = query(collection(db, 'users'));
       const querySnapshot = await getDocs(q);
