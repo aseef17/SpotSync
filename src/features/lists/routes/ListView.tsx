@@ -37,6 +37,7 @@ import { FAB } from '@/components/Elements/Button/FAB';
 import { useListDetails } from '@/features/lists/hooks/useListDetails';
 import { usePlaceFilters } from '@/features/places/hooks/usePlaceFilters';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { useToast } from '@/hooks/useToast';
 
 export const ListView: React.FunctionComponent = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -57,6 +58,10 @@ export const ListView: React.FunctionComponent = () => {
   const [optimisticPlaces, setOptimisticPlaces] = useState<Place[]>([]);
   const [pendingUpdate, setPendingUpdate] = useState<Partial<typeof list>>(null);
   const { trigger: triggerAction } = useDeferredAction();
+  const { toast } = useToast();
+  const [isAiMode, setIsAiMode] = useState(false);
+  const [isAiSearching, setIsAiSearching] = useState(false);
+  const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
 
   const displayedList = React.useMemo(() => {
     if (!list) return null;
@@ -132,6 +137,50 @@ export const ListView: React.FunctionComponent = () => {
 
   const { filters, setFilters, filteredPlaces, viewMode, setViewMode } =
     usePlaceFilters(visiblePlaces);
+
+  // Base set of places for filter calculations (Dropdown options)
+  const aiMatchedPlaces = React.useMemo(() => {
+    if (aiMatchedIds === null) return null;
+    return visiblePlaces.filter((p) => aiMatchedIds.includes(p.id));
+  }, [visiblePlaces, aiMatchedIds]);
+
+  const basePlaces = aiMatchedPlaces || visiblePlaces;
+
+  // Final list to show: Intersection of (Standard Filters) AND (AI Matches)
+  const effectiveFilteredPlaces = React.useMemo(() => {
+    if (aiMatchedIds === null) return filteredPlaces;
+
+    // If AI is active, we want to apply standard filters (like Open Now) ON TOP of AI results
+    return filteredPlaces.filter((p) => aiMatchedIds.includes(p.id));
+  }, [filteredPlaces, aiMatchedIds]);
+
+  const handleAiSearchSubmit = async (query: string) => {
+    if (!query.trim()) return;
+
+    setIsAiSearching(true);
+
+    try {
+      const result = await PlaceService.askList(listId!, query);
+      if (result.placeIds.length > 0) {
+        setAiMatchedIds(result.placeIds);
+        toast.success(`Found ${result.placeIds.length} matches!`);
+      } else {
+        toast.error('No matches found for that query.');
+      }
+    } catch (error) {
+      logger.error('Ai search failed:', error);
+      toast.error('Failed to ask AI.');
+    } finally {
+      setIsAiSearching(false);
+    }
+  };
+
+  const handleAiModeChange = (enabled: boolean) => {
+    setIsAiMode(enabled);
+    if (!enabled) {
+      setAiMatchedIds(null); // Auto-clear filter when exiting AI mode
+    }
+  };
 
   // Sync selectedPlace with places array - if a preview place is now in the list, use the saved version
   useEffect(() => {
@@ -424,9 +473,16 @@ export const ListView: React.FunctionComponent = () => {
   }
 
   return (
-    <div className={`min-h-screen ${themeColors.background.app}`}>
+    <div className={`min-h-screen ${themeColors.background.app} relative`}>
+      {isAiMode && (
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-purple-500/20 blur-[120px] rounded-full mix-blend-multiply dark:mix-blend-screen opacity-50 animate-pulse" />
+          <div className="absolute top-[-100px] right-0 w-[800px] h-[600px] bg-indigo-500/20 blur-[100px] rounded-full mix-blend-multiply dark:mix-blend-screen opacity-50" />
+        </div>
+      )}
+
       <header
-        className={`shadow-sm border-b ${themeColors.background.card} ${themeColors.border.default}`}
+        className={`shadow-sm border-b ${themeColors.background.card} ${themeColors.border.default} relative z-10`}
       >
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 gap-4">
@@ -445,7 +501,9 @@ export const ListView: React.FunctionComponent = () => {
                   className={`flex flex-wrap items-center mt-1 gap-x-4 gap-y-1 text-sm ${themeColors.text.secondary}`}
                 >
                   <span className="flex items-center">
-                    {filteredPlaces.length} of {places.length} places
+                    <span className="flex items-center">
+                      {effectiveFilteredPlaces.length} of {places.length} places
+                    </span>
                   </span>
                   <span className="flex items-center">
                     {displayedList.isPublic ? (
@@ -475,11 +533,6 @@ export const ListView: React.FunctionComponent = () => {
                     onClick: () => setShowEditList(true),
                   },
                   {
-                    label: 'Manage Team',
-                    icon: <Users className="h-5 w-5" />,
-                    onClick: () => setShowCollaborators(true),
-                  },
-                  {
                     label: 'Delete List',
                     icon: <X className="h-5 w-5" />,
                     onClick: () => setDeletingListId(list.id),
@@ -504,25 +557,29 @@ export const ListView: React.FunctionComponent = () => {
             filters={filters}
             onFiltersChange={setFilters}
             availableCategories={[
-              ...new Set(places.map((p) => p.category).filter((c): c is string => Boolean(c))),
+              ...new Set(basePlaces.map((p) => p.category).filter((c): c is string => Boolean(c))),
             ]}
             availableCuisines={[
               ...new Set(
-                places.flatMap((p) => p.cuisines || []).filter((c): c is string => Boolean(c))
+                basePlaces.flatMap((p) => p.cuisines || []).filter((c): c is string => Boolean(c))
               ),
             ]}
             customStatuses={displayedList.customStatuses}
-            totalPlaces={places.length}
-            filteredCount={filteredPlaces.length}
+            totalPlaces={basePlaces.length}
+            filteredCount={effectiveFilteredPlaces.length}
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            onAiSearch={handleAiSearchSubmit}
+            isAiMode={isAiMode}
+            onAiModeChange={handleAiModeChange}
+            isAiLoading={isAiSearching}
           />
         )}
 
         {viewMode === 'map' && places.length > 0 && (
           <div className="mb-6 h-[calc(100vh-280px)]">
             <MapView
-              places={filteredPlaces}
+              places={effectiveFilteredPlaces}
               onPlaceClick={(place) => {
                 setSelectedPlace(place);
                 setShowPlaceDetails(true);
@@ -569,8 +626,12 @@ export const ListView: React.FunctionComponent = () => {
             }}
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
           >
-            {filteredPlaces.map((place) => (
+            {effectiveFilteredPlaces.map((place) => (
               <motion.div
+                layout
+                initial="hidden"
+                animate="visible"
+                exit="hidden"
                 key={place.id}
                 variants={{
                   hidden: { opacity: 0, scale: 0.95 },
@@ -692,13 +753,7 @@ export const ListView: React.FunctionComponent = () => {
               setShowPlaceDetails(false);
               setSelectedPlace(null);
             }}
-            onPlaceRestored={(id) => {
-              setHiddenPlaceIds((prev) => {
-                const next = new Set(prev);
-                next.delete(id);
-                return next;
-              });
-            }}
+            onPlaceRestored={handlePlaceRestored}
           />
         )}
 

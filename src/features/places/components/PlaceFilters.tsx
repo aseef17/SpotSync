@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Search,
   X,
@@ -50,13 +50,13 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
 }) => {
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [localSearchQuery, setLocalSearchQuery] = useState(filters.searchQuery || '');
-  const [prevSearchQuery, setPrevSearchQuery] = useState(filters.searchQuery);
 
-  // Sync local state with props (Derived State Pattern)
-  if (filters.searchQuery !== prevSearchQuery) {
-    setPrevSearchQuery(filters.searchQuery);
+
+  // Sync local state with props using useEffect to avoid render-phase updates
+  // that might be skipped or cause consistency issues
+  useEffect(() => {
     setLocalSearchQuery(filters.searchQuery || '');
-  }
+  }, [filters.searchQuery]);
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -66,7 +66,7 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
     if (!isAiMode) {
       onFiltersChange({
         ...filters,
-        searchQuery: value || undefined,
+        searchQuery: value,
       });
     }
   };
@@ -130,11 +130,10 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
               onChange={handleSearchChange}
               onKeyDown={handleKeyDown}
               disabled={isAiLoading}
-              className={`w-full pl-10 pr-10 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 transition-all ${
-                isAiMode
-                  ? 'border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.4),inset_0_0_0_1px_rgba(255,255,255,0.1)] focus:ring-0 bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl text-purple-900 dark:text-purple-100 placeholder:text-purple-400'
-                  : 'light-border-default light-bg-card light-text-primary focus:ring-blue-500'
-              }`}
+              className={`w-full pl-10 pr-10 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 transition-all ${isAiMode
+                ? 'border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.4),inset_0_0_0_1px_rgba(255,255,255,0.1)] focus:ring-0 bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl text-purple-900 dark:text-purple-100 placeholder:text-purple-400'
+                : 'light-border-default light-bg-card light-text-primary focus:ring-blue-500'
+                }`}
             />
             {isAiMode && (
               <>
@@ -153,11 +152,10 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
             <button
               onClick={() => onAiModeChange(!isAiMode)}
               disabled={isAiLoading}
-              className={`p-2 aspect-square rounded-lg shadow-sm active:scale-95 transition-all ${
-                isAiMode
-                  ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white ring-2 ring-purple-200'
-                  : 'bg-white dark:bg-gray-800 text-gray-400 border light-border-default hover:text-purple-500'
-              }`}
+              className={`p-2 aspect-square rounded-lg shadow-sm active:scale-95 transition-all ${isAiMode
+                ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white ring-2 ring-purple-200'
+                : 'bg-white dark:bg-gray-800 text-gray-400 border light-border-default hover:text-purple-500'
+                }`}
             >
               {isAiLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -193,11 +191,10 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
             </div>
             <button
               onClick={() => setShowMobileFilters(true)}
-              className={`flex items-center justify-center px-3 py-2 border light-border-default rounded-lg transition-colors shrink-0 ${
-                hasActiveFilters
-                  ? 'bg-blue-50 text-blue-600 border-blue-200'
-                  : 'light-bg-card light-text-secondary hover:bg-blue-50 hover:text-blue-600'
-              }`}
+              className={`flex items-center justify-center px-3 py-2 border light-border-default rounded-lg transition-colors shrink-0 ${hasActiveFilters
+                ? 'bg-blue-50 text-blue-600 border-blue-200'
+                : 'light-bg-card light-text-secondary hover:bg-blue-50 hover:text-blue-600'
+                }`}
             >
               <SlidersHorizontal className="h-5 w-5" />
             </button>
@@ -275,11 +272,10 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
                             filters.priceLevel === parseInt(price) ? undefined : parseInt(price)
                           )
                         }
-                        className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                          filters.priceLevel === parseInt(price)
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : `light-border-default ${themeColors.text.primary} ${themeColors.button.icon}`
-                        }`}
+                        className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${filters.priceLevel === parseInt(price)
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : `light-border-default ${themeColors.text.primary} ${themeColors.button.icon}`
+                          }`}
                       >
                         {Array(parseInt(price)).fill('$').join('')}
                       </button>
@@ -301,11 +297,10 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
                             filters.minRating === rating ? undefined : rating
                           )
                         }
-                        className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                          filters.minRating === rating
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : `light-border-default ${themeColors.text.primary} ${themeColors.button.icon}`
-                        }`}
+                        className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${filters.minRating === rating
+                          ? 'bg-blue-600 text-white border-blue-600'
+                          : `light-border-default ${themeColors.text.primary} ${themeColors.button.icon}`
+                          }`}
                       >
                         {rating}+
                       </button>
@@ -319,14 +314,12 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
                   </span>
                   <button
                     onClick={() => updateFilter('openNow', !filters.openNow ? true : undefined)}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${
-                      filters.openNow ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-                    }`}
+                    className={`w-12 h-6 rounded-full transition-colors relative ${filters.openNow ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
+                      }`}
                   >
                     <div
-                      className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                        filters.openNow ? 'translate-x-6' : 'translate-x-0'
-                      }`}
+                      className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${filters.openNow ? 'translate-x-6' : 'translate-x-0'
+                        }`}
                     />
                   </button>
                 </div>
@@ -352,17 +345,55 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
       </div>
 
       <div className="hidden lg:flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="flex-1 max-w-md">
-          <div className="relative">
-            <Search className={`absolute left-3 top-3 h-4 w-4 ${themeColors.text.secondary}`} />
+        <div className="flex-1 max-w-md flex gap-2">
+          <div className="relative flex-1 group">
+            <Search
+              className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 z-10 ${isAiMode ? 'text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]' : 'theme-text-secondary'
+                }`}
+            />
             <input
               type="text"
-              placeholder="Search places..."
-              value={filters.searchQuery || ''}
-              onChange={(e) => updateFilter('searchQuery', e.target.value || undefined)}
-              className="w-full pl-9 pr-4 py-2 border light-border-default light-bg-card light-text-primary rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+              placeholder={isAiMode ? 'Ask your list (e.g. Best brunch)...' : 'Search places...'}
+              value={isAiMode ? localSearchQuery : filters.searchQuery || ''}
+              onChange={handleSearchChange}
+              onKeyDown={handleKeyDown}
+              disabled={isAiLoading}
+              className={`w-full pl-10 pr-10 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 transition-all ${isAiMode
+                ? 'border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.4),inset_0_0_0_1px_rgba(255,255,255,0.1)] focus:ring-0 bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl text-purple-900 dark:text-purple-100 placeholder:text-purple-400'
+                : 'light-border-default light-bg-card light-text-primary focus:ring-blue-500'
+                }`}
             />
+            {isAiMode && (
+              <>
+                <div className="absolute right-0 top-0 bottom-0 pointer-events-none rounded-md bg-gradient-to-r from-purple-500/10 to-pink-500/10 opacity-0 group-focus-within:opacity-100 transition-opacity" />
+                <button
+                  onClick={() => onAiSearch && onAiSearch(localSearchQuery)}
+                  className="absolute right-2 top-1/2 transform -translate-y-1/2 p-1.5 rounded-md hover:bg-purple-100 dark:hover:bg-purple-800 text-purple-500 transition-colors"
+                  disabled={isAiLoading}
+                >
+                  <Send className="h-4 w-4" />
+                </button>
+              </>
+            )}
           </div>
+          {onAiModeChange && (
+            <button
+              onClick={() => onAiModeChange(!isAiMode)}
+              disabled={isAiLoading}
+              className={`p-2 aspect-square rounded-lg shadow-sm active:scale-95 transition-all ${isAiMode
+                ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white ring-2 ring-purple-200'
+                : 'bg-white dark:bg-gray-800 text-gray-400 border light-border-default hover:text-purple-500'
+                }`}
+            >
+              {isAiLoading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Sparkles
+                  className={`h-5 w-5 ${!isAiMode && 'group-hover:scale-110 transition-transform'}`}
+                />
+              )}
+            </button>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">
@@ -470,22 +501,20 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
           <div className="flex rounded-lg overflow-hidden border light-border-default">
             <button
               onClick={() => onViewModeChange('list')}
-              className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${
-                viewMode === 'list'
-                  ? 'bg-blue-600 text-white'
-                  : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-              }`}
+              className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'list'
+                ? 'bg-blue-600 text-white'
+                : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                }`}
             >
               <ListIcon className="h-4 w-4 mr-2" />
               List
             </button>
             <button
               onClick={() => onViewModeChange('map')}
-              className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${
-                viewMode === 'map'
-                  ? 'bg-blue-600 text-white'
-                  : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-              }`}
+              className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'map'
+                ? 'bg-blue-600 text-white'
+                : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                }`}
             >
               <MapIcon className="h-4 w-4 mr-2" />
               Map

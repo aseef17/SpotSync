@@ -239,11 +239,10 @@ const MapLayersControl: React.FunctionComponent<{ onOpenChange?: (isOpen: boolea
                     <button
                       key={type.id}
                       onClick={() => setMapType(type.id)}
-                      className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                        mapType === type.id
+                      className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${mapType === type.id
                           ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
                           : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                      }`}
+                        }`}
                     >
                       <type.icon className="h-8 w-8" />
                       <span className="text-sm font-medium">{type.label}</span>
@@ -263,11 +262,10 @@ const MapLayersControl: React.FunctionComponent<{ onOpenChange?: (isOpen: boolea
                       <button
                         key={layer.id}
                         onClick={() => toggleLayer(layer.id)}
-                        className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
-                          activeLayers.has(layer.id)
+                        className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${activeLayers.has(layer.id)
                             ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
                             : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                        }`}
+                          }`}
                       >
                         <layer.icon className="h-8 w-8" />
                         <span className="text-sm font-medium">{layer.label}</span>
@@ -284,14 +282,13 @@ const MapLayersControl: React.FunctionComponent<{ onOpenChange?: (isOpen: boolea
   );
 };
 
-export const MapView: React.FunctionComponent<MapViewProps> = ({
+// Internal component that uses map context
+const MapContent: React.FunctionComponent<MapViewProps> = ({
   places,
   onPlaceClick,
   markerIcon,
   markerColor,
   markerSize,
-  className = '',
-  style = {},
   highlightedPlaceId,
   previewPlace,
   onLayerMenuOpen,
@@ -354,6 +351,173 @@ export const MapView: React.FunctionComponent<MapViewProps> = ({
     };
   }, [places]);
 
+  return (
+    <Map
+      defaultCenter={center}
+      defaultZoom={places.length > 0 ? 12 : 10}
+      mapId="DEMO_MAP_ID"
+      style={{ width: '100%', height: '100%' }}
+      gestureHandling={'greedy'}
+      disableDefaultUI={true}
+      zoomControl={false}
+      streetViewControl={false}
+      mapTypeControl={false}
+      fullscreenControl={false}
+      onZoomChanged={(ev) => setZoom(ev.detail.zoom)}
+      colorScheme={theme === 'dark' ? 'DARK' : 'LIGHT'}
+      onClick={() => setSelectedPoi(null)}
+    >
+      {selectedPoi && (
+        <InfoWindow
+          position={selectedPoi.location}
+          onCloseClick={() => setSelectedPoi(null)}
+          headerDisabled={true}
+        >
+          <div className="p-1 min-w-[200px]">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="font-bold text-sm text-gray-900 dark:text-white pr-6">
+                {selectedPoi.name}
+              </h3>
+            </div>
+
+            <div className="flex flex-col gap-2 mt-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onAddExternalPlace) {
+                    onAddExternalPlace({
+                      googlePlaceId: selectedPoi.placeId,
+                      name: selectedPoi.name,
+                      location: {
+                        lat: selectedPoi.location.lat(),
+                        lng: selectedPoi.location.lng(),
+                      },
+                      status: 'not_visited',
+                    });
+                  }
+                  setSelectedPoi(null);
+                }}
+                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-colors shadow-sm"
+              >
+                <Icons.Plus className="h-3 w-3" />
+                Add to List
+              </button>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedPoi.name)}&query_place_id=${selectedPoi.placeId}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 px-3 py-1.5 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-md text-xs font-medium transition-colors"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Icons.ExternalLink className="h-3 w-3" />
+                View on Maps
+              </a>
+            </div>
+          </div>
+        </InfoWindow>
+      )}
+      {places.map((place) => {
+        const coords = getPlaceCoords(place);
+        if (!coords) return null;
+
+        const isHighlighted = place.id === highlightedPlaceId;
+        let size = markerSize || 36;
+        if (isHighlighted) size = 48;
+
+        const iconSizeNum = Math.round(size * 0.5);
+        const isAutoIcon = !markerIcon || markerIcon === 'AUTO' || markerIcon === 'MapPin';
+        const isAutoColor = !markerColor || markerColor === 'AUTO';
+
+        const iconName =
+          isAutoIcon && place.category
+            ? getIconForCategory(place.category)
+            : markerIcon !== 'AUTO'
+              ? markerIcon
+              : 'MapPin';
+
+        const colorName = isHighlighted
+          ? 'Red'
+          : isAutoColor && place.category
+            ? getCategoryColor(place.category)
+            : markerColor !== 'AUTO'
+              ? markerColor
+              : 'Blue';
+
+        const PlaceIcon = (Icons[iconName as keyof typeof Icons] ||
+          Icons.MapPin) as React.ElementType;
+        const placeColorObj = getColorByName(colorName || 'Blue');
+
+        return (
+          <AdvancedMarker
+            key={place.id}
+            position={coords}
+            onClick={() => onPlaceClick(place)}
+            collisionBehavior="OPTIONAL_AND_HIDES_LOWER_PRIORITY"
+            style={{ overflow: 'visible' }}
+            zIndex={isHighlighted ? 999 : undefined}
+          >
+            <div className="relative flex flex-col items-center group">
+              <div
+                className={`rounded-full flex items-center justify-center shadow-md border-2 ${themeColors.map.markerBorder} ${placeColorObj.bg} text-white transition-transform ${isHighlighted ? 'scale-110 ring-4 ring-white ring-opacity-50' : 'group-hover:scale-110'}`}
+                style={{ width: size, height: size }}
+              >
+                <PlaceIcon size={iconSizeNum} strokeWidth={2.5} />
+              </div>
+
+              {(zoom >= 14 || isHighlighted) && (
+                <div
+                  className={`absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded shadow text-xs font-medium whitespace-nowrap pointer-events-none z-50 ${themeColors.map.label} ${isHighlighted ? 'font-bold text-sm' : ''}`}
+                >
+                  {place.name}
+                </div>
+              )}
+            </div>
+          </AdvancedMarker>
+        );
+      })}
+
+      {/* Preview marker for search results not yet added to list */}
+      {previewPlace &&
+        (() => {
+          const coords = getPlaceCoords(previewPlace);
+          if (!coords) return null;
+          return (
+            <AdvancedMarker
+              key={`preview-${previewPlace.id}`}
+              position={coords}
+              onClick={() => onPlaceClick(previewPlace)}
+              style={{ overflow: 'visible' }}
+              zIndex={1000}
+            >
+              <div className="relative flex flex-col items-center animate-bounce">
+                <div
+                  className="rounded-full flex items-center justify-center shadow-lg border-2 border-white bg-blue-600 text-white"
+                  style={{ width: 48, height: 48 }}
+                >
+                  <Icons.MapPin size={24} strokeWidth={2.5} />
+                </div>
+                <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded shadow text-xs font-bold whitespace-nowrap pointer-events-none z-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+                  {previewPlace.name}
+                </div>
+              </div>
+            </AdvancedMarker>
+          );
+        })()}
+
+      <MapBoundsFitter
+        places={places}
+        highlightedPlaceId={highlightedPlaceId}
+        previewPlace={previewPlace}
+      />
+      <LocationButton />
+      <MapLayersControl onOpenChange={onLayerMenuOpen} />
+    </Map>
+  );
+};
+
+export const MapView: React.FunctionComponent<MapViewProps> = (props) => {
+  const { className = '', style = {} } = props;
+
   if (!GOOGLE_MAPS_API_KEY) {
     return (
       <div className="flex items-center justify-center h-96 text-center p-4">
@@ -365,166 +529,7 @@ export const MapView: React.FunctionComponent<MapViewProps> = ({
   return (
     <div className={`w-full h-full ${className}`} style={style}>
       <APIProvider apiKey={GOOGLE_MAPS_API_KEY}>
-        <Map
-          defaultCenter={center}
-          defaultZoom={places.length > 0 ? 12 : 10}
-          mapId="DEMO_MAP_ID"
-          style={{ width: '100%', height: '100%' }}
-          gestureHandling={'greedy'}
-          disableDefaultUI={true}
-          zoomControl={false}
-          streetViewControl={false}
-          mapTypeControl={false}
-          fullscreenControl={false}
-          onZoomChanged={(ev) => setZoom(ev.detail.zoom)}
-          colorScheme={theme === 'dark' ? 'DARK' : 'LIGHT'}
-          onClick={() => setSelectedPoi(null)}
-        >
-          {selectedPoi && (
-            <InfoWindow
-              position={selectedPoi.location}
-              onCloseClick={() => setSelectedPoi(null)}
-              headerDisabled={true}
-            >
-              <div className="p-1 min-w-[200px]">
-                <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-bold text-sm text-gray-900 dark:text-white pr-6">
-                    {selectedPoi.name}
-                  </h3>
-                </div>
-
-                <div className="flex flex-col gap-2 mt-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (onAddExternalPlace) {
-                        onAddExternalPlace({
-                          googlePlaceId: selectedPoi.placeId,
-                          name: selectedPoi.name,
-                          location: {
-                            lat: selectedPoi.location.lat(),
-                            lng: selectedPoi.location.lng(),
-                          },
-                          status: 'not_visited',
-                        });
-                      }
-                      setSelectedPoi(null);
-                    }}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-colors shadow-sm"
-                  >
-                    <Icons.Plus className="h-3 w-3" />
-                    Add to List
-                  </button>
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedPoi.name)}&query_place_id=${selectedPoi.placeId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-full flex items-center justify-center gap-2 px-3 py-1.5 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-md text-xs font-medium transition-colors"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <Icons.ExternalLink className="h-3 w-3" />
-                    View on Maps
-                  </a>
-                </div>
-              </div>
-            </InfoWindow>
-          )}
-          {places.map((place) => {
-            const coords = getPlaceCoords(place);
-            if (!coords) return null;
-
-            const isHighlighted = place.id === highlightedPlaceId;
-            let size = markerSize || 36;
-            if (isHighlighted) size = 48;
-
-            const iconSizeNum = Math.round(size * 0.5);
-            const isAutoIcon = !markerIcon || markerIcon === 'AUTO' || markerIcon === 'MapPin';
-            const isAutoColor = !markerColor || markerColor === 'AUTO';
-
-            const iconName =
-              isAutoIcon && place.category
-                ? getIconForCategory(place.category)
-                : markerIcon !== 'AUTO'
-                  ? markerIcon
-                  : 'MapPin';
-
-            const colorName = isHighlighted
-              ? 'Red'
-              : isAutoColor && place.category
-                ? getCategoryColor(place.category)
-                : markerColor !== 'AUTO'
-                  ? markerColor
-                  : 'Blue';
-
-            const PlaceIcon = (Icons[iconName as keyof typeof Icons] ||
-              Icons.MapPin) as React.ElementType;
-            const placeColorObj = getColorByName(colorName || 'Blue');
-
-            return (
-              <AdvancedMarker
-                key={place.id}
-                position={coords}
-                onClick={() => onPlaceClick(place)}
-                collisionBehavior="OPTIONAL_AND_HIDES_LOWER_PRIORITY"
-                style={{ overflow: 'visible' }}
-                zIndex={isHighlighted ? 999 : undefined}
-              >
-                <div className="relative flex flex-col items-center group">
-                  <div
-                    className={`rounded-full flex items-center justify-center shadow-md border-2 ${themeColors.map.markerBorder} ${placeColorObj.bg} text-white transition-transform ${isHighlighted ? 'scale-110 ring-4 ring-white ring-opacity-50' : 'group-hover:scale-110'}`}
-                    style={{ width: size, height: size }}
-                  >
-                    <PlaceIcon size={iconSizeNum} strokeWidth={2.5} />
-                  </div>
-
-                  {(zoom >= 14 || isHighlighted) && (
-                    <div
-                      className={`absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded shadow text-xs font-medium whitespace-nowrap pointer-events-none z-50 ${themeColors.map.label} ${isHighlighted ? 'font-bold text-sm' : ''}`}
-                    >
-                      {place.name}
-                    </div>
-                  )}
-                </div>
-              </AdvancedMarker>
-            );
-          })}
-
-          {/* Preview marker for search results not yet added to list */}
-          {previewPlace &&
-            (() => {
-              const coords = getPlaceCoords(previewPlace);
-              if (!coords) return null;
-              return (
-                <AdvancedMarker
-                  key={`preview-${previewPlace.id}`}
-                  position={coords}
-                  onClick={() => onPlaceClick(previewPlace)}
-                  style={{ overflow: 'visible' }}
-                  zIndex={1000}
-                >
-                  <div className="relative flex flex-col items-center animate-bounce">
-                    <div
-                      className="rounded-full flex items-center justify-center shadow-lg border-2 border-white bg-blue-600 text-white"
-                      style={{ width: 48, height: 48 }}
-                    >
-                      <Icons.MapPin size={24} strokeWidth={2.5} />
-                    </div>
-                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded shadow text-xs font-bold whitespace-nowrap pointer-events-none z-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
-                      {previewPlace.name}
-                    </div>
-                  </div>
-                </AdvancedMarker>
-              );
-            })()}
-
-          <MapBoundsFitter
-            places={places}
-            highlightedPlaceId={highlightedPlaceId}
-            previewPlace={previewPlace}
-          />
-          <LocationButton />
-          <MapLayersControl onOpenChange={onLayerMenuOpen} />
-        </Map>
+        <MapContent {...props} />
       </APIProvider>
     </div>
   );
