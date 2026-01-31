@@ -13,10 +13,22 @@
   -moz-osx-font-smoothing: grayscale;
 }
 
+html {
+  height: 100%;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
 body {
   margin: 0;
   min-width: 320px;
-  min-height: 100vh;
+  height: 100%;
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  overscroll-behavior: none; /* Prevent pull-to-refresh and overscroll */
+  -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
 }
 
 /* Light theme (default) */
