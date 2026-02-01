@@ -3,7 +3,7 @@ import { logger } from '@/utils/logger';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { NotificationService } from '@/features/notifications/api/notificationService';
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, doc } from 'firebase/firestore';
+import { onSnapshot, doc } from 'firebase/firestore';
 import { useToastContext } from '@/hooks/useToastContext';
 import { NotificationContext } from './NotificationContext';
 
@@ -100,35 +100,6 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
       };
     }
   }, [permissionGranted, addToast]);
-
-  // Real-time Invitation Listener
-  useEffect(() => {
-    if (!user?.email) return;
-
-    const q = query(
-      collection(db, 'invitations'),
-      where('invitedEmail', '==', user.email),
-      where('status', '==', 'pending')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      snapshot.docChanges().forEach((change) => {
-        if (change.type === 'added') {
-          const data = change.doc.data();
-          const title = 'New Invitation';
-          const body = `${data.invitedByUsername || 'Someone'} invited you to join "${data.listName || 'a list'}"`;
-
-          if (Notification.permission === 'granted') {
-            new Notification(title, { body, icon: '/icon-192x192.png' });
-          } else {
-            logger.debug('New Invitation:', body);
-          }
-        }
-      });
-    });
-
-    return () => unsubscribe();
-  }, [user?.email]);
 
   return (
     <NotificationContext.Provider

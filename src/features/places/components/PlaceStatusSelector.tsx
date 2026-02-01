@@ -3,6 +3,7 @@ import { logger } from '@/utils/logger';
 import { CheckCircle, XCircle, Circle, Edit3, Plus } from 'lucide-react';
 import { PlaceService } from '@/features/places/api/placeService';
 import type { Place, PlaceStatus } from '@/features/places/types/place';
+import { useAuth } from '@/features/auth/context/AuthContext';
 
 interface PlaceStatusSelectorProps {
   place: Place;
@@ -17,6 +18,7 @@ export const PlaceStatusSelector: React.FunctionComponent<PlaceStatusSelectorPro
   onStatusChanged,
   compact = false,
 }) => {
+  const { user } = useAuth();
   const [isOpen, setIsOpen] = useState(false);
   const [isChanging, setIsChanging] = useState(false);
   const [showCustomInput, setShowCustomInput] = useState(false);
@@ -82,7 +84,7 @@ export const PlaceStatusSelector: React.FunctionComponent<PlaceStatusSelectorPro
     setIsChanging(true);
     setIsOpen(false);
     try {
-      await PlaceService.updatePlaceStatus(place.id, newStatus, customValue);
+      await PlaceService.updatePlaceStatus(place.id, newStatus, user?.id, customValue);
       onStatusChanged();
     } catch (error) {
       logger.error('Failed to update place status:', error);
