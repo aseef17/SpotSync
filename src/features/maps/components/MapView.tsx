@@ -32,6 +32,7 @@ const defaultCenter = {
 };
 
 const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '';
+const GOOGLE_MAPS_MAP_ID = import.meta.env.VITE_GOOGLE_MAPS_MAP_ID || 'DEMO_MAP_ID';
 
 const getPlaceCoords = (place: Place): { lat: number; lng: number } | null => {
   const lat = Number(place.lat ?? place.location?.lat);
@@ -340,6 +341,29 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
   } | null>(null);
 
   const map = useMap();
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+
+  // Real-time location tracking
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const newPos = {
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        };
+        setUserLocation(newPos);
+        onUserLocationUpdate?.(newPos);
+      },
+      (error) => {
+        logger.warn('User location tracking error:', error);
+      },
+      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [onUserLocationUpdate]);
 
   useEffect(() => {
     if (!map) return;
@@ -392,7 +416,7 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
     <Map
       defaultCenter={center}
       defaultZoom={places.length > 0 ? 12 : 10}
-      mapId="DEMO_MAP_ID"
+      mapId={GOOGLE_MAPS_MAP_ID}
       style={{ width: '100%', height: '100%' }}
       gestureHandling={'greedy'}
       disableDefaultUI={true}
@@ -403,6 +427,7 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
       onZoomChanged={(ev) => setZoom(ev.detail.zoom)}
       colorScheme={theme === 'dark' ? 'DARK' : 'LIGHT'}
       onClick={() => setSelectedPoi(null)}
+      clickableIcons={false}
     >
       {selectedPoi && (
         <InfoWindow
@@ -539,6 +564,24 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
             </AdvancedMarker>
           );
         })()}
+
+      {userLocation && (
+        <AdvancedMarker
+          key="user-location"
+          position={userLocation}
+          collisionBehavior="OPTIONAL_AND_HIDES_LOWER_PRIORITY"
+          zIndex={100}
+        >
+          <div className="relative flex items-center justify-center">
+            {/* Pulsing outer ring */}
+            <div className="absolute w-8 h-8 bg-blue-500 rounded-full animate-ping opacity-25" />
+            {/* Main blue dot */}
+            <div className="w-5 h-5 bg-white rounded-full flex items-center justify-center shadow-lg border-2 border-white">
+              <div className="w-4 h-4 bg-blue-500 rounded-full border border-white" />
+            </div>
+          </div>
+        </AdvancedMarker>
+      )}
 
       <MapBoundsFitter
         places={places}

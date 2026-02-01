@@ -239,7 +239,9 @@ exports.onInvitationAccepted = onDocumentUpdated(
     const inviterData = inviterDoc.data();
 
     if (inviterData.notificationsDisabled === true) {
-      console.log(`[Notification Warning] Inviter ${invitedBy} has notifications globally disabled.`);
+      console.log(
+        `[Notification Warning] Inviter ${invitedBy} has notifications globally disabled.`
+      );
       return;
     }
 

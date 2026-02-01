@@ -108,6 +108,16 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
     return () => el.removeEventListener('scroll', handleScroll);
   }, [isFiltersCollapsed]);
 
+  // Reset scroll to top when a place is selected (opening details)
+  useEffect(() => {
+    if (selectedPlace) {
+      const el = document.getElementById('mobile-bottom-sheet-scrollable');
+      if (el) {
+        el.scrollTop = 0;
+      }
+    }
+  }, [selectedPlace]);
+
   const saveListScroll = useCallback(() => {
     const el = document.getElementById('mobile-bottom-sheet-scrollable');
     if (el) setListScrollPos(el.scrollTop);
@@ -213,7 +223,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   };
 
   const listHeader = (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-start justify-between">
         <Link to="/" className={`p-2 -ml-2 rounded-md ${themeColors.text.secondary}`}>
           <ArrowLeft className="h-5 w-5" />
@@ -338,11 +348,10 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   );
 
   const listContent = (
-    <div className="space-y-4">
-      <ScrollRestorer scrollPos={listScrollPos} />
+    <div className="space-y-3">
       <ScrollRestorer scrollPos={listScrollPos} />
 
-      <div className="space-y-3 pb-20">
+      <div className="space-y-1 pb-20">
         {effectiveFilteredPlaces.length === 0 ? (
           <div className="text-center py-12">
             <p className={themeColors.text.secondary}>

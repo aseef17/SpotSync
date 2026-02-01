@@ -34,7 +34,7 @@ export const MobilePlaceCard: React.FunctionComponent<MobilePlaceCardProps> = ({
   return (
     <div
       onClick={onClick}
-      className={`${themeColors.background.card} mb-4 pb-4 border-b ${themeColors.border.default} last:border-0 cursor-pointer`}
+      className={`${themeColors.background.card} mb-3 pb-3 border-b ${themeColors.border.default} last:border-0 cursor-pointer`}
     >
       <div className="flex justify-between items-start mb-1">
         <div className="flex-1 min-w-0 mr-2 flex items-center gap-2">
@@ -63,7 +63,7 @@ export const MobilePlaceCard: React.FunctionComponent<MobilePlaceCardProps> = ({
       </div>
 
       <div
-        className={`flex flex-wrap items-center gap-1.5 text-sm ${themeColors.text.secondary} mb-2 line-clamp-2`}
+        className={`flex flex-wrap items-center gap-1.5 text-sm ${themeColors.text.secondary} mb-1 line-clamp-2`}
       >
         <span className="flex items-center text-orange-500 font-medium whitespace-nowrap">
           {place.rating || 'New'}
@@ -112,7 +112,7 @@ export const MobilePlaceCard: React.FunctionComponent<MobilePlaceCardProps> = ({
 
       {/* Cuisine Chips */}
       {place.cuisines && place.cuisines.length > 0 && (
-        <div className="flex flex-wrap gap-1 mb-2">
+        <div className="flex flex-wrap gap-1 mb-1">
           {place.cuisines.map((cuisine) => (
             <span
               key={cuisine}
@@ -125,11 +125,11 @@ export const MobilePlaceCard: React.FunctionComponent<MobilePlaceCardProps> = ({
       )}
 
       {photos.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide mb-3 justify-start">
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide mb-2 justify-start">
           {photos.slice(0, 5).map((photo: string, i: number) => (
             <div
               key={i}
-              className="flex-shrink-0 w-28 h-28 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800"
+              className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800"
             >
               <img
                 src={GoogleMapsService.getPhotoUrl(photo, 300, 300)}
@@ -143,10 +143,10 @@ export const MobilePlaceCard: React.FunctionComponent<MobilePlaceCardProps> = ({
       )}
 
       {place.notes && (
-        <p className={`text-sm ${themeColors.text.primary} mb-2 line-clamp-2`}>{place.notes}</p>
+        <p className={`text-sm ${themeColors.text.primary} mb-1 line-clamp-2`}>{place.notes}</p>
       )}
 
-      <p className={`text-xs ${themeColors.text.secondary} mb-3`}>
+      <p className={`text-xs ${themeColors.text.secondary} mb-1`}>
         {getPlaceAttribution(place, list)}
       </p>
     </div>
