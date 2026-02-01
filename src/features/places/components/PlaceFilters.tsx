@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Search,
   MapPin as MapIcon,
@@ -64,10 +64,12 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
 
   const [localSearchQuery, setLocalSearchQuery] = useState(filters.searchQuery || '');
 
-  // Sync local search query with filters
-  useEffect(() => {
+  const [prevSearchQuery, setPrevSearchQuery] = useState(filters.searchQuery);
+
+  if (filters.searchQuery !== prevSearchQuery) {
     setLocalSearchQuery(filters.searchQuery || '');
-  }, [filters.searchQuery]);
+    setPrevSearchQuery(filters.searchQuery);
+  }
 
   const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
@@ -124,8 +126,9 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
 
   return (
     <div
-      className={`${themeColors.background.card} border-b ${themeColors.border.default} ${isInSidebar ? 'px-2 py-3' : 'px-4 py-4'
-        }`}
+      className={`${themeColors.background.card} border-b ${themeColors.border.default} ${
+        isInSidebar ? 'px-2 py-3' : 'px-4 py-4'
+      }`}
     >
       <div className="lg:hidden mb-4 space-y-3">
         <div className="relative flex gap-2">
@@ -140,10 +143,11 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
               onChange={handleSearchChange}
               onKeyDown={handleKeyDown}
               disabled={isAiLoading}
-              className={`w-full pl-10 pr-10 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 transition-all ${isAiMode
-                ? 'border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.4),inset_0_0_0_1px_rgba(255,255,255,0.1)] focus:ring-0 bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl text-purple-900 dark:text-purple-100 placeholder:text-purple-400'
-                : 'light-border-default light-bg-card light-text-primary focus:ring-blue-500'
-                }`}
+              className={`w-full pl-10 pr-10 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 transition-all ${
+                isAiMode
+                  ? 'border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.4),inset_0_0_0_1px_rgba(255,255,255,0.1)] focus:ring-0 bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl text-purple-900 dark:text-purple-100 placeholder:text-purple-400'
+                  : 'light-border-default light-bg-card light-text-primary focus:ring-blue-500'
+              }`}
             />
             {isAiMode && (
               <>
@@ -162,10 +166,11 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
             <button
               onClick={() => onAiModeChange(!isAiMode)}
               disabled={isAiLoading}
-              className={`p-2 aspect-square rounded-lg shadow-sm active:scale-95 transition-all ${isAiMode
-                ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white ring-2 ring-purple-200'
-                : 'bg-white dark:bg-gray-800 text-gray-400 border light-border-default hover:text-purple-500'
-                }`}
+              className={`p-2 aspect-square rounded-lg shadow-sm active:scale-95 transition-all ${
+                isAiMode
+                  ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white ring-2 ring-purple-200'
+                  : 'bg-white dark:bg-gray-800 text-gray-400 border light-border-default hover:text-purple-500'
+              }`}
             >
               {isAiLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -181,19 +186,21 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
         <div className="flex flex-wrap items-center gap-2 pb-1">
           <button
             onClick={() => setActiveMobileFilter('sort')}
-            className={`p-2 rounded-full border flex-shrink-0 ${filters.sortBy
-              ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
-              : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
-              }`}
+            className={`p-2 rounded-full border flex-shrink-0 ${
+              filters.sortBy
+                ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+                : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+            }`}
           >
             <ArrowUpDown className="h-5 w-5" />
           </button>
           <button
             onClick={() => setActiveMobileFilter('status')}
-            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${filters.status
-              ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
-              : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
-              }`}
+            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+              filters.status
+                ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+                : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+            }`}
           >
             {(() => {
               if (!filters.status) return 'Status';
@@ -205,10 +212,11 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
           </button>
           <button
             onClick={() => setActiveMobileFilter('category')}
-            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${filters.category
-              ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
-              : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
-              }`}
+            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+              filters.category
+                ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+                : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+            }`}
           >
             {Array.isArray(filters.category) && filters.category.length > 0
               ? `${filters.category.length} Categories`
@@ -218,10 +226,11 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
           </button>
           <button
             onClick={() => setActiveMobileFilter('price')}
-            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${filters.priceLevel && filters.priceLevel.length > 0
-              ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
-              : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
-              }`}
+            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+              filters.priceLevel && filters.priceLevel.length > 0
+                ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+                : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+            }`}
           >
             {filters.priceLevel && filters.priceLevel.length > 0
               ? `${filters.priceLevel.length} Prices`
@@ -231,20 +240,22 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
           {/* Rating Chip */}
           <button
             onClick={() => setActiveMobileFilter('rating')}
-            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${filters.minRating
-              ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
-              : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
-              }`}
+            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+              filters.minRating
+                ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+                : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+            }`}
           >
             {filters.minRating ? `${filters.minRating}+ Stars` : 'Rating'}
           </button>
 
           <button
             onClick={() => updateFilter('openNow', !filters.openNow ? true : undefined)}
-            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${filters.openNow
-              ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
-              : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
-              }`}
+            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+              filters.openNow
+                ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+                : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+            }`}
           >
             Open Now
           </button>
@@ -256,10 +267,11 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
             availableCuisines.length > 0 && (
               <button
                 onClick={() => setActiveMobileFilter('cuisine')}
-                className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${filters.cuisine
-                  ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
-                  : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
-                  }`}
+                className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+                  filters.cuisine
+                    ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+                    : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+                }`}
               >
                 {filters.cuisine || 'Cuisine'}
               </button>
@@ -275,10 +287,11 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
         <div className={`${isInSidebar ? 'w-full' : 'flex-1 max-w-md'} flex gap-2`}>
           <div className="relative flex-1 group">
             <Search
-              className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 z-10 ${isAiMode
-                ? 'text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]'
-                : 'theme-text-secondary'
-                }`}
+              className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 z-10 ${
+                isAiMode
+                  ? 'text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]'
+                  : 'theme-text-secondary'
+              }`}
             />
             <input
               type="text"
@@ -287,10 +300,11 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
               onChange={handleSearchChange}
               onKeyDown={handleKeyDown}
               disabled={isAiLoading}
-              className={`w-full pl-10 pr-10 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 transition-all ${isAiMode
-                ? 'border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.4),inset_0_0_0_1px_rgba(255,255,255,0.1)] focus:ring-0 bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl text-purple-900 dark:text-purple-100 placeholder:text-purple-400'
-                : 'light-border-default light-bg-card light-text-primary focus:ring-blue-500'
-                }`}
+              className={`w-full pl-10 pr-10 py-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 transition-all ${
+                isAiMode
+                  ? 'border-purple-500/20 shadow-[0_0_20px_rgba(168,85,247,0.4),inset_0_0_0_1px_rgba(255,255,255,0.1)] focus:ring-0 bg-white/90 dark:bg-gray-900/80 backdrop-blur-xl text-purple-900 dark:text-purple-100 placeholder:text-purple-400'
+                  : 'light-border-default light-bg-card light-text-primary focus:ring-blue-500'
+              }`}
             />
             {isAiMode && (
               <>
@@ -309,10 +323,11 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
             <button
               onClick={() => onAiModeChange(!isAiMode)}
               disabled={isAiLoading}
-              className={`p-2 aspect-square rounded-lg shadow-sm active:scale-95 transition-all ${isAiMode
-                ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white ring-2 ring-purple-200'
-                : 'bg-white dark:bg-gray-800 text-gray-400 border light-border-default hover:text-purple-500'
-                }`}
+              className={`p-2 aspect-square rounded-lg shadow-sm active:scale-95 transition-all ${
+                isAiMode
+                  ? 'bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 text-white ring-2 ring-purple-200'
+                  : 'bg-white dark:bg-gray-800 text-gray-400 border light-border-default hover:text-purple-500'
+              }`}
             >
               {isAiLoading ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
@@ -465,20 +480,22 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
             <div className="flex items-center rounded-lg overflow-hidden border light-border-default">
               <button
                 onClick={() => onDensityChange('comfortable')}
-                className={`p-2 transition-colors ${density === 'comfortable'
-                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                  : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-                  }`}
+                className={`p-2 transition-colors ${
+                  density === 'comfortable'
+                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                    : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                }`}
                 title="Comfortable View"
               >
                 <LayoutGrid className="h-4 w-4" />
               </button>
               <button
                 onClick={() => onDensityChange('compact')}
-                className={`p-2 transition-colors ${density === 'compact'
-                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                  : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-                  }`}
+                className={`p-2 transition-colors ${
+                  density === 'compact'
+                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                    : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                }`}
                 title="Compact View"
               >
                 <ListIcon className="h-4 w-4" />
@@ -490,20 +507,22 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
             <div className="flex rounded-lg overflow-hidden border light-border-default">
               <button
                 onClick={() => onViewModeChange('list')}
-                className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'list'
-                  ? 'bg-blue-600 text-white'
-                  : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-                  }`}
+                className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${
+                  viewMode === 'list'
+                    ? 'bg-blue-600 text-white'
+                    : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                }`}
               >
                 <ListIcon className="h-4 w-4 mr-2" />
                 List
               </button>
               <button
                 onClick={() => onViewModeChange('map')}
-                className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'map'
-                  ? 'bg-blue-600 text-white'
-                  : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-                  }`}
+                className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${
+                  viewMode === 'map'
+                    ? 'bg-blue-600 text-white'
+                    : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                }`}
               >
                 <MapIcon className="h-4 w-4 mr-2" />
                 Map

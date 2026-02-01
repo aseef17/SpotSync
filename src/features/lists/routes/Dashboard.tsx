@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Plus, Users, Settings, Eye, EyeOff, Trash2, Edit, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -49,19 +49,18 @@ export const Dashboard: React.FunctionComponent = () => {
       .map((l) => (pendingUpdates[l.id] ? { ...l, ...pendingUpdates[l.id] } : l));
   }, [lists, optimisticLists, hiddenListIds, pendingUpdates]);
 
-  useEffect(() => {
-    if (lists.length === 0) return;
-
-    setOptimisticLists((prev) => {
+  // Sync optimistic lists with real lists (derived state)
+  const [prevLists, setPrevLists] = useState(lists);
+  if (lists !== prevLists) {
+    setPrevLists(lists);
+    if (lists.length > 0) {
       const realIds = new Set(lists.map((l) => l.id));
-      const stillOptimistic = prev.filter((l) => !realIds.has(l.id));
-
-      if (stillOptimistic.length !== prev.length) {
-        return stillOptimistic;
-      }
-      return prev;
-    });
-  }, [lists]);
+      setOptimisticLists((prev) => {
+        const stillOptimistic = prev.filter((l) => !realIds.has(l.id));
+        return stillOptimistic.length !== prev.length ? stillOptimistic : prev;
+      });
+    }
+  }
 
   const resetForm = () => {
     setEditingList(null);
@@ -463,8 +462,9 @@ export const Dashboard: React.FunctionComponent = () => {
                           e.preventDefault();
                         }
                       }}
-                      className={`${themeColors.background.card} border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer block h-full ${list.id.startsWith('temp-') ? 'opacity-60 pointer-events-none' : ''
-                        }`}
+                      className={`${themeColors.background.card} border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer block h-full ${
+                        list.id.startsWith('temp-') ? 'opacity-60 pointer-events-none' : ''
+                      }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="mr-4 flex-shrink-0">

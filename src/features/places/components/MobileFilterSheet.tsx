@@ -124,85 +124,143 @@ export const MobileFilterSheet: React.FunctionComponent<MobileFilterSheetProps> 
           )}
 
           {activeFilter === 'category' && (
-            <div className="space-y-1">
-              <div className="flex gap-2 mb-2 px-2">
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between p-2 border-b ${themeColors.border.default}">
+                <button
+                  onClick={() => updateFilter('category', availableCategories)}
+                  className="text-sm font-medium text-blue-500 hover:text-blue-600 px-2 py-1"
+                >
+                  Select All
+                </button>
                 <button
                   onClick={() => updateFilter('category', undefined)}
-                  className="text-xs text-blue-600 font-medium px-2 py-1"
+                  className={`text-sm font-medium ${themeColors.text.secondary} hover:text-red-500 px-2 py-1`}
                 >
-                  Clear All
+                  Clear
                 </button>
               </div>
-              {availableCategories.map((category) => {
-                const isSelected = Array.isArray(filters.category)
-                  ? filters.category.includes(category)
-                  : filters.category === category;
+              <div className="space-y-1 py-1">
+                {availableCategories.map((category) => {
+                  const isSelected = Array.isArray(filters.category)
+                    ? filters.category.includes(category)
+                    : filters.category === category;
 
-                return (
-                  <button
-                    key={category}
-                    onClick={() => {
-                      let newCats: string[] = [];
-                      if (Array.isArray(filters.category)) {
-                        newCats = [...filters.category];
-                      } else if (filters.category) {
-                        newCats = [filters.category];
-                      }
+                  return (
+                    <button
+                      key={category}
+                      onClick={() => {
+                        let newCats: string[] = [];
+                        if (Array.isArray(filters.category)) {
+                          newCats = [...filters.category];
+                        } else if (filters.category) {
+                          newCats = [filters.category];
+                        }
 
-                      if (isSelected) {
-                        newCats = newCats.filter((c) => c !== category);
-                      } else {
-                        newCats.push(category);
-                      }
-                      updateFilter('category', newCats.length > 0 ? newCats : undefined);
-                    }}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left font-medium ${
-                      isSelected
-                        ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                        : `${themeColors.text.primary} hover:bg-gray-50 dark:hover:bg-gray-800`
-                    }`}
-                  >
-                    {category}
-                    {isSelected && <Check className="h-4 w-4" />}
-                  </button>
-                );
-              })}
+                        if (isSelected) {
+                          newCats = newCats.filter((c) => c !== category);
+                        } else {
+                          newCats.push(category);
+                        }
+                        updateFilter('category', newCats.length > 0 ? newCats : undefined);
+                      }}
+                      className={`group w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors relative ${isSelected ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                          isSelected
+                            ? 'bg-blue-600 border-blue-600 text-white'
+                            : `${themeColors.border.default} bg-transparent`
+                        }`}
+                      >
+                        {isSelected && <Check className="h-3.5 w-3.5" />}
+                      </div>
+                      <span className={`text-sm font-medium ${themeColors.text.primary} flex-1`}>
+                        {category}
+                      </span>
+
+                      {/* Only button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateFilter('category', [category]);
+                        }}
+                        className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium hover:bg-blue-200 dark:hover:bg-blue-800 shadow-sm"
+                      >
+                        Only
+                      </button>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 
           {activeFilter === 'price' && (
-            <div className="space-y-1">
-              {[
-                { value: 0, label: 'Free' },
-                { value: 1, label: '$' },
-                { value: 2, label: '$$' },
-                { value: 3, label: '$$$' },
-                { value: 4, label: '$$$$' },
-              ].map((option) => {
-                const isSelected = filters.priceLevel?.includes(option.value);
-                return (
-                  <button
-                    key={option.value}
-                    onClick={() => {
-                      let newPrices = filters.priceLevel ? [...filters.priceLevel] : [];
-                      if (isSelected) {
-                        newPrices = newPrices.filter((p) => p !== option.value);
-                      } else {
-                        newPrices.push(option.value);
-                      }
-                      updateFilter('priceLevel', newPrices.length > 0 ? newPrices : undefined);
-                    }}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left font-medium ${
-                      isSelected
-                        ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
-                        : `${themeColors.text.primary} hover:bg-gray-50 dark:hover:bg-gray-800`
-                    }`}
-                  >
-                    {option.label}
-                    {isSelected && <Check className="h-4 w-4" />}
-                  </button>
-                );
-              })}
+            <div className="flex flex-col">
+              <div className="flex items-center justify-between p-2 border-b ${themeColors.border.default}">
+                <button
+                  onClick={() => updateFilter('priceLevel', [0, 1, 2, 3, 4])}
+                  className="text-sm font-medium text-blue-500 hover:text-blue-600 px-2 py-1"
+                >
+                  Select All
+                </button>
+                <button
+                  onClick={() => updateFilter('priceLevel', undefined)}
+                  className={`text-sm font-medium ${themeColors.text.secondary} hover:text-red-500 px-2 py-1`}
+                >
+                  Clear
+                </button>
+              </div>
+              <div className="space-y-1 py-1">
+                {[
+                  { value: 0, label: 'Free' },
+                  { value: 1, label: '$' },
+                  { value: 2, label: '$$' },
+                  { value: 3, label: '$$$' },
+                  { value: 4, label: '$$$$' },
+                ].map((option) => {
+                  const isSelected = filters.priceLevel?.includes(option.value);
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={() => {
+                        let newPrices = filters.priceLevel ? [...filters.priceLevel] : [];
+                        if (isSelected) {
+                          newPrices = newPrices.filter((p) => p !== option.value);
+                        } else {
+                          newPrices.push(option.value);
+                        }
+                        updateFilter('priceLevel', newPrices.length > 0 ? newPrices : undefined);
+                      }}
+                      className={`group w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors relative ${isSelected ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                    >
+                      <div
+                        className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                          isSelected
+                            ? 'bg-blue-600 border-blue-600 text-white'
+                            : `${themeColors.border.default} bg-transparent`
+                        }`}
+                      >
+                        {isSelected && <Check className="h-3.5 w-3.5" />}
+                      </div>
+                      <span className={`text-sm font-medium ${themeColors.text.primary} flex-1`}>
+                        {option.label}
+                      </span>
+
+                      {/* Only button */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          updateFilter('priceLevel', [option.value]);
+                        }}
+                        className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium hover:bg-blue-200 dark:hover:bg-blue-800 shadow-sm"
+                      >
+                        Only
+                      </button>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           )}
 

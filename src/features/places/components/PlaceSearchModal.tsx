@@ -60,7 +60,8 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
       GoogleMapsService.initialize().catch((err) => {
         logger.error('Failed to initialize Google Maps:', err);
         setError(
-          `Failed to load Google Maps. ${err instanceof Error ? err.message : 'Please check your API key and restrictions.'
+          `Failed to load Google Maps. ${
+            err instanceof Error ? err.message : 'Please check your API key and restrictions.'
           }`
         );
       });
