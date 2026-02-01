@@ -127,3 +127,83 @@ export const formatPlaceDistance = (
     place.location.lng
   );
 };
+
+export const isPlaceOpen = (place: Place): boolean => {
+  // 1. If we have opening hours text for today, rely on it first as it's more descriptive
+  // and captures "Closed" explicitly.
+  const todayText = getTodayHoursText(place);
+
+  if (todayText) {
+    const textLower = todayText.toLowerCase();
+
+    // Explicitly closed
+    if (textLower.includes('closed')) {
+      return false;
+    }
+
+    // Explicitly open 24h
+    if (textLower.includes('open 24 hours')) {
+      return true;
+    }
+
+    // Try to parse range "7:00 am – 4:00 pm" or "09:00 - 17:00"
+    // Handles various dashes: hyphen, en-dash, em-dash
+    // Handles various dashes: hyphen, en-dash, em-dash
+    // We expect at least 2 parts (start time, end time) usually with AM/PM
+    // Simple parser for "7:00 am - 4:00 pm"
+    if (todayText.match(/\d+:\d+/)) {
+      try {
+        const now = new Date();
+        const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+        // Helper to parse "7:00 am" to minutes from midnight
+        const parseTime = (timeStr: string): number | null => {
+          const match = timeStr.match(/(\d+):(\d+)\s*(am|pm)?/i);
+          if (!match) return null;
+          const [, hStr, mStr, meridiemStr] = match;
+
+          let hours = parseInt(hStr, 10);
+          const minutes = parseInt(mStr, 10);
+          const meridiem = meridiemStr ? meridiemStr.toLowerCase() : undefined;
+
+          if (meridiem) {
+            if (meridiem === 'pm' && hours < 12) hours += 12;
+            if (meridiem === 'am' && hours === 12) hours = 0;
+          }
+          return hours * 60 + minutes;
+        };
+
+        // Split by the dash/en-dash
+        const rangeParts = todayText.split(/[–—-]/);
+        if (rangeParts.length === 2) {
+          const startMinutes = parseTime(rangeParts[0].trim());
+          const endMinutes = parseTime(rangeParts[1].trim());
+
+          if (startMinutes !== null && endMinutes !== null) {
+            // Handle overnight hours (e.g. 5:00 PM - 2:00 AM)
+            if (endMinutes < startMinutes) {
+              // If current time is after start OR before end, it's open
+              return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
+            } else {
+              // Standard day hours
+              return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+            }
+          }
+        }
+      } catch (error) {
+        // Fallback if parsing fails
+        console.warn('Failed to parse hours:', todayText, error);
+      }
+    }
+  }
+
+  // 2. Fallback to openNow boolean if available (Google API snapshot)
+  // This is a backup because openNow might be stale if the data wasn't just fetched.
+  if (place.openNow !== undefined) {
+    return place.openNow;
+  }
+
+  // 3. If we have no data, we can't determine openness.
+  // Returning false is safer than true to avoid disappointment, or undefined to hide the label.
+  return false;
+};

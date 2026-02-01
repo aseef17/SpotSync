@@ -1,6 +1,17 @@
-import React, { useState, useCallback, useLayoutEffect } from 'react';
+import React, { useState, useCallback, useLayoutEffect, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Users, Edit, Search, X, Sparkles } from 'lucide-react';
+import {
+  ArrowLeft,
+  Users,
+  Edit,
+  Search,
+  X,
+  Sparkles,
+  Info,
+  MapPin as MapIcon,
+  Share2,
+  Lock,
+} from 'lucide-react';
 import { MapView } from '@/features/maps/components/MapView';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { PlaceService } from '@/features/places/api/placeService';
@@ -78,6 +89,24 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
   const [bottomSheetHeight, setBottomSheetHeight] = useState(120);
   const [listScrollPos, setListScrollPos] = useState(0);
+  const [showListInfo, setShowListInfo] = useState(false);
+  const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
+
+  // Auto-collapse filters on scroll
+  useEffect(() => {
+    const el = document.getElementById('mobile-bottom-sheet-scrollable');
+    if (!el) return;
+
+    const handleScroll = () => {
+      // Collapse if scrolled down more than 20px
+      if (el.scrollTop > 20 && !isFiltersCollapsed) {
+        setIsFiltersCollapsed(true);
+      }
+    };
+
+    el.addEventListener('scroll', handleScroll, { passive: true });
+    return () => el.removeEventListener('scroll', handleScroll);
+  }, [isFiltersCollapsed]);
 
   const saveListScroll = useCallback(() => {
     const el = document.getElementById('mobile-bottom-sheet-scrollable');
@@ -192,17 +221,16 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
 
         <div className="flex-1 mx-3">
           <h1 className={`text-xl font-semibold ${themeColors.text.primary} mb-1`}>{list.name}</h1>
-          <div
-            className={`flex flex-wrap items-center gap-x-3 gap-y-1 text-xs ${themeColors.text.secondary}`}
-          >
-            <span className="flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              {user?.username || 'User'} · Shared list · {places.length} places
-            </span>
-          </div>
+          <div className="flex items-center gap-1">{/* Metadata row removed as per request */}</div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowListInfo(true)}
+            className={`p-2 rounded-full ${themeColors.text.secondary} hover:bg-gray-100 dark:hover:bg-gray-800`}
+          >
+            <Info className="h-5 w-5" />
+          </button>
           <button
             onClick={onEditList}
             className={`p-2 rounded-full ${themeColors.text.secondary} hover:bg-gray-100 dark:hover:bg-gray-800`}
@@ -234,7 +262,77 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
           isAiMode={isAiMode}
           onAiModeChange={handleAiModeChange}
           isAiLoading={isAiSearching}
+          isCollapsed={isFiltersCollapsed}
+          onToggleCollapse={() => setIsFiltersCollapsed(!isFiltersCollapsed)}
         />
+      )}
+
+      {/* List Info Modal */}
+      {showListInfo && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm animate-in fade-in">
+          <div
+            className={`w-full max-w-sm ${themeColors.background.card} rounded-xl shadow-xl overflow-hidden`}
+          >
+            <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex justify-between items-center">
+              <h3 className={`font-semibold ${themeColors.text.primary}`}>List Details</h3>
+              <button
+                onClick={() => setShowListInfo(false)}
+                className={`p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 ${themeColors.text.secondary}`}
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="p-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-blue-50 dark:bg-blue-900/20 text-blue-600">
+                  <Users className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className={`text-xs ${themeColors.text.secondary}`}>Owner</p>
+                  <p className={`font-medium ${themeColors.text.primary}`}>
+                    {user?.email || 'Unknown'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div
+                  className={`p-2 rounded-full ${
+                    list.collaborators && list.collaborators.length > 0
+                      ? 'bg-purple-50 dark:bg-purple-900/20 text-purple-600'
+                      : 'bg-gray-50 dark:bg-gray-800 text-gray-600 dark:text-gray-400'
+                  }`}
+                >
+                  {list.collaborators && list.collaborators.length > 0 ? (
+                    <Share2 className="h-5 w-5" />
+                  ) : (
+                    <Lock className="h-5 w-5" />
+                  )}
+                </div>
+                <div>
+                  <p className={`text-xs ${themeColors.text.secondary}`}>Type</p>
+                  <p className={`font-medium ${themeColors.text.primary}`}>
+                    {list.collaborators && list.collaborators.length > 0
+                      ? 'Shared List'
+                      : 'Private List'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-green-50 dark:bg-green-900/20 text-green-600">
+                  <MapIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className={`text-xs ${themeColors.text.secondary}`}>Places</p>
+                  <p className={`font-medium ${themeColors.text.primary}`}>
+                    {places.length} places
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

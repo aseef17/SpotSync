@@ -8,6 +8,7 @@ import {
   getPlaceAttribution,
   getTodayHoursText,
   formatPlaceDistance,
+  isPlaceOpen,
 } from '@/features/places/utils/placeHelpers';
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList } from '@/features/lists/types/list';
@@ -61,12 +62,16 @@ export const MobilePlaceCard: React.FunctionComponent<MobilePlaceCardProps> = ({
         )}
       </div>
 
-      <div className={`flex items-center gap-1.5 text-sm ${themeColors.text.secondary} mb-1`}>
-        <span className="flex items-center text-orange-500 font-medium">
+      <div
+        className={`flex flex-wrap items-center gap-1.5 text-sm ${themeColors.text.secondary} mb-2 line-clamp-2`}
+      >
+        <span className="flex items-center text-orange-500 font-medium whitespace-nowrap">
           {place.rating || 'New'}
           <Star className="h-3 w-3 fill-current ml-0.5" />
         </span>
-        {place.userRatingsTotal && <span>({place.userRatingsTotal})</span>}
+        {place.userRatingsTotal && (
+          <span className="whitespace-nowrap">({place.userRatingsTotal})</span>
+        )}
         {place.priceLevel !== undefined && place.priceLevel !== null && (
           <>
             <span>·</span>
@@ -76,7 +81,25 @@ export const MobilePlaceCard: React.FunctionComponent<MobilePlaceCardProps> = ({
         {categoryText && (
           <>
             <span>·</span>
-            <span className="truncate max-w-[150px] capitalize">{categoryText}</span>
+            <span className="truncate max-w-[120px] capitalize">{categoryText}</span>
+          </>
+        )}
+        {place.openNow !== undefined && (
+          <>
+            <span>·</span>
+            <span
+              className={
+                isPlaceOpen(place) ? 'text-green-600 font-medium' : 'text-red-600 font-medium'
+              }
+            >
+              {isPlaceOpen(place) ? 'Open' : 'Closed'}
+            </span>
+          </>
+        )}
+        {hoursText && (
+          <>
+            <span>·</span>
+            <span className="whitespace-nowrap">{hoursText}</span>
           </>
         )}
         {distanceText && (
@@ -101,28 +124,12 @@ export const MobilePlaceCard: React.FunctionComponent<MobilePlaceCardProps> = ({
         </div>
       )}
 
-      <div className={`flex items-center gap-1.5 text-sm mb-3`}>
-        {place.openNow !== undefined && (
-          <span
-            className={place.openNow ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}
-          >
-            {place.openNow ? 'Open' : 'Closed'}
-          </span>
-        )}
-
-        {place.openNow !== undefined && hoursText && (
-          <span className={themeColors.text.secondary}>·</span>
-        )}
-
-        {hoursText && <span className={themeColors.text.secondary}>{hoursText}</span>}
-      </div>
-
       {photos.length > 0 && (
-        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide mb-3">
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide mb-3 justify-start">
           {photos.slice(0, 5).map((photo: string, i: number) => (
             <div
               key={i}
-              className="flex-shrink-0 w-32 h-32 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800"
+              className="flex-shrink-0 w-28 h-28 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800"
             >
               <img
                 src={GoogleMapsService.getPhotoUrl(photo, 300, 300)}
