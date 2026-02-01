@@ -3,9 +3,34 @@ import type { PlaceList, Collaborator } from '@/features/lists/types/list';
 import { formatCategoryName } from '@/constants/placeCategories';
 import { calculateDistance } from '@/utils/geo';
 
-export const formatPrice = (level?: number) => {
-  if (!level) return null;
-  return '$'.repeat(Math.min(level, 4));
+export const formatPrice = (level?: number | string | null) => {
+  let numLevel = level;
+
+  if (typeof level === 'string') {
+    switch (level) {
+      case 'PRICE_LEVEL_FREE':
+        numLevel = 0;
+        break;
+      case 'PRICE_LEVEL_INEXPENSIVE':
+        numLevel = 1;
+        break;
+      case 'PRICE_LEVEL_MODERATE':
+        numLevel = 2;
+        break;
+      case 'PRICE_LEVEL_EXPENSIVE':
+        numLevel = 3;
+        break;
+      case 'PRICE_LEVEL_VERY_EXPENSIVE':
+        numLevel = 4;
+        break;
+      default:
+        numLevel = null;
+    }
+  }
+
+  if (numLevel === 0) return 'Free';
+  if (!numLevel || typeof numLevel !== 'number') return null;
+  return '$'.repeat(Math.min(numLevel, 4));
 };
 
 export const parseTimestamp = (

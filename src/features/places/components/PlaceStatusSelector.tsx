@@ -8,12 +8,14 @@ interface PlaceStatusSelectorProps {
   place: Place;
   customStatuses?: string[];
   onStatusChanged: () => void;
+  compact?: boolean;
 }
 
 export const PlaceStatusSelector: React.FunctionComponent<PlaceStatusSelectorProps> = ({
   place,
   customStatuses = [],
   onStatusChanged,
+  compact = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isChanging, setIsChanging] = useState(false);
@@ -111,11 +113,16 @@ export const PlaceStatusSelector: React.FunctionComponent<PlaceStatusSelectorPro
           setIsOpen(!isOpen);
         }}
         disabled={isChanging}
-        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium transition-colors ${
-          currentStatus?.color || 'bg-gray-100 text-gray-800'
-        } ${isChanging ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'}`}
+        className={`inline-flex items-center rounded-full font-medium transition-colors ${
+          compact ? 'px-1.5 py-0.5 text-[10px]' : 'px-2 py-1 text-xs'
+        } ${currentStatus?.color || 'bg-gray-100 text-gray-800'} ${
+          isChanging ? 'opacity-50 cursor-not-allowed' : 'hover:opacity-80'
+        }`}
       >
-        {currentStatus?.icon}
+        {React.isValidElement(currentStatus?.icon) &&
+          React.cloneElement(currentStatus.icon as React.ReactElement<{ className?: string }>, {
+            className: compact ? 'h-3 w-3' : 'h-4 w-4',
+          })}
         <span className="ml-1">{currentStatus?.label || place.customStatus || 'Unknown'}</span>
       </button>
 

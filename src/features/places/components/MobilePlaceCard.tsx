@@ -67,7 +67,7 @@ export const MobilePlaceCard: React.FunctionComponent<MobilePlaceCardProps> = ({
           <Star className="h-3 w-3 fill-current ml-0.5" />
         </span>
         {place.userRatingsTotal && <span>({place.userRatingsTotal})</span>}
-        {place.priceLevel && (
+        {place.priceLevel !== undefined && place.priceLevel !== null && (
           <>
             <span>·</span>
             <span>{formatPrice(place.priceLevel)}</span>

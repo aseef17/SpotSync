@@ -180,6 +180,7 @@ export const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> 
           },
         }}
         className="flex-1 overflow-y-auto px-4 pb-8 border-t border-transparent custom-scrollbar"
+        id="mobile-bottom-sheet-scrollable"
       >
         {children}
       </motion.div>

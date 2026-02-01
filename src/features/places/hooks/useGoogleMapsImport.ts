@@ -10,6 +10,7 @@ import { logger } from '@/utils/logger';
 import { useToast } from '@/hooks/useToast';
 import { createPlaceFromGoogleDetails } from '@/features/places/utils/placeFactory';
 import type { LegacyGooglePlace } from '@/features/places/api/googleMapsService';
+import { omit } from '@/utils/objects';
 
 interface EnrichedPlace extends ParsedPlace {
   rawDetails?: LegacyGooglePlace;
@@ -273,7 +274,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
           name: placeData.title,
           address: placeData.address || '',
           googleMapsUrl: placeData.url,
-          status: 'not_visited',
+          status: 'not_visited' as const,
           addedBy: user.id,
         };
 
@@ -283,17 +284,17 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
             clientId: `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           });
 
-          const { id: _id, addedAt: _addedAt, updatedAt: _updatedAt, ...rest } = factoryPlace;
+          const rest = omit(factoryPlace, ['id', 'addedAt', 'updatedAt']);
           return rest;
         }
 
-        const placeToSave: any = {
+        const placeToSave: Partial<Place> = {
           ...basePlace,
           listId,
           clientId: `import-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
           location: placeData.location,
           notes: placeData.comment,
-          googlePlaceId: placeData.googlePlaceId || placeData.placeId,
+          googlePlaceId: (placeData.googlePlaceId || placeData.placeId) ?? undefined,
           phoneNumber: placeData.phoneNumber,
           website: placeData.website,
           rating: placeData.rating,

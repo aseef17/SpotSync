@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { ChevronDown } from 'lucide-react';
-import { useTheme } from '@/hooks/useTheme';
+import { themeColors } from '@/styles/colors';
 
 interface Option {
   value: string;
@@ -23,7 +23,6 @@ export const CustomDropdown: React.FunctionComponent<CustomDropdownProps> = ({
   className = '',
 }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { theme } = useTheme();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const selected = options.find((o) => o.value === value);
@@ -45,23 +44,15 @@ export const CustomDropdown: React.FunctionComponent<CustomDropdownProps> = ({
     };
   }, [isOpen]);
 
-  const themeColors = {
-    bg: theme === 'dark' ? 'bg-gray-800' : 'bg-white',
-    border: theme === 'dark' ? 'border-gray-700' : 'border-gray-300',
-    hover: theme === 'dark' ? 'hover:bg-gray-700' : 'hover:bg-gray-100',
-    text: theme === 'dark' ? 'text-white' : 'text-gray-900',
-    textSecondary: theme === 'dark' ? 'text-gray-400' : 'text-gray-600',
-  };
-
   return (
     <div ref={dropdownRef} className={`relative ${className}`}>
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full px-2 py-2 ${themeColors.bg} border ${themeColors.border} rounded-lg flex items-center justify-between ${themeColors.text} focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all`}
+        className={`w-full px-2 py-2 ${themeColors.background.card} ${themeColors.border.default} border rounded-lg flex items-center justify-between ${themeColors.text.primary} focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all`}
       >
         <span
-          className={`block truncate ${selected ? themeColors.text : themeColors.textSecondary}`}
+          className={`block truncate ${selected ? themeColors.text.primary : themeColors.text.secondary}`}
         >
           {selected?.label || placeholder}
         </span>
@@ -72,7 +63,7 @@ export const CustomDropdown: React.FunctionComponent<CustomDropdownProps> = ({
 
       {isOpen && (
         <div
-          className={`absolute z-50 w-full mt-1 ${themeColors.bg} border ${themeColors.border} rounded-lg shadow-lg max-h-60 overflow-y-auto`}
+          className={`absolute z-50 w-full mt-1 ${themeColors.background.card} ${themeColors.border.default} border rounded-lg shadow-lg max-h-60 overflow-y-auto`}
         >
           {options.map((option) => (
             <button
@@ -82,7 +73,7 @@ export const CustomDropdown: React.FunctionComponent<CustomDropdownProps> = ({
                 onChange(option.value);
                 setIsOpen(false);
               }}
-              className={`w-full px-3 py-2 text-left ${themeColors.text} ${themeColors.hover} transition-colors first:rounded-t-lg last:rounded-b-lg ${
+              className={`w-full px-3 py-2 text-left ${themeColors.text.primary} hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors first:rounded-t-lg last:rounded-b-lg ${
                 option.value === value ? 'bg-blue-50 dark:bg-blue-900/20' : ''
               }`}
             >

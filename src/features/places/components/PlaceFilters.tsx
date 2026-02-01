@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import {
   Search,
-  X,
   MapPin as MapIcon,
+  LayoutGrid,
   LayoutList as ListIcon,
-  SlidersHorizontal,
   Sparkles,
   Loader2,
   Send,
+  ArrowUpDown,
 } from 'lucide-react';
 import type { PlaceStatus } from '@/features/places/types/place';
 import type { FilterOptions } from '@/features/places/types/filters';
 import { themeColors } from '@/styles/colors';
 
 import { CustomDropdown } from '@/components/Elements/Dropdown/CustomDropdown';
+import { MultiSelectDropdown } from '@/components/Elements/Dropdown/MultiSelectDropdown';
+import { MobileFilterSheet } from '@/features/places/components/MobileFilterSheet';
 
 interface PlaceFiltersProps {
   filters: FilterOptions;
@@ -30,6 +32,10 @@ interface PlaceFiltersProps {
   isAiMode?: boolean;
   onAiModeChange?: (isAiMode: boolean) => void;
   isAiLoading?: boolean;
+  userLocation?: { lat: number; lng: number } | null;
+  density?: 'comfortable' | 'compact';
+  onDensityChange?: (density: 'comfortable' | 'compact') => void;
+  isInSidebar?: boolean;
 }
 
 export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
@@ -47,13 +53,18 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
   isAiMode = false,
   onAiModeChange,
   isAiLoading = false,
+  userLocation,
+  density,
+  onDensityChange,
+  isInSidebar = false,
 }) => {
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
+  const [activeMobileFilter, setActiveMobileFilter] = useState<
+    'sort' | 'status' | 'category' | 'price' | 'rating' | 'cuisine' | null
+  >(null);
+
   const [localSearchQuery, setLocalSearchQuery] = useState(filters.searchQuery || '');
 
-
-  // Sync local state with props using useEffect to avoid render-phase updates
-  // that might be skipped or cause consistency issues
+  // Sync local search query with filters
   useEffect(() => {
     setLocalSearchQuery(filters.searchQuery || '');
   }, [filters.searchQuery]);
@@ -62,7 +73,6 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
     const value = e.target.value;
     setLocalSearchQuery(value);
 
-    // Only update parents filter if NOT in AI mode
     if (!isAiMode) {
       onFiltersChange({
         ...filters,
@@ -114,12 +124,12 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
 
   return (
     <div
-      className={`${themeColors.background.card} border-b ${themeColors.border.default} px-0 sm:px-4 py-4`}
+      className={`${themeColors.background.card} border-b ${themeColors.border.default} ${isInSidebar ? 'px-2 py-3' : 'px-4 py-4'
+        }`}
     >
-      {/* Mobile Component */}
       <div className="lg:hidden mb-4 space-y-3">
         <div className="relative flex gap-2">
-          <div className="relative flex-1 group">
+          <div className="relative w-full group">
             <Search
               className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 z-10 ${isAiMode ? 'text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]' : 'text-gray-400'}`}
             />
@@ -168,187 +178,106 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
           )}
         </div>
 
-        <div className="flex flex-col gap-2">
-          <div className="flex gap-2">
-            <div className="flex-1 min-w-0">
-              <CustomDropdown
-                value={filters.status || 'all'}
-                options={allStatuses}
-                onChange={(value) => updateFilter('status', value === 'all' ? undefined : value)}
-                placeholder="All Statuses"
-              />
-            </div>
-            <div className="flex-1 min-w-0">
-              <CustomDropdown
-                value={filters.category || ''}
-                options={[
-                  { value: '', label: 'All Categories' },
-                  ...availableCategories.map((c) => ({ value: c, label: c })),
-                ]}
-                onChange={(value) => updateFilter('category', value || undefined)}
-                placeholder="All Categories"
-              />
-            </div>
-            <button
-              onClick={() => setShowMobileFilters(true)}
-              className={`flex items-center justify-center px-3 py-2 border light-border-default rounded-lg transition-colors shrink-0 ${hasActiveFilters
-                ? 'bg-blue-50 text-blue-600 border-blue-200'
-                : 'light-bg-card light-text-secondary hover:bg-blue-50 hover:text-blue-600'
-                }`}
-            >
-              <SlidersHorizontal className="h-5 w-5" />
-            </button>
-          </div>
+        <div className="flex flex-wrap items-center gap-2 pb-1">
+          <button
+            onClick={() => setActiveMobileFilter('sort')}
+            className={`p-2 rounded-full border flex-shrink-0 ${filters.sortBy
+              ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+              : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+              }`}
+          >
+            <ArrowUpDown className="h-5 w-5" />
+          </button>
+          <button
+            onClick={() => setActiveMobileFilter('status')}
+            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${filters.status
+              ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+              : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+              }`}
+          >
+            {(() => {
+              if (!filters.status) return 'Status';
+              if (filters.status === 'not_visited') return 'Not Visited';
+              if (filters.status === 'visited') return 'Visited';
+              if (filters.status === 'not_going') return 'Not Going';
+              return filters.status;
+            })()}
+          </button>
+          <button
+            onClick={() => setActiveMobileFilter('category')}
+            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${filters.category
+              ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+              : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+              }`}
+          >
+            {Array.isArray(filters.category) && filters.category.length > 0
+              ? `${filters.category.length} Categories`
+              : typeof filters.category === 'string'
+                ? filters.category
+                : 'Category'}
+          </button>
+          <button
+            onClick={() => setActiveMobileFilter('price')}
+            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${filters.priceLevel && filters.priceLevel.length > 0
+              ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+              : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+              }`}
+          >
+            {filters.priceLevel && filters.priceLevel.length > 0
+              ? `${filters.priceLevel.length} Prices`
+              : 'Price'}
+          </button>
 
-          {filters.category?.toLowerCase().includes('restaurant') &&
+          {/* Rating Chip */}
+          <button
+            onClick={() => setActiveMobileFilter('rating')}
+            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${filters.minRating
+              ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+              : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+              }`}
+          >
+            {filters.minRating ? `${filters.minRating}+ Stars` : 'Rating'}
+          </button>
+
+          <button
+            onClick={() => updateFilter('openNow', !filters.openNow ? true : undefined)}
+            className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${filters.openNow
+              ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+              : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+              }`}
+          >
+            Open Now
+          </button>
+
+          {((Array.isArray(filters.category) &&
+            filters.category.some((c) => c.toLowerCase().includes('restaurant'))) ||
+            (typeof filters.category === 'string' &&
+              filters.category.toLowerCase().includes('restaurant'))) &&
             availableCuisines.length > 0 && (
-              <div className="w-full animate-in fade-in slide-in-from-top-1 duration-200">
-                <CustomDropdown
-                  value={filters.cuisine || ''}
-                  options={[
-                    { value: '', label: 'All Cuisines' },
-                    ...availableCuisines.map((c) => ({ value: c, label: c })),
-                  ]}
-                  onChange={(value) => updateFilter('cuisine', value || undefined)}
-                  placeholder="Any Cuisine"
-                />
-              </div>
-            )}
-        </div>
-
-        {showMobileFilters && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-0 sm:p-4">
-            <div
-              className="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"
-              onClick={() => setShowMobileFilters(false)}
-            />
-
-            <div
-              className={`relative w-full max-w-lg transform transition-all ${themeColors.background.card} rounded-t-xl sm:rounded-xl shadow-xl max-h-[90vh] flex flex-col`}
-            >
-              <div
-                className={`flex items-center justify-between px-4 py-3 border-b ${themeColors.border.default}`}
+              <button
+                onClick={() => setActiveMobileFilter('cuisine')}
+                className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${filters.cuisine
+                  ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+                  : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+                  }`}
               >
-                <h3 className={`text-lg font-semibold ${themeColors.text.primary}`}>Filters</h3>
-                <button
-                  onClick={() => setShowMobileFilters(false)}
-                  className={`p-1 rounded-full ${themeColors.text.secondary} ${themeColors.button.icon}`}
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
+                {filters.cuisine || 'Cuisine'}
+              </button>
+            )}
 
-              <div className="p-4 space-y-6 overflow-y-auto">
-                {/* Cuisine (if applicable) */}
-                {filters.category?.toLowerCase().includes('restaurant') &&
-                  availableCuisines.length > 0 && (
-                    <div className="space-y-2">
-                      <label className={`text-sm font-medium ${themeColors.text.secondary}`}>
-                        Cuisine
-                      </label>
-                      <CustomDropdown
-                        value={filters.cuisine || ''}
-                        options={[
-                          { value: '', label: 'Any Cuisine' },
-                          ...availableCuisines.map((c) => ({ value: c, label: c })),
-                        ]}
-                        onChange={(value) => updateFilter('cuisine', value || undefined)}
-                        placeholder="Any Cuisine"
-                      />
-                    </div>
-                  )}
-
-                <div className="space-y-2">
-                  <label className={`text-sm font-medium ${themeColors.text.secondary}`}>
-                    Price Level
-                  </label>
-                  <div className="flex gap-2">
-                    {['1', '2', '3', '4'].map((price) => (
-                      <button
-                        key={price}
-                        onClick={() =>
-                          updateFilter(
-                            'priceLevel',
-                            filters.priceLevel === parseInt(price) ? undefined : parseInt(price)
-                          )
-                        }
-                        className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${filters.priceLevel === parseInt(price)
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : `light-border-default ${themeColors.text.primary} ${themeColors.button.icon}`
-                          }`}
-                      >
-                        {Array(parseInt(price)).fill('$').join('')}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className={`text-sm font-medium ${themeColors.text.secondary}`}>
-                    Min Rating
-                  </label>
-                  <div className="flex gap-2">
-                    {[3, 3.5, 4, 4.5].map((rating) => (
-                      <button
-                        key={rating}
-                        onClick={() =>
-                          updateFilter(
-                            'minRating',
-                            filters.minRating === rating ? undefined : rating
-                          )
-                        }
-                        className={`flex-1 py-2 rounded-lg border text-sm font-medium transition-colors ${filters.minRating === rating
-                          ? 'bg-blue-600 text-white border-blue-600'
-                          : `light-border-default ${themeColors.text.primary} ${themeColors.button.icon}`
-                          }`}
-                      >
-                        {rating}+
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between py-2">
-                  <span className={`text-sm font-medium ${themeColors.text.primary}`}>
-                    Open Now Only
-                  </span>
-                  <button
-                    onClick={() => updateFilter('openNow', !filters.openNow ? true : undefined)}
-                    className={`w-12 h-6 rounded-full transition-colors relative ${filters.openNow ? 'bg-blue-600' : 'bg-gray-300 dark:bg-gray-600'
-                      }`}
-                  >
-                    <div
-                      className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${filters.openNow ? 'translate-x-6' : 'translate-x-0'
-                        }`}
-                    />
-                  </button>
-                </div>
-              </div>
-
-              <div className={`p-4 border-t ${themeColors.border.default} flex gap-3`}>
-                <button
-                  onClick={clearFilters}
-                  className={`flex-1 py-2.5 rounded-lg border light-border-default ${themeColors.text.primary} font-medium ${themeColors.button.icon}`}
-                >
-                  Clear All
-                </button>
-                <button
-                  onClick={() => setShowMobileFilters(false)}
-                  className="flex-1 py-2.5 rounded-lg bg-blue-600 text-white font-medium hover:bg-blue-700 transition-colors"
-                >
-                  Show {filteredCount} Places
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+          <div className="flex-1" />
+        </div>
       </div>
 
-      <div className="hidden lg:flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div className="flex-1 max-w-md flex gap-2">
+      <div
+        className={`hidden lg:flex flex-col ${isInSidebar ? 'gap-4' : 'lg:flex-row lg:items-center lg:justify-between'} gap-4`}
+      >
+        <div className={`${isInSidebar ? 'w-full' : 'flex-1 max-w-md'} flex gap-2`}>
           <div className="relative flex-1 group">
             <Search
-              className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 z-10 ${isAiMode ? 'text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]' : 'theme-text-secondary'
+              className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 z-10 ${isAiMode
+                ? 'text-purple-500 drop-shadow-[0_0_8px_rgba(168,85,247,0.6)]'
+                : 'theme-text-secondary'
                 }`}
             />
             <input
@@ -400,23 +329,64 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
           <CustomDropdown
             value={filters.status || 'all'}
             options={allStatuses.map((s) => ({ value: s.value, label: s.label }))}
-            onChange={(value) =>
+            onChange={(value: string) =>
               updateFilter('status', value === 'all' ? undefined : (value as PlaceStatus))
             }
             placeholder="All Statuses"
           />
 
-          <CustomDropdown
-            value={filters.category || ''}
-            options={[
-              { value: '', label: 'All Categories' },
-              ...availableCategories.map((c) => ({ value: c, label: c })),
-            ]}
-            onChange={(value) => updateFilter('category', value || undefined)}
+          <MultiSelectDropdown
+            value={
+              Array.isArray(filters.category)
+                ? filters.category
+                : filters.category
+                  ? [filters.category]
+                  : []
+            }
+            options={[...availableCategories.map((c) => ({ value: c, label: c }))]}
+            onChange={(value: string[]) =>
+              updateFilter('category', value.length > 0 ? value : undefined)
+            }
             placeholder="All Categories"
+            className="w-48"
           />
 
-          {filters.category?.toLowerCase().includes('restaurant') &&
+          <CustomDropdown
+            value={`${filters.sortBy || 'date'}-${filters.sortDirection || 'desc'}`}
+            options={[
+              { value: 'date-desc', label: 'Newest First' },
+              { value: 'date-asc', label: 'Oldest First' },
+              { value: 'rating-desc', label: 'Highest Rated' },
+              { value: 'price-asc', label: 'Price: Low to High' },
+              { value: 'price-desc', label: 'Price: High to Low' },
+              { value: 'name-asc', label: 'Name (A-Z)' },
+              { value: 'name-desc', label: 'Name (Z-A)' },
+              ...(userLocation ? [{ value: 'distance-asc', label: 'Distance (Nearest)' }] : []),
+            ]}
+            onChange={(value: string) => {
+              if (value === 'name-desc') {
+                onFiltersChange({
+                  ...filters,
+                  sortBy: 'name-desc',
+                  sortDirection: 'desc',
+                });
+                return;
+              }
+              const [sortBy, sortDirection] = value.split('-');
+              onFiltersChange({
+                ...filters,
+                sortBy: sortBy as FilterOptions['sortBy'],
+                sortDirection: sortDirection as FilterOptions['sortDirection'],
+              });
+            }}
+            placeholder="Sort By"
+            className="w-40"
+          />
+
+          {((Array.isArray(filters.category) &&
+            filters.category.some((c) => c.toLowerCase().includes('restaurant'))) ||
+            (typeof filters.category === 'string' &&
+              filters.category.toLowerCase().includes('restaurant'))) &&
             availableCuisines.length > 0 && (
               <CustomDropdown
                 value={filters.cuisine || ''}
@@ -424,22 +394,10 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
                   { value: '', label: 'All Cuisines' },
                   ...availableCuisines.map((c) => ({ value: c, label: c })),
                 ]}
-                onChange={(value) => updateFilter('cuisine', value || undefined)}
+                onChange={(value: string) => updateFilter('cuisine', value || undefined)}
                 placeholder="Any Cuisine"
               />
             )}
-
-          <label
-            className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${themeColors.border.default} cursor-pointer ${themeColors.button.icon}`}
-          >
-            <input
-              type="checkbox"
-              checked={filters.openNow || false}
-              onChange={(e) => updateFilter('openNow', e.target.checked || undefined)}
-              className="rounded text-blue-600 focus:ring-blue-500"
-            />
-            <span className={`text-sm ${themeColors.text.secondary}`}>Open Now</span>
-          </label>
 
           <CustomDropdown
             value={filters.minRating?.toString() || ''}
@@ -451,21 +409,26 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
               { value: '4', label: '4+' },
               { value: '4.5', label: '4.5+' },
             ]}
-            onChange={(value) => updateFilter('minRating', value ? parseFloat(value) : undefined)}
+            onChange={(value: string) =>
+              updateFilter('minRating', value ? parseFloat(value) : undefined)
+            }
             placeholder="Min Rating"
           />
 
-          <CustomDropdown
-            value={filters.priceLevel?.toString() || ''}
+          <MultiSelectDropdown
+            value={filters.priceLevel ? filters.priceLevel.map(String) : []}
             options={[
-              { value: '', label: 'Any Price' },
+              { value: '0', label: 'Free' },
               { value: '1', label: '$' },
               { value: '2', label: '$$' },
               { value: '3', label: '$$$' },
               { value: '4', label: '$$$$' },
             ]}
-            onChange={(value) => updateFilter('priceLevel', value ? parseInt(value) : undefined)}
+            onChange={(values: string[]) =>
+              updateFilter('priceLevel', values.length > 0 ? values.map(Number) : undefined)
+            }
             placeholder="Any Price"
+            className="w-48"
           />
         </div>
       </div>
@@ -497,31 +460,68 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
           )}
         </div>
 
-        {!hideViewToggle && (
-          <div className="flex rounded-lg overflow-hidden border light-border-default">
-            <button
-              onClick={() => onViewModeChange('list')}
-              className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'list'
-                ? 'bg-blue-600 text-white'
-                : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-                }`}
-            >
-              <ListIcon className="h-4 w-4 mr-2" />
-              List
-            </button>
-            <button
-              onClick={() => onViewModeChange('map')}
-              className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'map'
-                ? 'bg-blue-600 text-white'
-                : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-                }`}
-            >
-              <MapIcon className="h-4 w-4 mr-2" />
-              Map
-            </button>
-          </div>
-        )}
+        <div className="flex items-center gap-4">
+          {density && onDensityChange && (
+            <div className="flex items-center rounded-lg overflow-hidden border light-border-default">
+              <button
+                onClick={() => onDensityChange('comfortable')}
+                className={`p-2 transition-colors ${density === 'comfortable'
+                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                  : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                  }`}
+                title="Comfortable View"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => onDensityChange('compact')}
+                className={`p-2 transition-colors ${density === 'compact'
+                  ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                  : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                  }`}
+                title="Compact View"
+              >
+                <ListIcon className="h-4 w-4" />
+              </button>
+            </div>
+          )}
+
+          {!hideViewToggle && (
+            <div className="flex rounded-lg overflow-hidden border light-border-default">
+              <button
+                onClick={() => onViewModeChange('list')}
+                className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'list'
+                  ? 'bg-blue-600 text-white'
+                  : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                  }`}
+              >
+                <ListIcon className="h-4 w-4 mr-2" />
+                List
+              </button>
+              <button
+                onClick={() => onViewModeChange('map')}
+                className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${viewMode === 'map'
+                  ? 'bg-blue-600 text-white'
+                  : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                  }`}
+              >
+                <MapIcon className="h-4 w-4 mr-2" />
+                Map
+              </button>
+            </div>
+          )}
+        </div>
       </div>
+      <MobileFilterSheet
+        activeFilter={activeMobileFilter}
+        onClose={() => setActiveMobileFilter(null)}
+        filters={filters}
+        onFiltersChange={onFiltersChange}
+        updateFilter={updateFilter}
+        availableCategories={availableCategories}
+        customStatuses={customStatuses}
+        userLocation={userLocation}
+      />
     </div>
   );
 };

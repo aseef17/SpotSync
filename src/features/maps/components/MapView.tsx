@@ -21,6 +21,7 @@ interface MapViewProps {
   previewPlace?: Place | null; // For showing a temporary marker for search preview
   onLayerMenuOpen?: (isOpen: boolean) => void;
   onAddExternalPlace?: (place: Partial<Place>) => void;
+  onUserLocationUpdate?: (location: { lat: number; lng: number }) => void;
 }
 
 const defaultCenter = {
@@ -47,16 +48,18 @@ const MapBoundsFitter: React.FunctionComponent<{
 }> = ({ places, highlightedPlaceId, previewPlace }) => {
   const map = useMap();
   const lastPlacesCount = useRef(0);
+  const prevHighlightedRef = useRef(highlightedPlaceId);
 
   useEffect(() => {
     if (!map || places.length === 0) return;
 
-    // Only auto-fit bounds if the number of places has changed (e.g., loaded, added, removed)
-    // accessible via initial load (0 -> N) or modification (N -> M)
-    // preventing refit on updates (N -> N) like ID swaps or detail edits
-    const shouldFit = lastPlacesCount.current !== places.length;
+    // Only auto-fit bounds if:
+    // 1. The number of places has changed (e.g., loaded, added, removed, filtered)
+    // 2. OR we just navigated BACK from a detail view (highlightedPlaceId cleared)
+    const placesChanged = lastPlacesCount.current !== places.length;
+    const justClearedHighlight = !!prevHighlightedRef.current && !highlightedPlaceId;
 
-    if (shouldFit && !highlightedPlaceId) {
+    if ((placesChanged || justClearedHighlight) && !highlightedPlaceId) {
       const timeoutId = setTimeout(() => {
         const bounds = new google.maps.LatLngBounds();
         let validPlaces = 0;
@@ -75,10 +78,12 @@ const MapBoundsFitter: React.FunctionComponent<{
       }, 100);
 
       lastPlacesCount.current = places.length;
+      prevHighlightedRef.current = highlightedPlaceId;
       return () => clearTimeout(timeoutId);
     }
 
     lastPlacesCount.current = places.length;
+    prevHighlightedRef.current = highlightedPlaceId;
   }, [map, places, highlightedPlaceId]);
 
   // Highlight/Select Pan Effect
@@ -109,7 +114,11 @@ const MapBoundsFitter: React.FunctionComponent<{
   return null;
 };
 
-const LocationButton = () => {
+const LocationButton = ({
+  onLocationUpdate,
+}: {
+  onLocationUpdate?: (location: { lat: number; lng: number }) => void;
+}) => {
   const map = useMap();
   const [loading, setLoading] = useState(false);
 
@@ -126,6 +135,7 @@ const LocationButton = () => {
           map.panTo(pos);
           map.setZoom(15);
           setLoading(false);
+          onLocationUpdate?.(pos);
         },
         () => {
           setLoading(false);
@@ -239,10 +249,11 @@ const MapLayersControl: React.FunctionComponent<{ onOpenChange?: (isOpen: boolea
                     <button
                       key={type.id}
                       onClick={() => setMapType(type.id)}
-                      className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${mapType === type.id
+                      className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                        mapType === type.id
                           ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
                           : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                        }`}
+                      }`}
                     >
                       <type.icon className="h-8 w-8" />
                       <span className="text-sm font-medium">{type.label}</span>
@@ -262,10 +273,11 @@ const MapLayersControl: React.FunctionComponent<{ onOpenChange?: (isOpen: boolea
                       <button
                         key={layer.id}
                         onClick={() => toggleLayer(layer.id)}
-                        className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${activeLayers.has(layer.id)
+                        className={`flex-1 flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                          activeLayers.has(layer.id)
                             ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/20 text-blue-600'
                             : 'border-transparent hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400'
-                          }`}
+                        }`}
                       >
                         <layer.icon className="h-8 w-8" />
                         <span className="text-sm font-medium">{layer.label}</span>
@@ -293,6 +305,7 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
   previewPlace,
   onLayerMenuOpen,
   onAddExternalPlace,
+  onUserLocationUpdate,
 }) => {
   const { theme } = useTheme();
   const [zoom, setZoom] = useState(12);
@@ -476,7 +489,6 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
         );
       })}
 
-      {/* Preview marker for search results not yet added to list */}
       {previewPlace &&
         (() => {
           const coords = getPlaceCoords(previewPlace);
@@ -509,7 +521,7 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
         highlightedPlaceId={highlightedPlaceId}
         previewPlace={previewPlace}
       />
-      <LocationButton />
+      <LocationButton onLocationUpdate={onUserLocationUpdate} />
       <MapLayersControl onOpenChange={onLayerMenuOpen} />
     </Map>
   );

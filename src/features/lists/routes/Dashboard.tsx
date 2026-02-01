@@ -50,16 +50,18 @@ export const Dashboard: React.FunctionComponent = () => {
   }, [lists, optimisticLists, hiddenListIds, pendingUpdates]);
 
   useEffect(() => {
-    if (optimisticLists.length === 0) return;
+    if (lists.length === 0) return;
 
-    const realIds = new Set(lists.map((l) => l.id));
-    const stillOptimistic = optimisticLists.filter((l) => !realIds.has(l.id));
+    setOptimisticLists((prev) => {
+      const realIds = new Set(lists.map((l) => l.id));
+      const stillOptimistic = prev.filter((l) => !realIds.has(l.id));
 
-    if (stillOptimistic.length !== optimisticLists.length) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setOptimisticLists(stillOptimistic);
-    }
-  }, [lists, optimisticLists]);
+      if (stillOptimistic.length !== prev.length) {
+        return stillOptimistic;
+      }
+      return prev;
+    });
+  }, [lists]);
 
   const resetForm = () => {
     setEditingList(null);
@@ -461,36 +463,39 @@ export const Dashboard: React.FunctionComponent = () => {
                           e.preventDefault();
                         }
                       }}
-                      className={`${themeColors.background.card} border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer block h-full ${
-                        list.id.startsWith('temp-') ? 'opacity-60 pointer-events-none' : ''
-                      }`}
+                      className={`${themeColors.background.card} border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer block h-full ${list.id.startsWith('temp-') ? 'opacity-60 pointer-events-none' : ''
+                        }`}
                     >
                       <div className="flex items-start justify-between">
                         <div className="mr-4 flex-shrink-0">
                           <ListIcon icon={list.icon} color={list.color} size={24} />
                         </div>
-                        <div className="flex-1">
+                        <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <h3 className={`text-lg font-medium ${themeColors.text.primary}`}>
+                            <h3
+                              className={`text-lg font-medium ${themeColors.text.primary} truncate`}
+                            >
                               {list.name}
                             </h3>
                             {list.id.startsWith('temp-') && (
-                              <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded">
+                              <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded flex-shrink-0">
                                 Saving...
                               </span>
                             )}
                           </div>
                           {list.description && (
-                            <p className={`text-sm ${themeColors.text.secondary} mt-1`}>
+                            <p className={`text-sm ${themeColors.text.secondary} mt-1 truncate`}>
                               {list.description}
                             </p>
                           )}
                           <div className="flex items-center mt-2 space-x-4">
-                            <span className={`text-sm ${themeColors.text.secondary}`}>
+                            <span
+                              className={`text-sm ${themeColors.text.secondary} whitespace-nowrap`}
+                            >
                               {list.places?.length || 0} places
                             </span>
                             <span
-                              className={`flex items-center text-sm ${themeColors.text.secondary}`}
+                              className={`flex items-center text-sm ${themeColors.text.secondary} whitespace-nowrap`}
                             >
                               {list.isPublic ? (
                                 <>
@@ -504,7 +509,7 @@ export const Dashboard: React.FunctionComponent = () => {
                             </span>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2 ml-4">
+                        <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
                           <button
                             onClick={(e) => {
                               e.preventDefault();

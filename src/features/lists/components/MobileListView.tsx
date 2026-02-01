@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback, useLayoutEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Users, Edit, Plus, Search, X, Sparkles } from 'lucide-react';
+import { ArrowLeft, Users, Edit, Search, X, Sparkles } from 'lucide-react';
 import { MapView } from '@/features/maps/components/MapView';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { PlaceService } from '@/features/places/api/placeService';
@@ -34,13 +34,24 @@ interface MobileListViewProps {
   onClearSelection: () => void;
   onPlaceUpdated: (place?: Place) => void;
   onEditList: () => void;
-  onManageTeam: () => void;
-  onAddPlaces: () => void;
   onAddExternalPlace: (place: Partial<Place>) => void;
   highlightedPlaceId?: string;
   onPlaceHidden?: (placeId: string) => void;
   onPlaceRestored?: (placeId: string) => void;
 }
+
+const ScrollRestorer = ({ scrollPos }: { scrollPos: number }) => {
+  useLayoutEffect(() => {
+    const el = document.getElementById('mobile-bottom-sheet-scrollable');
+    if (el) {
+      // requestAnimationFrame ensures the element is ready/layout is settled
+      requestAnimationFrame(() => {
+        el.scrollTop = scrollPos;
+      });
+    }
+  }, [scrollPos]);
+  return null;
+};
 
 export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   list,
@@ -53,8 +64,6 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   onClearSelection,
   onPlaceUpdated,
   onEditList,
-  onManageTeam,
-  onAddPlaces,
   onAddExternalPlace,
   highlightedPlaceId,
   onPlaceHidden,
@@ -68,8 +77,13 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   const [isAiSearching, setIsAiSearching] = useState(false);
   const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
   const [bottomSheetHeight, setBottomSheetHeight] = useState(120);
+  const [listScrollPos, setListScrollPos] = useState(0);
 
-  // Base set of places for filter calculations (Dropdown options)
+  const saveListScroll = useCallback(() => {
+    const el = document.getElementById('mobile-bottom-sheet-scrollable');
+    if (el) setListScrollPos(el.scrollTop);
+  }, []);
+
   const aiMatchedPlaces = React.useMemo(() => {
     if (aiMatchedIds === null) return null;
     return places.filter((p) => aiMatchedIds.includes(p.id));
@@ -77,11 +91,9 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
 
   const basePlaces = aiMatchedPlaces || places;
 
-  // Final list to show: Intersection of (Standard Filters) AND (AI Matches)
   const effectiveFilteredPlaces = React.useMemo(() => {
     if (aiMatchedIds === null) return filteredPlaces;
 
-    // If AI is active, we want to apply standard filters (like Open Now) ON TOP of AI results
     return filteredPlaces.filter((p) => aiMatchedIds.includes(p.id));
   }, [filteredPlaces, aiMatchedIds]);
 
@@ -114,7 +126,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   const handleAiModeChange = (enabled: boolean) => {
     setIsAiMode(enabled);
     if (!enabled) {
-      setAiMatchedIds(null); // Auto-clear filter when exiting AI mode
+      setAiMatchedIds(null);
     }
   };
 
@@ -141,18 +153,17 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
     const normalizeId = (id: string | undefined) => id?.replace(/^places\//, '') || '';
     const resultId = normalizeId(result.place_id);
 
-    // 1. Initial check (optimistic) to avoid API call if possible
     let existingPlace = places.find((p) => normalizeId(p.googlePlaceId) === resultId);
 
     // Only skip if we are absolutely sure it's the same place and NOT in a "force preview" context
     // But if the user is searching, they might want to see the "Add" button if it's not truly in the list yet
     if (existingPlace) {
+      saveListScroll();
       onPlaceClick(existingPlace);
       clearSearch();
       return;
     }
 
-    // 2. Fetch details to get canonical ID and full object
     const previewPlace = await handleSelectSearchResult(result);
 
     if (previewPlace) {
@@ -160,6 +171,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
       const canonicalId = normalizeId(previewPlace.googlePlaceId);
       existingPlace = places.find((p) => normalizeId(p.googlePlaceId) === canonicalId);
 
+      saveListScroll();
       if (existingPlace) {
         // It was an alias! Use the existing place instead of the preview
         onPlaceClick(existingPlace);
@@ -200,27 +212,6 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
         </div>
       </div>
 
-      <div className="flex gap-3">
-        <button
-          onClick={onManageTeam}
-          className="flex items-center gap-2 px-4 py-2 rounded-full bg-teal-700 hover:bg-teal-800 text-white text-sm font-medium transition-colors"
-        >
-          <Users className="h-4 w-4" />
-          Invite collaborators
-        </button>
-        <button
-          onClick={onAddPlaces}
-          className="flex items-center gap-2 px-4 py-2 rounded-full bg-teal-700 hover:bg-teal-800 text-white text-sm font-medium transition-colors"
-        >
-          <Plus className="h-4 w-4" />
-          Add places
-        </button>
-      </div>
-    </div>
-  );
-
-  const listContent = (
-    <div className="space-y-4">
       {(places.length > 0 || effectiveFilteredPlaces.length > 0) && (
         <PlaceFilters
           filters={filters}
@@ -245,6 +236,13 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
           isAiLoading={isAiSearching}
         />
       )}
+    </div>
+  );
+
+  const listContent = (
+    <div className="space-y-4">
+      <ScrollRestorer scrollPos={listScrollPos} />
+      <ScrollRestorer scrollPos={listScrollPos} />
 
       <div className="space-y-3 pb-20">
         {effectiveFilteredPlaces.length === 0 ? (
@@ -260,7 +258,10 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
               place={place}
               list={list}
               userLocation={userLocation}
-              onClick={() => onPlaceClick(place)}
+              onClick={() => {
+                saveListScroll();
+                onPlaceClick(place);
+              }}
             />
           ))
         )}
@@ -300,7 +301,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   const [forcedSnap, setForcedSnap] = React.useState<number | undefined>(undefined);
 
   return (
-    <div className="h-[100dvh] w-full flex flex-col relative">
+    <div className="fixed inset-0 w-full h-[100dvh] flex flex-col bg-white dark:bg-gray-900 overflow-hidden">
       {/* AI Mode Highlight Border */}
       {isAiMode && (
         <div className="absolute inset-0 z-[9999] pointer-events-none shadow-[inset_0_0_80px_rgba(168,85,247,0.4)] transition-all duration-300" />
@@ -325,6 +326,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
           })()}
           onLayerMenuOpen={(isOpen) => setForcedSnap(isOpen ? 0 : undefined)}
           onAddExternalPlace={onAddExternalPlace}
+          onUserLocationUpdate={setUserLocation}
         />
       </div>
 

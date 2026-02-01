@@ -11,6 +11,7 @@ import { themeColors, colors } from '@/styles/colors';
 import { logger } from '@/utils/logger';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
 import type { Place } from '@/features/places/types/place';
+import { omit } from '@/utils/objects';
 
 // Simplified interface for Google Places search results
 interface PlaceSearchResult {
@@ -59,8 +60,7 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
       GoogleMapsService.initialize().catch((err) => {
         logger.error('Failed to initialize Google Maps:', err);
         setError(
-          `Failed to load Google Maps. ${
-            err instanceof Error ? err.message : 'Please check your API key and restrictions.'
+          `Failed to load Google Maps. ${err instanceof Error ? err.message : 'Please check your API key and restrictions.'
           }`
         );
       });
@@ -171,12 +171,7 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
       triggerAction(
         async () => {
           // Strip IDs and timestamps for creation
-          const {
-            id: _id,
-            addedAt: _addedAt,
-            updatedAt: _updatedAt,
-            ...placePayload
-          } = newPlaceData;
+          const placePayload = omit(newPlaceData, ['id', 'addedAt', 'updatedAt']);
 
           const realId = await PlaceService.createPlace(listId, placePayload);
 

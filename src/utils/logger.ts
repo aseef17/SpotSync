@@ -20,7 +20,7 @@ export const logger = {
             ), // Limit length
           fatal: false,
         });
-      } catch (e) {
+      } catch {
         // Ignore analytics errors to prevent loops
       }
     }
