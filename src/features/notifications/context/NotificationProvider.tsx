@@ -23,7 +23,8 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
         const isGranted = Notification.permission === 'granted';
         setPermissionGranted(isGranted);
 
-        if (isGranted && user) {
+        // DO NOT auto-sync if notifications are explicitly disabled by the user
+        if (isGranted && user && !notificationsDisabled) {
           // Check if we need to sync (if not synced or if last check was a while ago)
           const lastCheck = sessionStorage.getItem(`fcm_sync_${user.id}`);
           const isRecentlyChecked = lastCheck && Date.now() - parseInt(lastCheck) < 600000; // 10 mins
@@ -38,7 +39,7 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
 
       checkPermission();
     }
-  }, [user, tokenSynced]);
+  }, [user, tokenSynced, notificationsDisabled]);
 
   // Live listener for user's FCM tokens status
   // Live listener for user's FCM tokens status
@@ -60,6 +61,9 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
   const requestPermission = async () => {
     if (!user) return false;
     const granted = await NotificationService.requestPermission(user.id);
+    if (granted) {
+      await NotificationService.setNotificationsDisabled(user.id, false);
+    }
     setPermissionGranted(granted);
     return granted;
   };
@@ -67,23 +71,21 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
   const disableNotifications = async () => {
     if (!user) return;
 
-    // Try to get current token to remove only this device
+    // Set global flag first so UI updates immediately
+    await NotificationService.setNotificationsDisabled(user.id, true);
+
+    // Try to get current token to remove only this device from the active tokens list
     try {
-      // We need the messaging instance to get the token
-      const { messaging } = await import('@/lib/firebase');
-      if (messaging) {
-        const token = await NotificationService.getFCMToken(messaging);
+      const { messaging: fbMessaging } = await import('@/lib/firebase');
+      if (fbMessaging) {
+        const token = await NotificationService.getFCMToken(fbMessaging);
         if (token) {
           await NotificationService.removeDeviceToken(user.id, token);
-          return;
         }
       }
     } catch (err) {
-      logger.warn('Failed to get token for removal, falling back to all tokens removal', err);
+      logger.warn('Failed to remove specific device token during disable', err);
     }
-
-    // Fallback: Remove all tokens if we can't identify the current one
-    await NotificationService.removeTokenFromUser(user.id);
   };
 
   // Listen for FCM Messages (Foreground)

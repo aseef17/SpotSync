@@ -68,7 +68,6 @@ export class NotificationService {
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, {
         fcmTokens: arrayUnion(token),
-        notificationsDisabled: false,
       });
       logger.info(`FCM Token successfully synced to users/${userId}`);
     } catch (error) {
@@ -98,6 +97,18 @@ export class NotificationService {
       logger.info(`FCM Tokens successfully removed from users/${userId}`);
     } catch (error) {
       logger.error(`FCM Removal Error: Failed to remove tokens from users/${userId}:`, error);
+    }
+  }
+
+  static async setNotificationsDisabled(userId: string, disabled: boolean): Promise<void> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        notificationsDisabled: disabled,
+      });
+      logger.info(`Notifications global status set to ${disabled} for users/${userId}`);
+    } catch (error) {
+      logger.error(`Failed to set notifications status to ${disabled} for users/${userId}:`, error);
     }
   }
 

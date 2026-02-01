@@ -65,6 +65,10 @@ async function getCollaboratorTokens(listId, excludeUserId) {
       userDocsFound += snap.size;
       snap.forEach((doc) => {
         const data = doc.data();
+        if (data.notificationsDisabled === true) {
+          console.log(`User ${doc.id}: Notifications are globally disabled. Skipping.`);
+          return;
+        }
         const userTokens = data.fcmTokens || [];
         console.log(`User ${doc.id}: Found ${userTokens.length} tokens.`);
         if (Array.isArray(userTokens)) {
@@ -127,6 +131,12 @@ exports.onInvitationCreated = onDocumentCreated(
 
     const userDoc = querySnapshot.docs[0];
     const userData = userDoc.data();
+
+    if (userData.notificationsDisabled === true) {
+      console.log(`[Notification Warning] User ${userDoc.id} has notifications globally disabled.`);
+      return;
+    }
+
     const fcmTokens = userData.fcmTokens || [];
 
     if (fcmTokens.length === 0) {
@@ -227,6 +237,12 @@ exports.onInvitationAccepted = onDocumentUpdated(
     }
 
     const inviterData = inviterDoc.data();
+
+    if (inviterData.notificationsDisabled === true) {
+      console.log(`[Notification Warning] Inviter ${invitedBy} has notifications globally disabled.`);
+      return;
+    }
+
     const fcmTokens = inviterData.fcmTokens || [];
 
     if (fcmTokens.length === 0) {
