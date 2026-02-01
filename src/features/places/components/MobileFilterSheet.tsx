@@ -31,10 +31,15 @@ export const MobileFilterSheet: React.FunctionComponent<MobileFilterSheetProps> 
       <div className="fixed inset-0 bg-black/50 z-[60] transition-opacity" onClick={onClose} />
 
       <div
-        className={`fixed bottom-0 left-0 right-0 z-[61] ${themeColors.background.card} rounded-t-xl overflow-hidden shadow-2xl animate-slide-up max-h-[80vh] flex flex-col`}
+        className={`fixed bottom-0 left-0 right-0 z-[61] ${themeColors.background.card} rounded-t-xl overflow-hidden shadow-2xl animate-slide-up max-h-[85vh] flex flex-col pb-[env(safe-area-inset-bottom)]`}
       >
+        {/* Drag Handle */}
+        <div className="w-full pt-3 pb-1 flex justify-center">
+          <div className="w-12 h-1.5 rounded-full bg-gray-300 dark:bg-gray-600" />
+        </div>
+
         <div
-          className={`flex items-center justify-between px-4 py-3 border-b ${themeColors.border.default}`}
+          className={`flex items-center justify-between px-4 py-2 border-b ${themeColors.border.default}`}
         >
           <h3 className={`font-semibold ${themeColors.text.primary} capitalize`}>
             {activeFilter === 'sort' ? 'Sort By' : `Select ${activeFilter}`}
@@ -146,49 +151,59 @@ export const MobileFilterSheet: React.FunctionComponent<MobileFilterSheetProps> 
                     : filters.category === category;
 
                   return (
-                    <button
+                    <div
                       key={category}
-                      onClick={() => {
-                        let newCats: string[] = [];
-                        if (Array.isArray(filters.category)) {
-                          newCats = [...filters.category];
-                        } else if (filters.category) {
-                          newCats = [filters.category];
-                        }
-
-                        if (isSelected) {
-                          newCats = newCats.filter((c) => c !== category);
-                        } else {
-                          newCats.push(category);
-                        }
-                        updateFilter('category', newCats.length > 0 ? newCats : undefined);
-                      }}
-                      className={`group w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors relative ${isSelected ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                      className={`group w-full flex items-center hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors relative ${
+                        isSelected ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+                      }`}
                     >
-                      <div
-                        className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                          isSelected
-                            ? 'bg-blue-600 border-blue-600 text-white'
-                            : `${themeColors.border.default} bg-transparent`
-                        }`}
+                      <button
+                        onClick={() => {
+                          let newCats: string[] = [];
+                          if (Array.isArray(filters.category)) {
+                            newCats = [...filters.category];
+                          } else if (filters.category) {
+                            newCats = [filters.category];
+                          }
+
+                          if (isSelected) {
+                            newCats = newCats.filter((c) => c !== category);
+                          } else {
+                            newCats.push(category);
+                          }
+                          updateFilter('category', newCats.length > 0 ? newCats : undefined);
+                        }}
+                        className="flex-1 flex items-center gap-3 px-4 py-3 text-left"
                       >
-                        {isSelected && <Check className="h-3.5 w-3.5" />}
-                      </div>
-                      <span className={`text-sm font-medium ${themeColors.text.primary} flex-1`}>
-                        {category}
-                      </span>
+                        <div
+                          className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600 border-blue-600 text-white'
+                              : `${themeColors.border.default} bg-transparent`
+                          }`}
+                        >
+                          {isSelected && <Check className="h-3.5 w-3.5" />}
+                        </div>
+                        <span
+                          className={`text-sm font-medium ${themeColors.text.primary} truncate`}
+                        >
+                          {category}
+                        </span>
+                      </button>
 
                       {/* Only button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateFilter('category', [category]);
-                        }}
-                        className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium hover:bg-blue-200 dark:hover:bg-blue-800 shadow-sm"
-                      >
-                        Only
-                      </button>
-                    </button>
+                      <div className="px-4 py-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateFilter('category', [category]);
+                          }}
+                          className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium hover:bg-blue-200 dark:hover:bg-blue-800 shadow-sm"
+                        >
+                          Only
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>
@@ -221,43 +236,53 @@ export const MobileFilterSheet: React.FunctionComponent<MobileFilterSheetProps> 
                 ].map((option) => {
                   const isSelected = filters.priceLevel?.includes(option.value);
                   return (
-                    <button
+                    <div
                       key={option.value}
-                      onClick={() => {
-                        let newPrices = filters.priceLevel ? [...filters.priceLevel] : [];
-                        if (isSelected) {
-                          newPrices = newPrices.filter((p) => p !== option.value);
-                        } else {
-                          newPrices.push(option.value);
-                        }
-                        updateFilter('priceLevel', newPrices.length > 0 ? newPrices : undefined);
-                      }}
-                      className={`group w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors relative ${isSelected ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''}`}
+                      className={`group w-full flex items-center hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors relative ${
+                        isSelected ? 'bg-blue-50/50 dark:bg-blue-900/10' : ''
+                      }`}
                     >
-                      <div
-                        className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
-                          isSelected
-                            ? 'bg-blue-600 border-blue-600 text-white'
-                            : `${themeColors.border.default} bg-transparent`
-                        }`}
+                      <button
+                        onClick={() => {
+                          let newPrices = filters.priceLevel ? [...filters.priceLevel] : [];
+                          if (isSelected) {
+                            newPrices = newPrices.filter((p) => p !== option.value);
+                          } else {
+                            newPrices.push(option.value);
+                          }
+                          updateFilter('priceLevel', newPrices.length > 0 ? newPrices : undefined);
+                        }}
+                        className="flex-1 flex items-center gap-3 px-4 py-3 text-left"
                       >
-                        {isSelected && <Check className="h-3.5 w-3.5" />}
-                      </div>
-                      <span className={`text-sm font-medium ${themeColors.text.primary} flex-1`}>
-                        {option.label}
-                      </span>
+                        <div
+                          className={`w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors ${
+                            isSelected
+                              ? 'bg-blue-600 border-blue-600 text-white'
+                              : `${themeColors.border.default} bg-transparent`
+                          }`}
+                        >
+                          {isSelected && <Check className="h-3.5 w-3.5" />}
+                        </div>
+                        <span
+                          className={`text-sm font-medium ${themeColors.text.primary} truncate`}
+                        >
+                          {option.label}
+                        </span>
+                      </button>
 
                       {/* Only button */}
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          updateFilter('priceLevel', [option.value]);
-                        }}
-                        className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium hover:bg-blue-200 dark:hover:bg-blue-800 shadow-sm"
-                      >
-                        Only
-                      </button>
-                    </button>
+                      <div className="px-4 py-3">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            updateFilter('priceLevel', [option.value]);
+                          }}
+                          className="text-xs px-2 py-1 rounded bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 font-medium hover:bg-blue-200 dark:hover:bg-blue-800 shadow-sm"
+                        >
+                          Only
+                        </button>
+                      </div>
+                    </div>
                   );
                 })}
               </div>

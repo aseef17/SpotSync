@@ -14,7 +14,7 @@ interface MobileBottomSheetProps {
 export const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> = ({
   header,
   children,
-  snapPoints = [120, '25%', '50%', '90%'],
+  snapPoints = [120, '25%', '50%', '85%'],
   defaultSnap = 1,
   snapIndex,
   onHeightChange,
