@@ -1,7 +1,7 @@
 import { getToken, onMessage, type Messaging } from 'firebase/messaging';
 import { logger } from '@/utils/logger';
 import { messaging, db } from '@/lib/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 export interface NotificationPayload {
   notification?: {
@@ -76,6 +76,18 @@ export class NotificationService {
     }
   }
 
+  static async removeDeviceToken(userId: string, token: string): Promise<void> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        fcmTokens: arrayRemove(token),
+      });
+      logger.info(`FCM Token removed from users/${userId}`);
+    } catch (error) {
+      logger.error(`FCM Removal Error: Failed to remove token from users/${userId}:`, error);
+    }
+  }
+
   static async removeTokenFromUser(userId: string): Promise<void> {
     try {
       const userRef = doc(db, 'users', userId);
@@ -102,14 +114,6 @@ export class NotificationService {
           notification: { title, body },
           data: payload.data,
         });
-      }
-
-      if (title && body) {
-        try {
-          new Notification(title, { body });
-        } catch {
-          // Ignore notification errors
-        }
       }
     });
   }

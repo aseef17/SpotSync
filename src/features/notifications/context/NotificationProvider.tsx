@@ -66,8 +66,24 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
 
   const disableNotifications = async () => {
     if (!user) return;
+
+    // Try to get current token to remove only this device
+    try {
+      // We need the messaging instance to get the token
+      const { messaging } = await import('@/lib/firebase');
+      if (messaging) {
+        const token = await NotificationService.getFCMToken(messaging);
+        if (token) {
+          await NotificationService.removeDeviceToken(user.id, token);
+          return;
+        }
+      }
+    } catch (err) {
+      logger.warn('Failed to get token for removal, falling back to all tokens removal', err);
+    }
+
+    // Fallback: Remove all tokens if we can't identify the current one
     await NotificationService.removeTokenFromUser(user.id);
-    // Token removal will be reflected via the live Firestore listener (tokenSynced)
   };
 
   // Listen for FCM Messages (Foreground)

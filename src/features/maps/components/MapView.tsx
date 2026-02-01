@@ -8,6 +8,8 @@ import { getColorByName } from '@/constants/mapIcons';
 import { getIconForCategory, getCategoryColor } from '@/constants/placeCategories';
 import { useTheme } from '@/hooks/useTheme';
 import { themeColors } from '@/styles/colors';
+import { logger } from '@/utils/logger';
+import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
 
 interface MapViewProps {
   places: Place[];
@@ -121,6 +123,7 @@ const LocationButton = ({
 }) => {
   const map = useMap();
   const [loading, setLoading] = useState(false);
+  const [showPermissionError, setShowPermissionError] = useState(false);
 
   const handleLocate = () => {
     if (!map) return;
@@ -137,8 +140,13 @@ const LocationButton = ({
           setLoading(false);
           onLocationUpdate?.(pos);
         },
-        () => {
+        (error) => {
           setLoading(false);
+          if (error.code === error.PERMISSION_DENIED) {
+            setShowPermissionError(true);
+          } else {
+            logger.warn('Geolocation error:', error);
+          }
         },
         { enableHighAccuracy: true }
       );
@@ -148,14 +156,30 @@ const LocationButton = ({
   };
 
   return (
-    <button
-      onClick={handleLocate}
-      className={`absolute bottom-36 right-4 bg-white dark:bg-gray-800 p-3 rounded-full shadow-md z-10 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none ${themeColors.text.primary} transition-colors`}
-      aria-label="Current Location"
-      style={{ zIndex: 5 }}
-    >
-      <Icons.Crosshair className={`h-6 w-6 ${loading ? 'animate-spin' : ''}`} />
-    </button>
+    <>
+      <button
+        onClick={handleLocate}
+        className={`absolute bottom-36 right-4 bg-white dark:bg-gray-800 p-3 rounded-full shadow-md z-10 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none ${themeColors.text.primary} transition-colors`}
+        aria-label="Current Location"
+        style={{ zIndex: 5 }}
+      >
+        <Icons.Crosshair className={`h-6 w-6 ${loading ? 'animate-spin' : ''}`} />
+      </button>
+
+      {createPortal(
+        <ConfirmDialog
+          isOpen={showPermissionError}
+          title="Location Access Denied"
+          message="Location access is denied. Please enable location services for this site in your browser settings to use this feature."
+          confirmText="OK"
+          onConfirm={() => setShowPermissionError(false)}
+          onCancel={() => setShowPermissionError(false)}
+          variant="warning"
+          cancelText=""
+        />,
+        document.body
+      )}
+    </>
   );
 };
 
