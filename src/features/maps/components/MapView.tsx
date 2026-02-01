@@ -119,8 +119,10 @@ const MapBoundsFitter: React.FunctionComponent<{
 
 const LocationButton = ({
   onLocationUpdate,
+  userLocation,
 }: {
   onLocationUpdate?: (location: { lat: number; lng: number }) => void;
+  userLocation?: { lat: number; lng: number } | null;
 }) => {
   const map = useMap();
   const [loading, setLoading] = useState(false);
@@ -128,6 +130,15 @@ const LocationButton = ({
 
   const handleLocate = () => {
     if (!map) return;
+
+    // Fast path: if we already have the location, just pan to it
+    if (userLocation) {
+      map.panTo(userLocation);
+      map.setZoom(15);
+      onLocationUpdate?.(userLocation);
+      return;
+    }
+
     setLoading(true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -588,7 +599,7 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
         highlightedPlaceId={highlightedPlaceId}
         previewPlace={previewPlace}
       />
-      <LocationButton onLocationUpdate={onUserLocationUpdate} />
+      <LocationButton onLocationUpdate={onUserLocationUpdate} userLocation={userLocation} />
       <MapLayersControl onOpenChange={onLayerMenuOpen} />
     </Map>
   );
