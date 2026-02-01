@@ -6,6 +6,12 @@
       "src": "mappin-icon.svg",
       "type": "image/svg+xml",
       "sizes": "any"
+    },
+    {
+      "src": "icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
     }
   ],
   "start_url": ".",
