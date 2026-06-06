@@ -11,7 +11,7 @@ import {
   updateProfile,
   type User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, setDoc, getDoc, runTransaction } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/features/auth/types/user';
 
@@ -111,12 +111,16 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
         updatedAt: new Date(),
       };
 
-      // Create user document
-      await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
+      await runTransaction(db, async (transaction) => {
+        const usernameRef = doc(db, 'usernames', normalizedUsername);
+        const usernameDoc = await transaction.get(usernameRef);
 
-      // Create username mapping for availability checks
-      await setDoc(doc(db, 'usernames', normalizedUsername), {
-        uid: userCredential.user.uid,
+        if (usernameDoc.exists()) {
+          throw new Error('Username is not available');
+        }
+
+        transaction.set(doc(db, 'users', userCredential.user.uid), newUser);
+        transaction.set(usernameRef, { uid: userCredential.user.uid });
       });
 
       await sendEmailVerification(userCredential.user);

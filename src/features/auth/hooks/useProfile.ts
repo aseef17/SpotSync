@@ -40,13 +40,6 @@ export const useProfile = () => {
       throw new Error('Username is not available');
     }
 
-    if (username !== user?.username) {
-      const usernameExists = await UserService.checkUsernameExists(username);
-      if (usernameExists) {
-        throw new Error('Username is not available');
-      }
-    }
-
     try {
       await UserService.updateProfileWithUsername(
         firebaseUser.uid,

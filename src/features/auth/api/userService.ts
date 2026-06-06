@@ -6,8 +6,7 @@ import {
   query,
   where,
   getDocs,
-  setDoc,
-  deleteDoc,
+  runTransaction,
 } from 'firebase/firestore';
 import type {
   FirestoreDataConverter,
@@ -72,21 +71,39 @@ export class UserService {
     updates: { displayName: string; username: string },
     oldUsername?: string
   ): Promise<void> {
-    try {
-      const normalizedUsername = updates.username.toLowerCase().trim();
+    const normalizedNewUsername = updates.username.toLowerCase().trim();
+    const normalizedOldUsername = oldUsername?.toLowerCase().trim();
+    const usernameChanged =
+      normalizedOldUsername !== undefined && normalizedNewUsername !== normalizedOldUsername;
 
-      // Update the user document
-      await updateDoc(doc(db, 'users', userId), {
+    if (!usernameChanged) {
+      await this.updateUser(userId, {
         displayName: updates.displayName,
-        username: normalizedUsername,
-        updatedAt: new Date(),
+        username: normalizedNewUsername,
       });
+      return;
+    }
 
-      // Update the username mapping
-      if (oldUsername && oldUsername !== normalizedUsername) {
-        await deleteDoc(doc(db, 'usernames', oldUsername));
-      }
-      await setDoc(doc(db, 'usernames', normalizedUsername), { uid: userId });
+    try {
+      await runTransaction(db, async (transaction) => {
+        const newUsernameRef = doc(db, 'usernames', normalizedNewUsername);
+        const newUsernameDoc = await transaction.get(newUsernameRef);
+
+        if (newUsernameDoc.exists()) {
+          throw new Error('Username is not available');
+        }
+
+        if (normalizedOldUsername) {
+          transaction.delete(doc(db, 'usernames', normalizedOldUsername));
+        }
+        transaction.set(newUsernameRef, { uid: userId });
+
+        transaction.update(doc(db, 'users', userId), {
+          displayName: updates.displayName,
+          username: normalizedNewUsername,
+          updatedAt: new Date(),
+        });
+      });
     } catch (error) {
       logger.error('Error updating profile:', error);
       throw error;
