@@ -15,6 +15,7 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [tokenSynced, setTokenSynced] = useState(false);
   const [notificationsDisabled, setNotificationsDisabled] = useState(false);
+  const [preferencesLoaded, setPreferencesLoaded] = useState(false);
 
   useEffect(() => {
     if ('Notification' in window) {
@@ -22,6 +23,10 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
       const checkPermission = () => {
         const isGranted = Notification.permission === 'granted';
         setPermissionGranted(isGranted);
+
+        // Wait for Firestore preferences before auto-syncing to avoid re-adding tokens
+        // for users who explicitly disabled notifications.
+        if (!preferencesLoaded) return;
 
         // DO NOT auto-sync if notifications are explicitly disabled by the user
         if (isGranted && user && !notificationsDisabled) {
@@ -39,12 +44,18 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
 
       checkPermission();
     }
-  }, [user, tokenSynced, notificationsDisabled]);
+  }, [user, tokenSynced, notificationsDisabled, preferencesLoaded]);
 
   // Live listener for user's FCM tokens status
-  // Live listener for user's FCM tokens status
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id) {
+      setPreferencesLoaded(false);
+      setTokenSynced(false);
+      setNotificationsDisabled(false);
+      return;
+    }
+
+    setPreferencesLoaded(false);
 
     const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
       if (docSnap.exists()) {
@@ -52,7 +63,11 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
         const tokens = data.fcmTokens || [];
         setTokenSynced(tokens.length > 0);
         setNotificationsDisabled(data.notificationsDisabled === true);
+      } else {
+        setTokenSynced(false);
+        setNotificationsDisabled(false);
       }
+      setPreferencesLoaded(true);
     });
 
     return () => unsubscribe();
@@ -90,7 +105,7 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
 
   // Listen for FCM Messages (Foreground)
   useEffect(() => {
-    if (permissionGranted) {
+    if (permissionGranted && !notificationsDisabled) {
       const unsubscribe = NotificationService.onMessageListener((payload) => {
         const { title, body } = payload.notification || {};
         if (title && body) {
@@ -101,7 +116,7 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
         if (unsubscribe) unsubscribe();
       };
     }
-  }, [permissionGranted, addToast]);
+  }, [permissionGranted, notificationsDisabled, addToast]);
 
   return (
     <NotificationContext.Provider

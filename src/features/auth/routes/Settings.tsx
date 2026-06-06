@@ -64,13 +64,13 @@ export const Settings: React.FunctionComponent = () => {
     );
   };
 
+  const isToggledOn = !notificationsDisabled && (tokenSynced || permissionGranted);
+
   const handleToggleNotifications = async () => {
-    if (!notificationsDisabled && tokenSynced) {
-      // Currently enabled - disable notifications
+    if (isToggledOn) {
       await disableNotifications();
       toast.success('Notifications disabled');
     } else {
-      // Currently disabled - enable notifications
       const granted = await requestPermission();
       if (granted) {
         new Notification('Place Lists App', {
@@ -80,8 +80,6 @@ export const Settings: React.FunctionComponent = () => {
       }
     }
   };
-
-  const isToggledOn = !notificationsDisabled && (tokenSynced || permissionGranted);
 
   return (
     <div className={`min-h-screen light-bg-app transition-colors`}>
