@@ -26,6 +26,7 @@ export interface PlaceList {
   icon?: string;
   color?: string;
   iconSize?: number;
+  isSavedList?: boolean;
   createdAt: Date;
   updatedAt: Date;
   createdBy?: string;

@@ -314,9 +314,11 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
       </div>
 
       <div
-        className={`hidden lg:flex flex-col ${isInSidebar ? 'gap-4' : 'lg:flex-row lg:items-center lg:justify-between'} gap-4`}
+        className={`hidden lg:flex ${
+          isInSidebar ? 'flex-col gap-4' : 'flex-row items-center justify-between gap-6'
+        }`}
       >
-        <div className={`${isInSidebar ? 'w-full' : 'flex-1 max-w-md'} flex gap-2`}>
+        <div className={`flex gap-2 ${isInSidebar ? 'w-full' : 'flex-1 max-w-xl'}`}>
           <div className="relative flex-1 group">
             <Search
               className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 z-10 ${
@@ -372,111 +374,261 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <CustomDropdown
-            value={filters.status || 'all'}
-            options={allStatuses.map((s) => ({ value: s.value, label: s.label }))}
-            onChange={(value: string) =>
-              updateFilter('status', value === 'all' ? undefined : (value as PlaceStatus))
-            }
-            placeholder="All Statuses"
-          />
+        {isInSidebar && (
+          <div className="flex items-center justify-between w-full">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
+              Filters
+            </span>
+            <div className="flex items-center gap-2">
+              {density && onDensityChange && (
+                <div className="flex items-center rounded-lg overflow-hidden border light-border-default">
+                  <button
+                    onClick={() => onDensityChange('comfortable')}
+                    className={`p-1.5 transition-colors ${
+                      density === 'comfortable'
+                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                        : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                    }`}
+                    title="Comfortable View"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </button>
+                  <button
+                    onClick={() => onDensityChange('compact')}
+                    className={`p-1.5 transition-colors ${
+                      density === 'compact'
+                        ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                        : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                    }`}
+                    title="Compact View"
+                  >
+                    <ListIcon className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+              {!hideViewToggle && (
+                <div className="flex rounded-lg overflow-hidden border light-border-default">
+                  <button
+                    onClick={() => onViewModeChange('list')}
+                    className={`flex items-center px-2 py-1.5 text-xs font-medium transition-colors ${
+                      viewMode === 'list'
+                        ? 'bg-blue-600 text-white'
+                        : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                    }`}
+                  >
+                    <ListIcon className="h-4 w-4 mr-1" />
+                    List
+                  </button>
+                  <button
+                    onClick={() => onViewModeChange('map')}
+                    className={`flex items-center px-2 py-1.5 text-xs font-medium transition-colors ${
+                      viewMode === 'map'
+                        ? 'bg-blue-600 text-white'
+                        : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                    }`}
+                  >
+                    <MapIcon className="h-4 w-4 mr-1" />
+                    Map
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
-          <MultiSelectDropdown
-            value={
-              Array.isArray(filters.category)
-                ? filters.category
-                : filters.category
-                  ? [filters.category]
-                  : []
+        <div
+          className={
+            isInSidebar
+              ? 'flex flex-col gap-2'
+              : 'flex flex-row items-center justify-end gap-4 flex-1 min-w-0'
+          }
+        >
+          <div
+            className={
+              isInSidebar
+                ? 'grid grid-cols-2 gap-2 w-full'
+                : 'flex flex-wrap items-center justify-end gap-2 w-auto'
             }
-            options={[...availableCategories.map((c) => ({ value: c, label: c }))]}
-            onChange={(value: string[]) =>
-              updateFilter('category', value.length > 0 ? value : undefined)
-            }
-            placeholder="All Categories"
-            className="w-48"
-          />
+          >
+            <CustomDropdown
+              value={filters.status || 'all'}
+              options={allStatuses.map((s) => ({ value: s.value, label: s.label }))}
+              onChange={(value: string) =>
+                updateFilter('status', value === 'all' ? undefined : (value as PlaceStatus))
+              }
+              placeholder="All Statuses"
+              className={isInSidebar ? 'w-full' : ''}
+            />
 
-          <CustomDropdown
-            value={`${filters.sortBy || 'date'}-${filters.sortDirection || 'desc'}`}
-            options={[
-              { value: 'date-desc', label: 'Newest First' },
-              { value: 'date-asc', label: 'Oldest First' },
-              { value: 'rating-desc', label: 'Highest Rated' },
-              { value: 'price-asc', label: 'Price: Low to High' },
-              { value: 'price-desc', label: 'Price: High to Low' },
-              { value: 'name-asc', label: 'Name (A-Z)' },
-              { value: 'name-desc', label: 'Name (Z-A)' },
-              ...(userLocation ? [{ value: 'distance-asc', label: 'Distance (Nearest)' }] : []),
-            ]}
-            onChange={(value: string) => {
-              if (value === 'name-desc') {
+            <MultiSelectDropdown
+              value={
+                Array.isArray(filters.category)
+                  ? filters.category
+                  : filters.category
+                    ? [filters.category]
+                    : []
+              }
+              options={[...availableCategories.map((c) => ({ value: c, label: c }))]}
+              onChange={(value: string[]) =>
+                updateFilter('category', value.length > 0 ? value : undefined)
+              }
+              placeholder="All Categories"
+              className={isInSidebar ? 'w-full' : 'w-48'}
+            />
+
+            <CustomDropdown
+              value={`${filters.sortBy || 'date'}-${filters.sortDirection || 'desc'}`}
+              options={[
+                { value: 'date-desc', label: 'Newest First' },
+                { value: 'date-asc', label: 'Oldest First' },
+                { value: 'rating-desc', label: 'Highest Rated' },
+                { value: 'price-asc', label: 'Price: Low to High' },
+                { value: 'price-desc', label: 'Price: High to Low' },
+                { value: 'name-asc', label: 'Name (A-Z)' },
+                { value: 'name-desc', label: 'Name (Z-A)' },
+                ...(userLocation ? [{ value: 'distance-asc', label: 'Distance (Nearest)' }] : []),
+              ]}
+              onChange={(value: string) => {
+                if (value === 'name-desc') {
+                  onFiltersChange({
+                    ...filters,
+                    sortBy: 'name-desc',
+                    sortDirection: 'desc',
+                  });
+                  return;
+                }
+                const [sortBy, sortDirection] = value.split('-');
                 onFiltersChange({
                   ...filters,
-                  sortBy: 'name-desc',
-                  sortDirection: 'desc',
+                  sortBy: sortBy as FilterOptions['sortBy'],
+                  sortDirection: sortDirection as FilterOptions['sortDirection'],
                 });
-                return;
+              }}
+              placeholder="Sort By"
+              className={isInSidebar ? 'w-full' : 'w-40'}
+            />
+
+            {((Array.isArray(filters.category) &&
+              filters.category.some((c) => c.toLowerCase().includes('restaurant'))) ||
+              (typeof filters.category === 'string' &&
+                filters.category.toLowerCase().includes('restaurant'))) &&
+              availableCuisines.length > 0 && (
+                <CustomDropdown
+                  value={filters.cuisine || ''}
+                  options={[
+                    { value: '', label: 'All Cuisines' },
+                    ...availableCuisines.map((c) => ({ value: c, label: c })),
+                  ]}
+                  onChange={(value: string) => updateFilter('cuisine', value || undefined)}
+                  placeholder="Any Cuisine"
+                  className={isInSidebar ? 'w-full' : ''}
+                />
+              )}
+
+            <button
+              onClick={() => updateFilter('openNow', !filters.openNow)}
+              className={`px-3 py-2 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${isInSidebar ? 'w-full flex items-center justify-center' : ''} ${
+                filters.openNow
+                  ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+                  : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary} hover:bg-gray-50 dark:hover:bg-gray-800/50`
+              }`}
+            >
+              Open Now
+            </button>
+
+            <CustomDropdown
+              value={filters.minRating?.toString() || ''}
+              options={[
+                { value: '', label: 'Min Rating' },
+                { value: '1', label: '1+' },
+                { value: '2', label: '2+' },
+                { value: '3', label: '3+' },
+                { value: '4', label: '4+' },
+                { value: '4.5', label: '4.5+' },
+              ]}
+              onChange={(value: string) =>
+                updateFilter('minRating', value ? parseFloat(value) : undefined)
               }
-              const [sortBy, sortDirection] = value.split('-');
-              onFiltersChange({
-                ...filters,
-                sortBy: sortBy as FilterOptions['sortBy'],
-                sortDirection: sortDirection as FilterOptions['sortDirection'],
-              });
-            }}
-            placeholder="Sort By"
-            className="w-40"
-          />
+              placeholder="Min Rating"
+              className={isInSidebar ? 'w-full' : ''}
+            />
 
-          {((Array.isArray(filters.category) &&
-            filters.category.some((c) => c.toLowerCase().includes('restaurant'))) ||
-            (typeof filters.category === 'string' &&
-              filters.category.toLowerCase().includes('restaurant'))) &&
-            availableCuisines.length > 0 && (
-              <CustomDropdown
-                value={filters.cuisine || ''}
-                options={[
-                  { value: '', label: 'All Cuisines' },
-                  ...availableCuisines.map((c) => ({ value: c, label: c })),
-                ]}
-                onChange={(value: string) => updateFilter('cuisine', value || undefined)}
-                placeholder="Any Cuisine"
-              />
-            )}
+            <MultiSelectDropdown
+              value={filters.priceLevel ? filters.priceLevel.map(String) : []}
+              options={[
+                { value: '0', label: 'Free' },
+                { value: '1', label: '$' },
+                { value: '2', label: '$$' },
+                { value: '3', label: '$$$' },
+                { value: '4', label: '$$$$' },
+              ]}
+              onChange={(values: string[]) =>
+                updateFilter('priceLevel', values.length > 0 ? values.map(Number) : undefined)
+              }
+              placeholder="Any Price"
+              className={isInSidebar ? 'w-full' : 'w-32'}
+            />
+          </div>
 
-          <CustomDropdown
-            value={filters.minRating?.toString() || ''}
-            options={[
-              { value: '', label: 'Min Rating' },
-              { value: '1', label: '1+' },
-              { value: '2', label: '2+' },
-              { value: '3', label: '3+' },
-              { value: '4', label: '4+' },
-              { value: '4.5', label: '4.5+' },
-            ]}
-            onChange={(value: string) =>
-              updateFilter('minRating', value ? parseFloat(value) : undefined)
-            }
-            placeholder="Min Rating"
-          />
+          {!isInSidebar && (
+            <div className="flex flex-col gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                {density && onDensityChange && (
+                  <div className="flex items-center rounded-lg overflow-hidden border light-border-default">
+                    <button
+                      onClick={() => onDensityChange('comfortable')}
+                      className={`p-2 transition-colors ${
+                        density === 'comfortable'
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                          : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                      }`}
+                      title="Comfortable View"
+                    >
+                      <LayoutGrid className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => onDensityChange('compact')}
+                      className={`p-2 transition-colors ${
+                        density === 'compact'
+                          ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
+                          : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                      }`}
+                      title="Compact View"
+                    >
+                      <ListIcon className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
 
-          <MultiSelectDropdown
-            value={filters.priceLevel ? filters.priceLevel.map(String) : []}
-            options={[
-              { value: '0', label: 'Free' },
-              { value: '1', label: '$' },
-              { value: '2', label: '$$' },
-              { value: '3', label: '$$$' },
-              { value: '4', label: '$$$$' },
-            ]}
-            onChange={(values: string[]) =>
-              updateFilter('priceLevel', values.length > 0 ? values.map(Number) : undefined)
-            }
-            placeholder="Any Price"
-            className="w-48"
-          />
+                {!hideViewToggle && (
+                  <div className="flex rounded-lg overflow-hidden border light-border-default">
+                    <button
+                      onClick={() => onViewModeChange('list')}
+                      className={`flex items-center px-3 py-2 text-sm font-medium transition-colors ${
+                        viewMode === 'list'
+                          ? 'bg-blue-600 text-white'
+                          : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                      }`}
+                    >
+                      <ListIcon className="h-4 w-4 mr-1" />
+                      List
+                    </button>
+                    <button
+                      onClick={() => onViewModeChange('map')}
+                      className={`flex items-center px-3 py-2 text-sm font-medium transition-colors ${
+                        viewMode === 'map'
+                          ? 'bg-blue-600 text-white'
+                          : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
+                      }`}
+                    >
+                      <MapIcon className="h-4 w-4 mr-1" />
+                      Map
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -524,62 +676,6 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
                 </button>
               </span>
             </>
-          )}
-        </div>
-
-        <div className="flex items-center gap-4">
-          {density && onDensityChange && (
-            <div className="flex items-center rounded-lg overflow-hidden border light-border-default">
-              <button
-                onClick={() => onDensityChange('comfortable')}
-                className={`p-2 transition-colors ${
-                  density === 'comfortable'
-                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                    : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-                }`}
-                title="Comfortable View"
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </button>
-              <button
-                onClick={() => onDensityChange('compact')}
-                className={`p-2 transition-colors ${
-                  density === 'compact'
-                    ? 'bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400'
-                    : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-                }`}
-                title="Compact View"
-              >
-                <ListIcon className="h-4 w-4" />
-              </button>
-            </div>
-          )}
-
-          {!hideViewToggle && (
-            <div className="flex rounded-lg overflow-hidden border light-border-default">
-              <button
-                onClick={() => onViewModeChange('list')}
-                className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${
-                  viewMode === 'list'
-                    ? 'bg-blue-600 text-white'
-                    : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-                }`}
-              >
-                <ListIcon className="h-4 w-4 mr-2" />
-                List
-              </button>
-              <button
-                onClick={() => onViewModeChange('map')}
-                className={`flex items-center px-4 py-2 text-sm font-medium transition-colors ${
-                  viewMode === 'map'
-                    ? 'bg-blue-600 text-white'
-                    : `text-gray-600 dark:text-gray-400 ${themeColors.button.icon} bg-transparent`
-                }`}
-              >
-                <MapIcon className="h-4 w-4 mr-2" />
-                Map
-              </button>
-            </div>
           )}
         </div>
       </div>

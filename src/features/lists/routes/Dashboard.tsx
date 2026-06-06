@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { Plus, Users, Settings, Eye, EyeOff, Trash2, Edit, AlertCircle } from 'lucide-react';
+import { Plus, Users, Settings, Eye, EyeOff, Edit, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeToggle } from '@/components/Elements/Theme/ThemeToggle';
@@ -10,7 +10,7 @@ import { CreateListModal } from '@/features/lists/components/CreateListModal';
 import type { PlaceList } from '@/features/lists/types/list';
 import { themeColors } from '@/styles/colors';
 import { InvitationList } from '@/features/lists/components/InvitationList';
-import { useLists } from '@/features/lists/hooks/useLists';
+import { useListsContext } from '@/features/lists/context/ListsProvider';
 import { useToast } from '@/hooks/useToast';
 import { ListIcon } from '@/features/lists/components/ListIcon';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
@@ -20,8 +20,8 @@ import { useDeferredAction } from '@/hooks/useDeferredAction';
 export const Dashboard: React.FunctionComponent = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
-  const { lists, loading, creating, error, loadUserLists, createList, updateList, deleteList } =
-    useLists(user?.id);
+  const { lists, loading, creating, error, createList, updateList, deleteList } =
+    useListsContext();
 
   const { permissionGranted, tokenSynced, notificationsDisabled } = useNotifications();
   const [showCreateForm, setShowCreateForm] = useState(false);
@@ -48,6 +48,9 @@ export const Dashboard: React.FunctionComponent = () => {
       .filter((l) => !hiddenListIds.has(l.id))
       .map((l) => (pendingUpdates[l.id] ? { ...l, ...pendingUpdates[l.id] } : l));
   }, [lists, optimisticLists, hiddenListIds, pendingUpdates]);
+
+  const myLists = useMemo(() => displayedLists.filter((l) => !l.isSavedList), [displayedLists]);
+  const savedLists = useMemo(() => displayedLists.filter((l) => l.isSavedList), [displayedLists]);
 
   // Sync optimistic lists with real lists (derived state)
   const [prevLists, setPrevLists] = useState(lists);
@@ -141,8 +144,6 @@ export const Dashboard: React.FunctionComponent = () => {
             setOptimisticLists((prev) =>
               prev.map((l) => (l.id === tempId ? { ...l, id: newListId! } : l))
             );
-
-            await loadUserLists({ silent: true });
           },
           {
             toastMessage: 'List created',
@@ -210,25 +211,23 @@ export const Dashboard: React.FunctionComponent = () => {
     setShowSignOutConfirm(false);
   };
 
-  const handleImportSuccess = useCallback(() => {
-    loadUserLists({ silent: true });
-  }, [loadUserLists]);
+  // No-op: real-time subscription automatically picks up imported lists
+  const handleImportSuccess = useCallback(() => {}, []);
 
   const existingListsData = useMemo(
     () => displayedLists.map((l) => ({ id: l.id, name: l.name })),
     [displayedLists]
   );
 
-  const handleInvitationAccepted = useCallback(() => {
-    loadUserLists({ silent: true });
-  }, [loadUserLists]);
+  // No-op: real-time subscription automatically picks up accepted invitations
+  const handleInvitationAccepted = useCallback(() => {}, []);
 
   return (
     <div className={`min-h-screen ${themeColors.background.app} transition-colors`}>
       <header
         className={`shadow-sm border-b ${themeColors.background.card} ${themeColors.border.default} transition-colors`}
       >
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4 sm:px-6 lg:px-12">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center">
               <img src="/mappin-icon.svg" alt="Logo" className="h-10 w-10 mr-1" />
@@ -258,7 +257,7 @@ export const Dashboard: React.FunctionComponent = () => {
         </div>
       </header>
 
-      <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+      <main className="w-full py-6 px-4 sm:px-6 lg:px-12">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -402,7 +401,7 @@ export const Dashboard: React.FunctionComponent = () => {
                 </h3>
                 <p className={`mt-1 text-sm ${themeColors.text.secondary}`}>{error}</p>
                 <button
-                  onClick={() => loadUserLists()}
+                  onClick={() => window.location.reload()}
                   className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.secondary} transition-colors`}
                 >
                   Retry
@@ -435,113 +434,178 @@ export const Dashboard: React.FunctionComponent = () => {
                 </div>
               </div>
             ) : (
-              <motion.div
-                initial="hidden"
-                animate="visible"
-                variants={{
-                  hidden: { opacity: 0 },
-                  visible: {
-                    opacity: 1,
-                    transition: { staggerChildren: 0.05 },
-                  },
-                }}
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-              >
-                {displayedLists.map((list) => (
+              <>
+                {myLists.length > 0 && (
                   <motion.div
-                    key={list.clientId || list.id}
-                    layout
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.2 }}
+                    initial="hidden"
+                    animate="visible"
+                    variants={{
+                      hidden: { opacity: 0 },
+                      visible: {
+                        opacity: 1,
+                        transition: { staggerChildren: 0.05 },
+                      },
+                    }}
+                    className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
                   >
-                    <Link
-                      to={list.id.startsWith('temp-') ? '#' : `/list/${list.id}`}
-                      onClick={(e) => {
-                        if (list.id.startsWith('temp-')) {
-                          e.preventDefault();
-                        }
-                      }}
-                      className={`${themeColors.background.card} border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer block h-full ${
-                        list.id.startsWith('temp-') ? 'opacity-60 pointer-events-none' : ''
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="mr-4 flex-shrink-0">
-                          <ListIcon icon={list.icon} color={list.color} size={24} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <h3
-                              className={`text-lg font-medium ${themeColors.text.primary} truncate`}
-                            >
-                              {list.name}
-                            </h3>
-                            {list.id.startsWith('temp-') && (
-                              <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded flex-shrink-0">
-                                Saving...
-                              </span>
-                            )}
-                          </div>
-                          {list.description && (
-                            <p className={`text-sm ${themeColors.text.secondary} mt-1 truncate`}>
-                              {list.description}
-                            </p>
-                          )}
-                          <div className="flex items-center mt-2 space-x-4">
-                            <span
-                              className={`text-sm ${themeColors.text.secondary} whitespace-nowrap`}
-                            >
-                              {list.places?.length || 0} places
-                            </span>
-                            <span
-                              className={`flex items-center text-sm ${themeColors.text.secondary} whitespace-nowrap`}
-                            >
-                              {list.isPublic ? (
-                                <>
-                                  <Eye className="h-4 w-4 mr-1" /> Public
-                                </>
-                              ) : (
-                                <>
-                                  <EyeOff className="h-4 w-4 mr-1" /> Private
-                                </>
+                    {myLists.map((list) => (
+                      <motion.div
+                        key={list.clientId || list.id}
+                        layout
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        transition={{ duration: 0.2 }}
+                      >
+                        <Link
+                          to={list.id.startsWith('temp-') ? '#' : `/list/${list.id}`}
+                          onClick={(e) => {
+                            if (list.id.startsWith('temp-')) {
+                              e.preventDefault();
+                            }
+                          }}
+                          className={`${themeColors.background.card} border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer block h-full ${
+                            list.id.startsWith('temp-') ? 'opacity-60 pointer-events-none' : ''
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="mr-4 flex-shrink-0">
+                              <ListIcon icon={list.icon} color={list.color} size={24} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <h3
+                                  className={`text-lg font-medium ${themeColors.text.primary} truncate`}
+                                >
+                                  {list.name}
+                                </h3>
+                                {list.id.startsWith('temp-') && (
+                                  <span className="px-2 py-0.5 text-xs font-medium bg-yellow-100 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200 rounded flex-shrink-0">
+                                    Saving...
+                                  </span>
+                                )}
+                              </div>
+                              {list.description && (
+                                <p
+                                  className={`text-sm ${themeColors.text.secondary} mt-1 truncate`}
+                                >
+                                  {list.description}
+                                </p>
                               )}
-                            </span>
+                              <div className="flex items-center mt-2 space-x-4">
+                                <span
+                                  className={`text-sm ${themeColors.text.secondary} whitespace-nowrap`}
+                                >
+                                  {list.places?.length || 0} places
+                                </span>
+                                <span
+                                  className={`flex items-center text-sm ${themeColors.text.secondary} whitespace-nowrap`}
+                                >
+                                  {list.isPublic ? (
+                                    <>
+                                      <Eye className="h-4 w-4 mr-1" /> Public
+                                    </>
+                                  ) : (
+                                    <>
+                                      <EyeOff className="h-4 w-4 mr-1" /> Private
+                                    </>
+                                  )}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                  openEditModal(list);
+                                }}
+                                className={`p-1 ${themeColors.text.secondary} hover:${themeColors.text.primary}`}
+                                title="Edit list"
+                              >
+                                <Edit className="h-5 w-5" />
+                              </button>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex items-center space-x-2 ml-4 flex-shrink-0">
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              openEditModal(list);
-                            }}
-                            className={`p-1 ${themeColors.text.secondary} hover:${themeColors.text.primary}`}
-                            title="Edit list"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              setShowDeleteConfirm(list.id);
-                            }}
-                            className={`p-1 ${themeColors.text.secondary} hover:text-red-600`}
-                            title="Delete list"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </Link>
+                        </Link>
+                      </motion.div>
+                    ))}
                   </motion.div>
-                ))}
-              </motion.div>
+                )}
+
+                {savedLists.length > 0 && (
+                  <div className="mt-10">
+                    <div className="mb-4">
+                      <h4 className={`text-md font-medium ${themeColors.text.primary}`}>
+                        Saved Lists
+                      </h4>
+                    </div>
+                    <motion.div
+                      initial="hidden"
+                      animate="visible"
+                      variants={{
+                        hidden: { opacity: 0 },
+                        visible: {
+                          opacity: 1,
+                          transition: { staggerChildren: 0.05 },
+                        },
+                      }}
+                      className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                    >
+                      {savedLists.map((list) => (
+                        <motion.div
+                          key={list.clientId || list.id}
+                          layout
+                          initial={{ opacity: 0, scale: 0.95 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ duration: 0.2 }}
+                        >
+                          <Link
+                            to={`/list/${list.id}`}
+                            className={`${themeColors.background.card} border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer block h-full`}
+                          >
+                            <div className="flex items-start justify-between">
+                              <div className="mr-4 flex-shrink-0">
+                                <ListIcon icon={list.icon} color={list.color} size={24} />
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <h3
+                                    className={`text-lg font-medium ${themeColors.text.primary} truncate`}
+                                  >
+                                    {list.name}
+                                  </h3>
+                                </div>
+                                {list.description && (
+                                  <p
+                                    className={`text-sm ${themeColors.text.secondary} mt-1 truncate`}
+                                  >
+                                    {list.description}
+                                  </p>
+                                )}
+                                <div className="flex items-center mt-2 space-x-4">
+                                  <span
+                                    className={`text-sm ${themeColors.text.secondary} whitespace-nowrap`}
+                                  >
+                                    {list.places?.length || 0} places
+                                  </span>
+                                  <span
+                                    className={`flex items-center text-sm ${themeColors.text.secondary} whitespace-nowrap`}
+                                  >
+                                    <Eye className="h-4 w-4 mr-1" /> Public View
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </Link>
+                        </motion.div>
+                      ))}
+                    </motion.div>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
-
         <CreateListModal
           isOpen={showCreateForm}
           onClose={resetForm}
@@ -549,7 +613,7 @@ export const Dashboard: React.FunctionComponent = () => {
           editingList={editingList}
           isLoading={creating}
           currentUserId={user?.id}
-          onUpdate={() => loadUserLists({ silent: true })}
+          onUpdate={undefined}
         />
 
         <ConfirmDialog

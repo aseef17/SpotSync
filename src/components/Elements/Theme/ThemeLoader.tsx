@@ -13,8 +13,8 @@ export const ThemeLoader: React.FunctionComponent = () => {
       // Load user's theme preference when they log in
       UserService.getUser(user.id)
         .then((userData: { theme?: string } | null) => {
-          if (userData?.theme) {
-            setTheme(userData.theme as 'light' | 'dark');
+          if (userData?.theme === 'light' || userData?.theme === 'dark') {
+            setTheme(userData.theme);
           }
         })
         .catch((error: Error) => {

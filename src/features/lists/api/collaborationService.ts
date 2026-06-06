@@ -12,7 +12,8 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Invitation } from '@/features/lists/types/invitation';
-import type { PlaceList, Collaborator } from '@/features/lists/types/list';
+import type { Collaborator } from '@/features/lists/types/list';
+import { listConverter } from '@/features/lists/api/listService';
 import { logger } from '@/utils/logger';
 
 export class CollaborationService {
@@ -123,14 +124,14 @@ export class CollaborationService {
   ): Promise<string> {
     try {
       // Get the list to include the name in the invitation
-      const listRef = doc(db, 'lists', listId);
+      const listRef = doc(db, 'lists', listId).withConverter(listConverter);
       const listDoc = await getDoc(listRef);
 
       if (!listDoc.exists()) {
         throw new Error('List not found');
       }
 
-      const list = listDoc.data() as PlaceList;
+      const list = listDoc.data();
 
       // Check if inviter has permission to invite (must be owner or editor)
       const inviterCollab = list.collaborators.find((c) => c.userId === inviterId);
@@ -241,14 +242,14 @@ export class CollaborationService {
       }
 
       // Add user as collaborator to the list
-      const listRef = doc(db, 'lists', invitation.listId);
+      const listRef = doc(db, 'lists', invitation.listId).withConverter(listConverter);
       const listDoc = await getDoc(listRef);
 
       if (!listDoc.exists()) {
         throw new Error('List not found');
       }
 
-      const list = listDoc.data() as PlaceList;
+      const list = listDoc.data();
 
       const newCollaborator: Collaborator = {
         userId,
@@ -404,14 +405,14 @@ export class CollaborationService {
     requesterId: string
   ): Promise<void> {
     try {
-      const listRef = doc(db, 'lists', listId);
+      const listRef = doc(db, 'lists', listId).withConverter(listConverter);
       const listDoc = await getDoc(listRef);
 
       if (!listDoc.exists()) {
         throw new Error('List not found');
       }
 
-      const list = listDoc.data() as PlaceList;
+      const list = listDoc.data();
 
       // Check if requester has permission (must be owner)
       const requesterCollab = list.collaborators.find((c) => c.userId === requesterId);
@@ -441,14 +442,14 @@ export class CollaborationService {
     requesterId: string
   ): Promise<void> {
     try {
-      const listRef = doc(db, 'lists', listId);
+      const listRef = doc(db, 'lists', listId).withConverter(listConverter);
       const listDoc = await getDoc(listRef);
 
       if (!listDoc.exists()) {
         throw new Error('List not found');
       }
 
-      const list = listDoc.data() as PlaceList;
+      const list = listDoc.data();
 
       // Check if requester has permission (must be owner)
       const requesterCollab = list.collaborators.find((c) => c.userId === requesterId);

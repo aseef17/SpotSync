@@ -64,9 +64,10 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           setUser(userDoc.data() as User);
         } else {
           // Create new user document
+          const defaultUsername = (fbUser.email || '').split('@')[0].toLowerCase().trim();
           const newUser: User = {
             id: fbUser.uid,
-            username: fbUser.email || '',
+            username: defaultUsername,
             email: fbUser.email || '',
             displayName: fbUser.displayName || '',
             createdAt: new Date(),
@@ -75,8 +76,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           await setDoc(doc(db, 'users', fbUser.uid), newUser);
 
           // Also sync with usernames collection
-          const normalizedUsername = newUser.username.toLowerCase().trim();
-          await setDoc(doc(db, 'usernames', normalizedUsername), {
+          await setDoc(doc(db, 'usernames', defaultUsername), {
             uid: fbUser.uid,
           });
 
@@ -101,10 +101,10 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       await updateProfile(userCredential.user, { displayName });
 
-      // Create user document
+      const normalizedUsername = username.toLowerCase().trim();
       const newUser: User = {
         id: userCredential.user.uid,
-        username,
+        username: normalizedUsername,
         email,
         displayName,
         createdAt: new Date(),
@@ -115,7 +115,6 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
       await setDoc(doc(db, 'users', userCredential.user.uid), newUser);
 
       // Create username mapping for availability checks
-      const normalizedUsername = username.toLowerCase().trim();
       await setDoc(doc(db, 'usernames', normalizedUsername), {
         uid: userCredential.user.uid,
       });

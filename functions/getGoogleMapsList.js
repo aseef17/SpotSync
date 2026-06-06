@@ -37,16 +37,41 @@ exports.getGoogleMapsList = onCall(
         },
       });
 
-      const html = initialResponse.data;
-      const finalUrl = initialResponse.request.res.responseUrl || url;
+      let finalHtml = initialResponse.data;
+      let finalUrl = initialResponse.request.res.responseUrl || url;
 
       console.log('✓ Initial request successful');
       console.log('Resolved URL:', finalUrl);
-      console.log('HTML length:', html.length);
+      console.log('HTML length:', finalHtml.length);
+
+      // Check if it's a redirect page
+      if (!finalHtml.includes('entitylist/getlist')) {
+        const metaRedirectMatch =
+          finalHtml.match(
+            /<meta\s+(?:property|itemprop)="url"\s+content="([^"]*google\.com\/maps[^"]*)"/i
+          ) ||
+          finalHtml.match(/<meta\s+property="og:url"\s+content="([^"]*google\.com\/maps[^"]*)"/i) ||
+          finalHtml.match(/<link\s+rel="canonical"\s+href="([^"]*google\.com\/maps[^"]*)"/i);
+
+        if (metaRedirectMatch && metaRedirectMatch[1]) {
+          finalUrl = metaRedirectMatch[1].replace(/&amp;/g, '&');
+          console.log('Following meta redirect to:', finalUrl);
+          const redirectedResponse = await axios.get(finalUrl, {
+            headers: {
+              'User-Agent':
+                'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Accept-Language': 'en-US,en;q=0.9',
+            },
+          });
+          finalHtml = redirectedResponse.data;
+          console.log('✓ Redirect fetch successful');
+          console.log('Redirect HTML length:', finalHtml.length);
+        }
+      }
 
       // 2. Extract the Data Endpoint
       console.log('Step 2: Extracting data endpoint from HTML...');
-      const linkMatch = html.match(/<link\s+href="([^"]*\/entitylist\/getlist[^"]*)"/);
+      const linkMatch = finalHtml.match(/<link\s+href="([^"]*\/entitylist\/getlist[^"]*)"/);
 
       let dataUrl = '';
       if (linkMatch && linkMatch[1]) {
@@ -60,7 +85,7 @@ exports.getGoogleMapsList = onCall(
         console.log('Data URL:', dataUrl);
       } else {
         console.error('✗ Could not find entitylist/getlist link in HTML');
-        console.log('HTML snippet (first 500 chars):', html.substring(0, 500));
+        console.log('HTML snippet (first 500 chars):', finalHtml.substring(0, 500));
       }
 
       if (!dataUrl) {

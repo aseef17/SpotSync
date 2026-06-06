@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import type { Place } from '@/features/places/types/place';
 import type { FilterOptions } from '@/features/places/types/filters';
+import { isOpenNow } from '@/utils/timeUtils';
 
 export const usePlaceFilters = (
   places: Place[],
@@ -27,8 +28,9 @@ export const usePlaceFilters = (
         if (place.status?.toLowerCase().includes(query)) return true;
         if (place.customStatus?.toLowerCase().includes(query)) return true;
 
-        if (query === 'open' && place.openNow === true) return true;
-        if (query === 'closed' && place.openNow === false) return true;
+        const placeIsOpen = place.openingHours ? isOpenNow(place.openingHours) : place.openNow;
+        if (query === 'open' && placeIsOpen) return true;
+        if (query === 'closed' && placeIsOpen === false) return true;
 
         const priceTerms: Record<number, string[]> = {
           0: ['free'],
@@ -89,7 +91,15 @@ export const usePlaceFilters = (
 
     // Open Now filter
     if (filters.openNow) {
-      filtered = filtered.filter((place) => place.openNow === true);
+      filtered = filtered.filter((place) => {
+        if (place.openNow !== undefined) {
+          return place.openNow === true;
+        }
+        if (place.openingHours) {
+          return isOpenNow(place.openingHours);
+        }
+        return false;
+      });
     }
 
     // Rating filters

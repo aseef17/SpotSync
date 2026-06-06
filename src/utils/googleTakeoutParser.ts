@@ -1,4 +1,5 @@
 import { logger } from '@/utils/logger';
+import { extractPlaceIdFromUrl } from '@/utils/googleMapsUrlParser';
 
 export interface ParsedPlace {
   title: string;
@@ -71,11 +72,13 @@ export const parseTakeoutJson = (jsonContent: string): ParsedPlace[] => {
 
     return features.filter(isGeoJSONFeature).map((f) => {
       const props = f.properties || {};
+      const url = props['Google Maps URL'] as string | undefined;
 
       const place: ParsedPlace = {
         title: props.Title || props.name || 'Unknown Place',
         address: props['Address'] || props['formatted_address'],
-        url: props['Google Maps URL'],
+        url: url,
+        placeId: url ? extractPlaceIdFromUrl(url) : undefined,
       };
 
       // Extract coordinates (GeoJSON is usually [lng, lat])

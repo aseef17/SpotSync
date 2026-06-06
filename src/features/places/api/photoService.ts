@@ -29,16 +29,20 @@ export class PhotoService {
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              const compressedFile = new File([blob], file.name, {
-                type: 'image/jpeg',
-                lastModified: Date.now(),
-              });
+              const compressedFile = new File(
+                [blob],
+                file.name.replace(/\.[^/.]+$/, '') + '.webp',
+                {
+                  type: 'image/webp',
+                  lastModified: Date.now(),
+                }
+              );
               resolve(compressedFile);
             } else {
               resolve(file);
             }
           },
-          'image/jpeg',
+          'image/webp',
           quality
         );
       };
@@ -52,7 +56,10 @@ export class PhotoService {
       const compressedFile = await this.compressImage(file);
 
       const storageRef = ref(storage, path);
-      const snapshot = await uploadBytes(storageRef, compressedFile);
+      const metadata = {
+        cacheControl: 'public, max-age=31536000',
+      };
+      const snapshot = await uploadBytes(storageRef, compressedFile, metadata);
       const downloadURL = await getDownloadURL(snapshot.ref);
 
       return downloadURL;
@@ -62,11 +69,31 @@ export class PhotoService {
     }
   }
 
-  static async uploadPlacePhoto(file: File, listId: string, placeId: string): Promise<string> {
-    const timestamp = Date.now();
-    const filename = `${timestamp}_${file.name}`;
-    const path = `places/${listId}/${placeId}/${filename}`;
+  static async getSharedPlacePhotoUrl(
+    googlePlaceId: string,
+    photoId: string
+  ): Promise<string | null> {
+    try {
+      const storageRef = ref(storage, `places/shared/${googlePlaceId}/photo_${photoId}.webp`);
+      const downloadURL = await getDownloadURL(storageRef);
+      return downloadURL;
+    } catch {
+      // Also try fallback to legacy .jpg
+      try {
+        const legacyRef = ref(storage, `places/shared/${googlePlaceId}/photo_1.jpg`);
+        return await getDownloadURL(legacyRef);
+      } catch {
+        return null;
+      }
+    }
+  }
 
+  static async uploadSharedPlacePhoto(
+    file: File,
+    googlePlaceId: string,
+    photoId: string
+  ): Promise<string> {
+    const path = `places/shared/${googlePlaceId}/photo_${photoId}.webp`;
     return this.uploadPhoto(file, path);
   }
 
@@ -132,16 +159,20 @@ export class PhotoService {
         canvas.toBlob(
           (blob) => {
             if (blob) {
-              const thumbnailFile = new File([blob], `thumb_${file.name}`, {
-                type: 'image/jpeg',
-                lastModified: Date.now(),
-              });
+              const thumbnailFile = new File(
+                [blob],
+                `thumb_${file.name.replace(/\.[^/.]+$/, '')}.webp`,
+                {
+                  type: 'image/webp',
+                  lastModified: Date.now(),
+                }
+              );
               resolve(thumbnailFile);
             } else {
               resolve(file);
             }
           },
-          'image/jpeg',
+          'image/webp',
           0.8
         );
       };

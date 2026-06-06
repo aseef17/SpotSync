@@ -62,10 +62,14 @@ export const useProfile = () => {
     if (!firebaseUser) return;
 
     try {
-      await UserService.updateUser(firebaseUser.uid, {
-        displayName,
-        username,
-      });
+      await UserService.updateProfileWithUsername(
+        firebaseUser.uid,
+        {
+          displayName,
+          username,
+        },
+        user?.username
+      );
     } catch (error) {
       logger.error('Failed to update profile:', error);
       throw error;

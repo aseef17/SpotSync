@@ -1,11 +1,21 @@
 import { Toaster } from 'sonner';
 import { BrowserRouter as Router } from 'react-router-dom';
-import { AuthProvider } from '@/features/auth/context/AuthContext';
+import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { NotificationProvider } from '@/features/notifications/context';
 import { ThemeProvider } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
 import { ThemeLoader } from '@/components/Elements/Theme/ThemeLoader';
 import { AppRoutes } from '@/routes';
+import { ListsProvider } from '@/features/lists/context/ListsProvider';
+
+function AppContent() {
+  const { user } = useAuth();
+  return (
+    <ListsProvider userId={user?.id}>
+      <AppRoutes />
+    </ListsProvider>
+  );
+}
 
 function App() {
   return (
@@ -26,7 +36,7 @@ function App() {
                     },
                   }}
                 />
-                <AppRoutes />
+                <AppContent />
               </div>
             </ThemeProvider>
           </NotificationProvider>

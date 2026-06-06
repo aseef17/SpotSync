@@ -5,6 +5,8 @@ import {
   formatCategoryName,
   findGeneralCategory,
 } from '@/constants/placeCategories';
+import { db } from '@/lib/firebase';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 interface GoogleLocation {
   latitude: number;
@@ -79,8 +81,8 @@ export interface LegacyGooglePlace {
   cuisines?: string[];
   geometry?: {
     location: {
-      lat: () => number;
-      lng: () => number;
+      lat: number | (() => number);
+      lng: number | (() => number);
     };
   };
   plus_code?: {
@@ -90,7 +92,7 @@ export interface LegacyGooglePlace {
   url?: string;
   formatted_phone_number?: string;
   website?: string;
-  photos?: Array<{ getUrl: (opts: { maxWidth: number; maxHeight: number }) => string }>;
+  photos?: Array<{ getUrl: string | ((opts: { maxWidth: number; maxHeight: number }) => string) }>;
   opening_hours?: {
     weekday_text?: string[];
     open_now?: boolean;
@@ -136,6 +138,24 @@ export class GoogleMapsService {
     }
 
     try {
+      const cacheRef = doc(db, 'places_cache', placeId);
+      const cacheSnap = await getDoc(cacheRef);
+      if (cacheSnap.exists()) {
+        const cachedData = cacheSnap.data() as LegacyGooglePlace & { cacheTimestamp?: number };
+        // Use cache if it's less than 30 days old
+        if (
+          !cachedData.cacheTimestamp ||
+          Date.now() - cachedData.cacheTimestamp < 30 * 24 * 60 * 60 * 1000
+        ) {
+          logger.info(`Using cached place details for ${placeId}`);
+          return cachedData;
+        }
+      }
+    } catch (e) {
+      logger.error('Error reading from places_cache:', e);
+    }
+
+    try {
       const response = await fetch(
         `https://places.googleapis.com/v1/places/${placeId}?fields=id,displayName,formattedAddress,location,rating,userRatingCount,priceLevel,photos,types,primaryType,nationalPhoneNumber,websiteUri,googleMapsUri,businessStatus,currentOpeningHours,delivery,dineIn,takeout,curbsidePickup,reservable,servesBeer,servesWine,servesVegetarianFood,servesBreakfast,servesLunch,servesDinner,servesBrunch,accessibilityOptions&key=${this.apiKey}`
       );
@@ -148,7 +168,7 @@ export class GoogleMapsService {
       const data: GooglePlace = await response.json();
 
       // Normalize to legacy-like shape for consistency
-      return {
+      const legacyPlace: LegacyGooglePlace = {
         place_id: data.id,
         name: data.displayName?.text,
         formatted_address: data.formattedAddress,
@@ -159,8 +179,8 @@ export class GoogleMapsService {
         cuisines: data.types ? extractCuisines(data.types) : [],
         geometry: {
           location: {
-            lat: () => data.location?.latitude ?? 0,
-            lng: () => data.location?.longitude ?? 0,
+            lat: data.location?.latitude ?? 0,
+            lng: data.location?.longitude ?? 0,
           },
         },
         photos:
@@ -192,6 +212,43 @@ export class GoogleMapsService {
         serves_brunch: data.servesBrunch,
         wheelchair_accessible_entrance: data.accessibilityOptions?.wheelchairAccessibleEntrance,
       };
+
+      try {
+        const cacheRef = doc(db, 'places_cache', placeId);
+        // Serialize the object for Firestore (remove functions if any, but we used numbers for lat/lng)
+        const dataToCache = {
+          ...legacyPlace,
+          cacheTimestamp: Date.now(),
+        };
+        // Ensure photos array doesn't have functions
+        if (dataToCache.photos) {
+          dataToCache.photos = dataToCache.photos.map((p) => ({
+            getUrl:
+              typeof p.getUrl === 'function'
+                ? p.getUrl({ maxWidth: 1200, maxHeight: 1200 })
+                : p.getUrl,
+          }));
+        }
+        await setDoc(cacheRef, dataToCache);
+      } catch (e) {
+        logger.error('Error writing to places_cache:', e);
+      }
+
+      // Restore functions for the rest of the app to use
+      legacyPlace.geometry = {
+        location: {
+          lat: () => data.location?.latitude ?? 0,
+          lng: () => data.location?.longitude ?? 0,
+        },
+      };
+
+      if (legacyPlace.photos) {
+        legacyPlace.photos = legacyPlace.photos.map((p) => ({
+          getUrl: typeof p.getUrl === 'string' ? p.getUrl : p.getUrl,
+        }));
+      }
+
+      return legacyPlace;
     } catch (error) {
       logger.error('Failed to get place details:', error);
       return null;
@@ -338,8 +395,14 @@ export class GoogleMapsService {
       name: googlePlace.name || '',
       address: googlePlace.formatted_address || '',
       location: {
-        lat: googlePlace.geometry?.location?.lat() || 0,
-        lng: googlePlace.geometry?.location?.lng() || 0,
+        lat:
+          typeof googlePlace.geometry?.location?.lat === 'function'
+            ? googlePlace.geometry.location.lat()
+            : (googlePlace.geometry?.location?.lat as unknown as number) || 0,
+        lng:
+          typeof googlePlace.geometry?.location?.lng === 'function'
+            ? googlePlace.geometry.location.lng()
+            : (googlePlace.geometry?.location?.lng as unknown as number) || 0,
       },
       photoUrls,
       addedBy: '',

@@ -11,6 +11,7 @@ import {
   MapPin as MapIcon,
   Share2,
   Lock,
+  RefreshCw,
 } from 'lucide-react';
 import { MapView } from '@/features/maps/components/MapView';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
@@ -18,6 +19,7 @@ import { PlaceService } from '@/features/places/api/placeService';
 import { useToast } from '@/hooks/useToast';
 import { MobileBottomSheet } from '@/components/Layout/MobileBottomSheet/MobileBottomSheet';
 import { PlaceFilters } from '@/features/places/components/PlaceFilters';
+import { OptionsMenu } from '@/components/Elements/Menu/OptionsMenu';
 import { logger } from '@/utils/logger';
 import { MobilePlaceCard } from '@/features/places/components/MobilePlaceCard';
 import {
@@ -49,6 +51,7 @@ interface MobileListViewProps {
   highlightedPlaceId?: string;
   onPlaceHidden?: (placeId: string) => void;
   onPlaceRestored?: (placeId: string) => void;
+  canEditList?: boolean;
 }
 
 const ScrollRestorer = ({ scrollPos }: { scrollPos: number }) => {
@@ -79,6 +82,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   highlightedPlaceId,
   onPlaceHidden,
   onPlaceRestored,
+  canEditList = true,
 }) => {
   const { user } = useAuth();
   const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
@@ -91,6 +95,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   const [listScrollPos, setListScrollPos] = useState(0);
   const [showListInfo, setShowListInfo] = useState(false);
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
+  const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
 
   // Auto-collapse filters on scroll
   useEffect(() => {
@@ -123,12 +128,33 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
     if (el) setListScrollPos(el.scrollTop);
   }, []);
 
+  const handlePlaceClickWithScroll = useCallback(
+    (place: Place) => {
+      saveListScroll();
+      onPlaceClick(place);
+    },
+    [saveListScroll, onPlaceClick]
+  );
+
   const aiMatchedPlaces = React.useMemo(() => {
     if (aiMatchedIds === null) return null;
     return places.filter((p) => aiMatchedIds.includes(p.id));
   }, [places, aiMatchedIds]);
 
   const basePlaces = aiMatchedPlaces || places;
+
+  const { availableCategories, availableCuisines } = React.useMemo(() => {
+    return {
+      availableCategories: [
+        ...new Set(basePlaces.map((p) => p.category).filter((c): c is string => Boolean(c))),
+      ],
+      availableCuisines: [
+        ...new Set(
+          basePlaces.flatMap((p) => p.cuisines || []).filter((c): c is string => Boolean(c))
+        ),
+      ],
+    };
+  }, [basePlaces]);
 
   const effectiveFilteredPlaces = React.useMemo(() => {
     if (aiMatchedIds === null) return filteredPlaces;
@@ -235,18 +261,56 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
         </div>
 
         <div className="flex items-center gap-1">
-          <button
-            onClick={() => setShowListInfo(true)}
-            className={`p-2 rounded-full ${themeColors.text.secondary} hover:bg-gray-100 dark:hover:bg-gray-800`}
-          >
-            <Info className="h-5 w-5" />
-          </button>
-          <button
-            onClick={onEditList}
-            className={`p-2 rounded-full ${themeColors.text.secondary} hover:bg-gray-100 dark:hover:bg-gray-800`}
-          >
-            <Edit className="h-5 w-5" />
-          </button>
+          <OptionsMenu
+            options={[
+              {
+                label: 'List Info',
+                icon: <Info className="h-5 w-5" />,
+                onClick: () => setShowListInfo(true),
+              },
+              {
+                label: 'Share List',
+                icon: <Share2 className="h-5 w-5" />,
+                onClick: () => {
+                  if (!list.isPublic) {
+                    toast.error('Please make the list public before sharing.');
+                    if (canEditList) onEditList();
+                    return;
+                  }
+                  navigator.clipboard.writeText(window.location.href);
+                  toast.success('Link copied to clipboard!');
+                },
+              },
+              ...(canEditList
+                ? [
+                    {
+                      label: isSyncingPhotos ? 'Syncing Photos...' : 'Sync Photos',
+                      icon: (
+                        <RefreshCw className={`h-5 w-5 ${isSyncingPhotos ? 'animate-spin' : ''}`} />
+                      ),
+                      onClick: async () => {
+                        setIsSyncingPhotos(true);
+                        toast.info('Syncing photos in the background...');
+                        try {
+                          await PlaceService.syncListPhotos(list.id);
+                          toast.success('Photos synced successfully!');
+                          // Note: LoadListData would normally be called here
+                        } catch {
+                          toast.error('Failed to sync photos.');
+                        } finally {
+                          setIsSyncingPhotos(false);
+                        }
+                      },
+                    },
+                    {
+                      label: 'Edit List',
+                      icon: <Edit className="h-5 w-5" />,
+                      onClick: onEditList,
+                    },
+                  ]
+                : []),
+            ]}
+          />
         </div>
       </div>
 
@@ -254,14 +318,8 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
         <PlaceFilters
           filters={filters}
           onFiltersChange={onFiltersChange}
-          availableCategories={[
-            ...new Set(basePlaces.map((p) => p.category).filter((c): c is string => Boolean(c))),
-          ]}
-          availableCuisines={[
-            ...new Set(
-              basePlaces.flatMap((p) => p.cuisines || []).filter((c): c is string => Boolean(c))
-            ),
-          ]}
+          availableCategories={availableCategories}
+          availableCuisines={availableCuisines}
           customStatuses={list.customStatuses}
           totalPlaces={basePlaces.length}
           filteredCount={effectiveFilteredPlaces.length}
@@ -351,7 +409,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
     <div className="space-y-3">
       <ScrollRestorer scrollPos={listScrollPos} />
 
-      <div className="space-y-1 pb-20">
+      <div className="pb-20">
         {effectiveFilteredPlaces.length === 0 ? (
           <div className="text-center py-12">
             <p className={themeColors.text.secondary}>
@@ -359,18 +417,40 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
             </p>
           </div>
         ) : (
-          effectiveFilteredPlaces.map((place) => (
-            <MobilePlaceCard
-              key={place.clientId || place.id}
-              place={place}
-              list={list}
-              userLocation={userLocation}
-              onClick={() => {
-                saveListScroll();
-                onPlaceClick(place);
+          <AnimatePresence mode="popLayout">
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: { opacity: 0 },
+                visible: {
+                  opacity: 1,
+                  transition: {
+                    staggerChildren: 0.05,
+                  },
+                },
               }}
-            />
-          ))
+              className="space-y-1"
+            >
+              {effectiveFilteredPlaces.map((place) => (
+                <motion.div
+                  key={place.clientId || place.id}
+                  layout
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <MobilePlaceCard
+                    place={place}
+                    list={list}
+                    userLocation={userLocation}
+                    onClick={handlePlaceClickWithScroll}
+                  />
+                </motion.div>
+              ))}
+            </motion.div>
+          </AnimatePresence>
         )}
       </div>
     </div>
@@ -404,7 +484,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
     listContent
   );
 
-  const snapPoints = React.useMemo(() => [120, '40%', '90%'], []);
+  const snapPoints = React.useMemo(() => [140, '50%', '95%'], []);
   const [forcedSnap, setForcedSnap] = React.useState<number | undefined>(undefined);
 
   return (
@@ -439,12 +519,13 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
 
       {!selectedPlace && (
         <>
-          <div className="absolute top-4 left-4 z-10 flex flex-col gap-3">
+          <div className="absolute top-4 inset-x-4 z-10">
             <button
               onClick={() => setIsMapSearching(true)}
-              className="p-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border light-border-default text-gray-700 dark:text-gray-200 transition-transform active:scale-95 mt-[env(safe-area-inset-top)]"
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-full bg-white dark:bg-gray-800 shadow-lg border border-gray-200 dark:border-gray-700 text-gray-500 dark:text-gray-400 transition-transform active:scale-[0.98] mt-[env(safe-area-inset-top)]"
             >
-              <Search className="h-6 w-6" />
+              <Search className="h-5 w-5 text-gray-700 dark:text-gray-300" />
+              <span className="flex-1 text-left text-[15px]">Search here</span>
             </button>
           </div>
 

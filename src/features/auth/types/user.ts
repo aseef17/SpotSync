@@ -4,6 +4,10 @@ export interface User {
   email: string;
   displayName: string;
   theme?: 'light' | 'dark';
+  photoURL?: string;
+  bio?: string;
+  location?: string;
+  savedLists?: string[];
   createdAt: Date;
   updatedAt: Date;
 }
