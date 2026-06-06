@@ -30,9 +30,7 @@ if (missing.length > 0) {
   // CI only validates that the app compiles — no secrets required.
   if (process.env.CI) {
     fs.copyFileSync(examplePath, targetPath);
-    console.log(
-      '[Generate SW] Wrote example stub for CI build (Firebase secrets not configured).'
-    );
+    console.log('[Generate SW] Wrote example stub for CI build (Firebase secrets not configured).');
     process.exit(0);
   }
 }
