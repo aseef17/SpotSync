@@ -25,11 +25,12 @@ export const useListDetails = (listId: string | undefined) => {
       return;
     }
 
+    let cancelled = false;
     let listLoaded = false;
     let placesLoaded = false;
 
     const checkLoading = () => {
-      if (listLoaded && placesLoaded) {
+      if (!cancelled && listLoaded && placesLoaded) {
         setLoading(false);
       }
     };
@@ -37,6 +38,7 @@ export const useListDetails = (listId: string | undefined) => {
     const unsubscribeList = ListService.subscribeToList(
       listId,
       (listData) => {
+        if (cancelled) return;
         if (!listData) {
           setError('List not found');
         } else {
@@ -47,6 +49,7 @@ export const useListDetails = (listId: string | undefined) => {
         checkLoading();
       },
       (err) => {
+        if (cancelled) return;
         logger.error('Error listening to list:', err);
         setError(
           `Failed to load list data: ${err instanceof Error ? err.message : 'Unknown error'}`
@@ -59,11 +62,13 @@ export const useListDetails = (listId: string | undefined) => {
     const unsubscribePlaces = PlaceService.subscribeToListPlaces(
       listId,
       (placesData) => {
+        if (cancelled) return;
         setPlaces(placesData);
         placesLoaded = true;
         checkLoading();
       },
       (err) => {
+        if (cancelled) return;
         logger.error('Error listening to places:', err);
         placesLoaded = true;
         checkLoading();
@@ -71,6 +76,7 @@ export const useListDetails = (listId: string | undefined) => {
     );
 
     return () => {
+      cancelled = true;
       unsubscribeList();
       unsubscribePlaces();
     };

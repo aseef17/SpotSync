@@ -27,8 +27,8 @@ if (missing.length > 0) {
   console.warn(
     `[Generate SW] Warning: Missing environment variables for Service Worker generation: ${missing.join(', ')}`
   );
-  // CI only validates that the app compiles — no secrets required.
-  if (process.env.CI) {
+  // GitHub Actions PR checks only validate compilation — no Firebase secrets required.
+  if (process.env.GITHUB_ACTIONS === 'true') {
     fs.copyFileSync(examplePath, targetPath);
     console.log('[Generate SW] Wrote example stub for CI build (Firebase secrets not configured).');
     process.exit(0);
