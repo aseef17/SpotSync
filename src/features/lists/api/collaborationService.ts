@@ -9,6 +9,7 @@ import {
   where,
   orderBy,
   Timestamp,
+  arrayRemove,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Invitation } from '@/features/lists/types/invitation';
@@ -362,6 +363,8 @@ export class CollaborationService {
 
       await updateDoc(listRef, {
         collaborators: updatedCollaborators,
+        collaboratorIds: arrayRemove(collaboratorUserId),
+        editorIds: arrayRemove(collaboratorUserId),
       });
     } catch (error) {
       logger.error('Error removing collaborator:', error);
@@ -403,8 +406,17 @@ export class CollaborationService {
         c.userId === collaboratorUserId ? { ...c, permission: newRole } : c
       );
 
+      const editorIds = Array.from(
+        new Set(
+          updatedCollaborators
+            .filter((c) => c.permission === 'owner' || c.permission === 'editor')
+            .map((c) => c.userId)
+        )
+      );
+
       await updateDoc(listRef, {
         collaborators: updatedCollaborators,
+        editorIds,
       });
     } catch (error) {
       logger.error('Error updating collaborator role:', error);

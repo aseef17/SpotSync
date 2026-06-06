@@ -713,8 +713,16 @@ exports.acceptInvitation = onCall({ region: 'us-east4' }, async (request) => {
     joinedAt: now,
   };
 
+  const updatedCollaborators = [...(list.collaborators || []), newCollaborator];
   const allCollaboratorIds = Array.from(
-    new Set([...(list.collaborators || []).map((c) => c.userId), list.ownerId, userId])
+    new Set([...updatedCollaborators.map((c) => c.userId), list.ownerId, userId])
+  );
+  const editorIds = Array.from(
+    new Set(
+      updatedCollaborators
+        .filter((c) => c.permission === 'owner' || c.permission === 'editor')
+        .map((c) => c.userId)
+    )
   );
 
   await db.runTransaction(async (transaction) => {
@@ -724,8 +732,9 @@ exports.acceptInvitation = onCall({ region: 'us-east4' }, async (request) => {
     }
 
     transaction.update(listRef, {
-      collaborators: [...(list.collaborators || []), newCollaborator],
+      collaborators: updatedCollaborators,
       collaboratorIds: allCollaboratorIds,
+      editorIds,
       updatedAt: now,
     });
     transaction.update(invitationRef, { status: 'accepted' });

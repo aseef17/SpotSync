@@ -20,6 +20,7 @@ export interface PlaceList {
   ownerId: string;
   collaborators: Collaborator[];
   collaboratorIds: string[];
+  editorIds?: string[];
   places: Place[];
   customStatuses: string[];
   tags: string[];
