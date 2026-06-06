@@ -64,7 +64,13 @@ export const Register: React.FunctionComponent = () => {
       await register(formData.email, formData.password, formData.username, formData.displayName);
       setSuccess(true);
     } catch (err: unknown) {
-      if (err instanceof Error && 'code' in err && err.code === 'auth/email-already-in-use') {
+      if (err instanceof Error && err.message === 'Username is not available') {
+        setError('This username is already taken. Please choose another one.');
+      } else if (
+        err instanceof Error &&
+        'code' in err &&
+        err.code === 'auth/email-already-in-use'
+      ) {
         setError('An account with this email already exists.');
       } else {
         setError('Failed to create account. Please try again.');
