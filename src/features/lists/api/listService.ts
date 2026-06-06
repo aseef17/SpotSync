@@ -28,9 +28,7 @@ import { toMilliseconds } from '@/utils/date';
 import { omit } from '@/utils/objectUtils';
 
 function getExpectedCollaboratorIds(list: PlaceList): string[] {
-  return Array.from(
-    new Set([list.ownerId, ...(list.collaborators?.map((c) => c.userId) || [])])
-  );
+  return Array.from(new Set([list.ownerId, ...(list.collaborators?.map((c) => c.userId) || [])]));
 }
 
 function getExpectedEditorIds(list: PlaceList): string[] {
@@ -423,10 +421,7 @@ export class ListService {
 
     const emit = () => {
       const existingIds = new Set(ownedLists.map((list) => list.id));
-      const merged = [
-        ...ownedLists,
-        ...savedLists.filter((list) => !existingIds.has(list.id)),
-      ];
+      const merged = [...ownedLists, ...savedLists.filter((list) => !existingIds.has(list.id))];
       merged.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
       onUpdate(merged);
     };
