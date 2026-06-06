@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Eye, EyeOff } from 'lucide-react';
 import { logger } from '@/utils/logger';
 import { themeColors } from '@/styles/colors';
-import { UserService } from '@/features/auth/api/userService';
+import { useUsernameAvailability } from '@/features/auth/hooks/useUsernameAvailability';
 
 export const Register: React.FunctionComponent = () => {
   const [formData, setFormData] = useState({
@@ -19,10 +19,11 @@ export const Register: React.FunctionComponent = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [success, setSuccess] = useState(false);
-  const [usernameAvailable, setUsernameAvailable] = useState<boolean | null>(null);
-  const [checkingUsername, setCheckingUsername] = useState(false);
   const { register, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
+  const { usernameAvailable, checkingUsername, isUsernameValid } = useUsernameAvailability(
+    formData.username
+  );
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData((prev) => ({
@@ -30,36 +31,6 @@ export const Register: React.FunctionComponent = () => {
       [e.target.name]: e.target.value,
     }));
   };
-
-  // Debounced username availability check
-  const checkUsernameAvailability = useCallback(async (username: string) => {
-    if (!username || username.length < 3) {
-      setUsernameAvailable(null);
-      return;
-    }
-
-    setCheckingUsername(true);
-    try {
-      const exists = await UserService.checkUsernameExists(username);
-      setUsernameAvailable(!exists);
-    } catch (err) {
-      logger.error('Error checking username:', err);
-      setUsernameAvailable(null);
-    } finally {
-      setCheckingUsername(false);
-    }
-  }, []);
-
-  // Debounce username check
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (formData.username) {
-        checkUsernameAvailability(formData.username);
-      }
-    }, 500); // 500ms debounce
-
-    return () => clearTimeout(timer);
-  }, [formData.username, checkUsernameAvailability]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,17 +47,13 @@ export const Register: React.FunctionComponent = () => {
       return;
     }
 
+    if (!isUsernameValid || checkingUsername) {
+      return;
+    }
+
     setLoading(true);
 
     try {
-      // Check if username already exists
-      const usernameExists = await UserService.checkUsernameExists(formData.username);
-      if (usernameExists) {
-        setError('This username is already taken. Please choose another one.');
-        setLoading(false);
-        return;
-      }
-
       await register(formData.email, formData.password, formData.username, formData.displayName);
       setSuccess(true);
     } catch (err: unknown) {
@@ -299,7 +266,7 @@ export const Register: React.FunctionComponent = () => {
             <div>
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || checkingUsername || !isUsernameValid}
                 className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
               >
                 {loading ? 'Creating account...' : 'Create account'}
