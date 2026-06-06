@@ -12,7 +12,6 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Invitation } from '@/features/lists/types/invitation';
-import type { Collaborator } from '@/features/lists/types/list';
 import { listConverter } from '@/features/lists/api/listService';
 import { logger } from '@/utils/logger';
 
@@ -201,81 +200,17 @@ export class CollaborationService {
   }
 
   // Accept an invitation
-  static async acceptInvitation(
-    invitationId: string,
-    userId: string,
-    username: string,
-    email: string
-  ): Promise<void> {
+  static async acceptInvitation(invitationId: string): Promise<void> {
     try {
-      const invitationRef = doc(db, 'invitations', invitationId);
-      const invitationDoc = await getDoc(invitationRef);
+      const { httpsCallable } = await import('firebase/functions');
+      const { functions } = await import('@/lib/firebase');
 
-      if (!invitationDoc.exists()) {
-        throw new Error('Invitation not found');
-      }
-
-      const invitation = invitationDoc.data() as Invitation;
-
-      // Verify invitation belongs to this user
-      if (invitation.invitedEmail !== email && invitation.invitedUsername !== username) {
-        throw new Error('This invitation is not for you');
-      }
-
-      // Check if expired
-      const now = new Date();
-      const expiresAt =
-        invitation.expiresAt instanceof Timestamp
-          ? invitation.expiresAt.toDate()
-          : invitation.expiresAt;
-
-      if (expiresAt < now) {
-        await updateDoc(invitationRef, {
-          status: 'expired',
-        });
-        throw new Error('Invitation has expired');
-      }
-
-      // Check if already accepted/declined
-      if (invitation.status !== 'pending') {
-        throw new Error('Invitation has already been responded to');
-      }
-
-      // Add user as collaborator to the list
-      const listRef = doc(db, 'lists', invitation.listId).withConverter(listConverter);
-      const listDoc = await getDoc(listRef);
-
-      if (!listDoc.exists()) {
-        throw new Error('List not found');
-      }
-
-      const list = listDoc.data();
-
-      const newCollaborator: Collaborator = {
-        userId,
-        username,
-        email,
-        permission: invitation.role,
-        invitedAt: invitation.createdAt,
-        joinedAt: now,
-      };
-
-      // Map existing collaborators to IDs and add the new one
-      // Also ensure we capture any existing ids for robustness
-      const allCollaboratorIds = Array.from(
-        new Set([...list.collaborators.map((c) => c.userId), list.ownerId, userId])
+      const acceptInvitationFn = httpsCallable<{ invitationId: string }, { listId: string }>(
+        functions,
+        'acceptInvitation'
       );
 
-      // Update list with new collaborator and synced IDs
-      await updateDoc(listRef, {
-        collaborators: [...list.collaborators, newCollaborator],
-        collaboratorIds: allCollaboratorIds,
-      });
-
-      // Mark invitation as accepted
-      await updateDoc(invitationRef, {
-        status: 'accepted',
-      });
+      await acceptInvitationFn({ invitationId });
     } catch (error) {
       logger.error('Error accepting invitation:', error);
       throw error;
