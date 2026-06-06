@@ -32,7 +32,9 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
   currentUserId,
   onUpdate,
 }) => {
-  const [activeTab, setActiveTab] = useState<'details' | 'team'>('details');
+  const [activeTab, setActiveTab] = useState<'details' | 'team' | 'danger'>('details');
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
   const [listName, setListName] = useState(editingList?.name || '');
   const [listDescription, setListDescription] = useState(editingList?.description || '');
   const [listIcon, setListIcon] = useState(editingList?.icon || 'AUTO');
@@ -44,6 +46,7 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
   React.useEffect(() => {
     if (isOpen) {
       setActiveTab('details');
+      setDeleteConfirmText('');
       setListName(editingList?.name || '');
       setListDescription(editingList?.description || '');
       setListIcon(editingList?.icon || 'AUTO');
@@ -98,7 +101,7 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={`${themeColors.background.card} relative rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto p-6 transition-colors custom-scrollbar`}
+            className={`${themeColors.background.card} relative rounded-lg shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto p-6 transition-colors custom-scrollbar`}
           >
             <div className="flex items-center justify-between mb-4">
               <h3 className={`text-lg font-medium ${themeColors.text.primary}`}>
@@ -143,6 +146,17 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
                   }`}
                 >
                   Team
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('danger')}
+                  className={`px-4 py-2 font-medium text-sm transition-colors ${
+                    activeTab === 'danger'
+                      ? 'border-b-2 border-red-500 text-red-600 dark:text-red-400'
+                      : `${themeColors.text.secondary} hover:${themeColors.text.primary}`
+                  }`}
+                >
+                  Danger Zone
                 </button>
               </div>
             )}
@@ -243,6 +257,52 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
                   if (onUpdate) onUpdate();
                 }}
               />
+            )}
+
+            {/* Danger Zone Tab */}
+            {activeTab === 'danger' && editingList && (
+              <div className="space-y-4">
+                <div className="p-4 border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 rounded-md">
+                  <h4 className="text-sm font-medium text-red-800 dark:text-red-400 mb-2">
+                    Delete this list
+                  </h4>
+                  <p className="text-sm text-red-700 dark:text-red-300 mb-4">
+                    Once you delete a list, there is no going back. Please be certain.
+                  </p>
+                  <label className="block text-sm font-medium text-red-800 dark:text-red-400 mb-1">
+                    To confirm, type "<b>Delete {editingList.name}</b>" in the box below
+                  </label>
+                  <input
+                    type="text"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    className="w-full px-3 py-2 border border-red-300 dark:border-red-800 bg-white dark:bg-gray-800 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                    placeholder={`Delete ${editingList.name}`}
+                  />
+                  <div className="mt-4 flex justify-end">
+                    <LoadingButton
+                      type="button"
+                      variant="danger"
+                      isLoading={isDeleting}
+                      disabled={deleteConfirmText !== `Delete ${editingList.name}` || isDeleting}
+                      onClick={async () => {
+                        setIsDeleting(true);
+                        try {
+                          const { ListService } = await import('@/features/lists/api/listService');
+                          await ListService.deleteList(editingList.id);
+                          window.location.href = '/';
+                        } catch (error) {
+                          console.error('Failed to delete list', error);
+                          setIsDeleting(false);
+                        }
+                      }}
+                      loadingText="Deleting..."
+                    >
+                      Delete this list
+                    </LoadingButton>
+                  </div>
+                </div>
+              </div>
             )}
           </motion.div>
         </div>

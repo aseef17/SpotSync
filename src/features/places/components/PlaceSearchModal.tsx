@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, MapPin, Star, DollarSign, Plus, X, Loader } from 'lucide-react';
+import { Search, MapPin, Star, DollarSign, Plus, X, Loader, ArrowLeft } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { PlaceService } from '@/features/places/api/placeService';
@@ -33,6 +33,7 @@ interface PlaceSearchModalProps {
   onUndoAdd?: (placeId: string) => void;
   onPlaceUpdated?: () => void;
   onReplaceId?: (tempId: string, realId: string) => void;
+  inline?: boolean;
 }
 
 export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = ({
@@ -43,6 +44,7 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
   onUndoAdd,
   onPlaceUpdated,
   onReplaceId,
+  inline = false,
 }) => {
   const { user } = useAuth();
   const { trigger: triggerAction } = useDeferredAction();
@@ -215,6 +217,214 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
     return '$'.repeat(Math.min(level, 4));
   };
 
+  const content = (
+    <div className={`flex flex-col h-full ${inline ? 'w-full' : 'p-6'}`}>
+      {!inline && (
+        <div
+          className={`flex items-center justify-between pb-4 mb-4 border-b ${themeColors.border.default}`}
+        >
+          <h2 className={`text-xl font-semibold ${themeColors.text.primary}`}>
+            Add Places to List
+          </h2>
+          <button
+            onClick={onClose}
+            className={`${themeColors.text.secondary} hover:${themeColors.text.primary}`}
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+      )}
+
+      {inline && (
+        <div className="flex items-center gap-2 mb-4 px-2 pt-2">
+          <button
+            onClick={onClose}
+            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+            title="Back to list"
+          >
+            <ArrowLeft className="h-5 w-5 light-text-secondary" />
+          </button>
+          <h2 className={`text-lg font-semibold ${themeColors.text.primary}`}>
+            Search & Add Places
+          </h2>
+        </div>
+      )}
+
+      {/* Search Form */}
+      <form onSubmit={handleSearch} className="mb-6">
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <Search className={`absolute left-3 top-3 h-5 w-5 ${themeColors.text.secondary}`} />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search for restaurants, attractions, cafes..."
+              className="w-full pl-10 pr-4 py-2 border light-border-default light-bg-card light-text-primary rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading || !searchQuery.trim()}
+            className={`px-6 py-2 rounded-lg ${themeColors.button.primary} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+          >
+            {loading ? <Loader className="h-5 w-5 animate-spin" /> : 'Search'}
+          </button>
+        </div>
+      </form>
+
+      {/* Error Message */}
+      <AnimatePresence>
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            className={`mb-4 px-4 py-3 rounded border ${themeColors.form.errorBox}`}
+          >
+            {error}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Search Results */}
+      <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+        {loading || isDebouncing ? (
+          <div className="text-center py-8">
+            <Loader className={`h-8 w-8 animate-spin mx-auto ${themeColors.text.secondary}`} />
+            <p className={`mt-2 ${themeColors.text.secondary}`}>
+              {isDebouncing ? 'Typing...' : 'Searching for places...'}
+            </p>
+          </div>
+        ) : searchQuery.length > 0 && searchQuery.length < 5 ? (
+          <div className="text-center py-8">
+            <MapPin className={`h-12 w-12 ${themeColors.text.secondary} mx-auto`} />
+            <p className={`mt-2 ${themeColors.text.secondary}`}>
+              Type at least 5 characters to search for places...
+            </p>
+          </div>
+        ) : searchResults.length === 0 && debouncedQuery ? (
+          <div className="text-center py-8">
+            <MapPin className={`h-12 w-12 ${themeColors.text.secondary} mx-auto`} />
+            <p className={`mt-2 ${themeColors.text.secondary}`}>
+              No places found. Try a different search term.
+            </p>
+          </div>
+        ) : (
+          <motion.div
+            initial="hidden"
+            animate="visible"
+            variants={{
+              hidden: { opacity: 0 },
+              visible: {
+                opacity: 1,
+                transition: {
+                  staggerChildren: 0.05,
+                },
+              },
+            }}
+            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          >
+            {searchResults.map((place) => (
+              <motion.div
+                key={place.place_id}
+                variants={{
+                  hidden: { opacity: 0, x: -10 },
+                  visible: { opacity: 1, x: 0 },
+                }}
+                className={`border ${themeColors.border.default} rounded-lg p-4 hover:border-${colors.primary[400]} transition-colors`}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="flex-1">
+                    <h3 className={`font-medium ${themeColors.text.primary} mb-1`}>{place.name}</h3>
+                    <p className={`text-sm ${themeColors.text.secondary} mb-2`}>
+                      {place.formatted_address}
+                    </p>
+
+                    <div
+                      className={`flex items-center space-x-4 text-sm ${themeColors.text.secondary}`}
+                    >
+                      {place.rating && (
+                        <div className="flex items-center">
+                          <Star className="h-4 w-4 text-yellow-400 mr-1" />
+                          <span>{place.rating}</span>
+                        </div>
+                      )}
+                      {place.price_level && (
+                        <div className="flex items-center">
+                          <DollarSign className="h-4 w-4 mr-1" />
+                          <span>{formatPriceLevel(place.price_level)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="mt-2 flex items-center flex-wrap gap-2">
+                      {/* Display standardized category/cuisine string */}
+                      <span
+                        className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${themeColors.text.secondary} bg-gray-50 dark:bg-gray-800 border ${themeColors.border.default}`}
+                      >
+                        {getCategoryDisplayText(place)}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="ml-4 flex flex-col gap-2">
+                    <button
+                      onClick={() => handleAddPlace(place, false)}
+                      disabled={addingPlace === place.place_id}
+                      className={`flex items-center px-3 py-2 text-sm rounded-lg ${themeColors.button.primary} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                    >
+                      {addingPlace === place.place_id ? (
+                        <Loader className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-1" />
+                          Save
+                        </>
+                      )}
+                    </button>
+                    <button
+                      onClick={() => handleAddPlace(place, true)}
+                      disabled={addingPlace === place.place_id}
+                      className={`flex items-center px-3 py-2 text-sm rounded-lg border ${themeColors.border.default} ${themeColors.text.primary} hover:${themeColors.background.app} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
+                    >
+                      {addingPlace === place.place_id ? (
+                        <Loader className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          <Plus className="h-4 w-4 mr-1" />
+                          Save & Add
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+          </motion.div>
+        )}
+      </div>
+    </div>
+  );
+
+  if (!isOpen && !inline) return null;
+  if (inline) {
+    return (
+      <AnimatePresence>
+        {isOpen && (
+          <motion.div
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="w-full h-full flex flex-col custom-scrollbar overflow-y-auto"
+          >
+            {content}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    );
+  }
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -231,184 +441,9 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className={`${themeColors.background.card} relative rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden border ${themeColors.border.default} shadow-xl`}
+            className={`${themeColors.background.card} relative rounded-lg max-w-4xl w-full max-h-[90vh] overflow-hidden border ${themeColors.border.default} shadow-xl flex flex-col`}
           >
-            <div
-              className={`flex items-center justify-between p-6 border-b ${themeColors.border.default}`}
-            >
-              <h2 className={`text-xl font-semibold ${themeColors.text.primary}`}>
-                Add Places to List
-              </h2>
-              <button
-                onClick={onClose}
-                className={`${themeColors.text.secondary} hover:${themeColors.text.primary}`}
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="p-6">
-              {/* Search Form */}
-              <form onSubmit={handleSearch} className="mb-6">
-                <div className="flex gap-2">
-                  <div className="flex-1 relative">
-                    <Search
-                      className={`absolute left-3 top-3 h-5 w-5 ${themeColors.text.secondary}`}
-                    />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search for restaurants, attractions, cafes..."
-                      className="w-full pl-10 pr-4 py-2 border light-border-default light-bg-card light-text-primary rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 transition-colors"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={loading || !searchQuery.trim()}
-                    className={`px-6 py-2 rounded-lg ${themeColors.button.primary} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
-                  >
-                    {loading ? <Loader className="h-5 w-5 animate-spin" /> : 'Search'}
-                  </button>
-                </div>
-              </form>
-
-              {/* Error Message */}
-              <AnimatePresence>
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    className={`mb-4 px-4 py-3 rounded border ${themeColors.form.errorBox}`}
-                  >
-                    {error}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Search Results */}
-              <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar">
-                {loading || isDebouncing ? (
-                  <div className="text-center py-8">
-                    <Loader
-                      className={`h-8 w-8 animate-spin mx-auto ${themeColors.text.secondary}`}
-                    />
-                    <p className={`mt-2 ${themeColors.text.secondary}`}>
-                      {isDebouncing ? 'Typing...' : 'Searching for places...'}
-                    </p>
-                  </div>
-                ) : searchQuery.length > 0 && searchQuery.length < 5 ? (
-                  <div className="text-center py-8">
-                    <MapPin className={`h-12 w-12 ${themeColors.text.secondary} mx-auto`} />
-                    <p className={`mt-2 ${themeColors.text.secondary}`}>
-                      Type at least 5 characters to search for places...
-                    </p>
-                  </div>
-                ) : searchResults.length === 0 && debouncedQuery ? (
-                  <div className="text-center py-8">
-                    <MapPin className={`h-12 w-12 ${themeColors.text.secondary} mx-auto`} />
-                    <p className={`mt-2 ${themeColors.text.secondary}`}>
-                      No places found. Try a different search term.
-                    </p>
-                  </div>
-                ) : (
-                  <motion.div
-                    initial="hidden"
-                    animate="visible"
-                    variants={{
-                      hidden: { opacity: 0 },
-                      visible: {
-                        opacity: 1,
-                        transition: {
-                          staggerChildren: 0.05,
-                        },
-                      },
-                    }}
-                    className="grid grid-cols-1 md:grid-cols-2 gap-4"
-                  >
-                    {searchResults.map((place) => (
-                      <motion.div
-                        key={place.place_id}
-                        variants={{
-                          hidden: { opacity: 0, x: -10 },
-                          visible: { opacity: 1, x: 0 },
-                        }}
-                        className={`border ${themeColors.border.default} rounded-lg p-4 hover:border-${colors.primary[400]} transition-colors`}
-                      >
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <h3 className={`font-medium ${themeColors.text.primary} mb-1`}>
-                              {place.name}
-                            </h3>
-                            <p className={`text-sm ${themeColors.text.secondary} mb-2`}>
-                              {place.formatted_address}
-                            </p>
-
-                            <div
-                              className={`flex items-center space-x-4 text-sm ${themeColors.text.secondary}`}
-                            >
-                              {place.rating && (
-                                <div className="flex items-center">
-                                  <Star className="h-4 w-4 text-yellow-400 mr-1" />
-                                  <span>{place.rating}</span>
-                                </div>
-                              )}
-                              {place.price_level && (
-                                <div className="flex items-center">
-                                  <DollarSign className="h-4 w-4 mr-1" />
-                                  <span>{formatPriceLevel(place.price_level)}</span>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="mt-2 flex items-center flex-wrap gap-2">
-                              {/* Display standardized category/cuisine string */}
-                              <span
-                                className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${themeColors.text.secondary} bg-gray-50 dark:bg-gray-800 border ${themeColors.border.default}`}
-                              >
-                                {getCategoryDisplayText(place)}
-                              </span>
-                            </div>
-                          </div>
-
-                          <div className="ml-4 flex flex-col gap-2">
-                            <button
-                              onClick={() => handleAddPlace(place, false)}
-                              disabled={addingPlace === place.place_id}
-                              className={`flex items-center px-3 py-2 text-sm rounded-lg ${themeColors.button.primary} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
-                            >
-                              {addingPlace === place.place_id ? (
-                                <Loader className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <Plus className="h-4 w-4 mr-1" />
-                                  Save
-                                </>
-                              )}
-                            </button>
-                            <button
-                              onClick={() => handleAddPlace(place, true)}
-                              disabled={addingPlace === place.place_id}
-                              className={`flex items-center px-3 py-2 text-sm rounded-lg border ${themeColors.border.default} ${themeColors.text.primary} hover:${themeColors.background.app} disabled:opacity-50 disabled:cursor-not-allowed transition-colors`}
-                            >
-                              {addingPlace === place.place_id ? (
-                                <Loader className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  <Plus className="h-4 w-4 mr-1" />
-                                  Save & Add
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-                  </motion.div>
-                )}
-              </div>
-            </div>
+            {content}
           </motion.div>
         </div>
       )}

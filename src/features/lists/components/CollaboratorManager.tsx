@@ -161,7 +161,7 @@ export const CollaboratorManager: React.FunctionComponent<CollaboratorManagerPro
   }, [list.id, loadPendingInvitations]);
 
   return (
-    <div className={`${themeColors.background.card} p-4 sm:p-8`}>
+    <div className={`${themeColors.background.card} pt-2`}>
       <div className="flex items-center gap-2 mb-8">
         <Users className={`h-5 w-5 ${themeColors.text.primary}`} />
         <h3 className={`text-lg font-semibold ${themeColors.text.primary}`}>Collaborators</h3>

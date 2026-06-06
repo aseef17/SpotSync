@@ -93,7 +93,9 @@ export const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> 
 
   const handlePointerDown = (e: React.PointerEvent) => {
     // Don't drag if clicking interactive elements
-    const target = e.target as HTMLElement;
+    const target = e.target;
+    if (!(target instanceof Element)) return;
+
     const isInteractive = target.closest('button, a, input, select, textarea, [role="button"]');
     if (isInteractive) return;
 
@@ -103,7 +105,7 @@ export const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> 
     startHeight.current = currentHeight;
     lastTime.current = Date.now();
     document.body.style.userSelect = 'none';
-    (e.target as Element).setPointerCapture(e.pointerId);
+    target.setPointerCapture(e.pointerId);
   };
 
   const handlePointerMove = (e: React.PointerEvent) => {
@@ -128,7 +130,9 @@ export const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> 
     if (!isDragging) return;
     setIsDragging(false);
     document.body.style.userSelect = '';
-    (e.target as Element).releasePointerCapture(e.pointerId);
+    if (e.target instanceof Element) {
+      e.target.releasePointerCapture(e.pointerId);
+    }
 
     const projectedHeight = currentHeight - velocity.current * 200;
     let closest = snaps[0];

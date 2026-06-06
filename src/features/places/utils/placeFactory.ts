@@ -31,8 +31,7 @@ export const createPlaceFromGoogleDetails = (
         if (typeof photo.getUrl === 'function') {
           return photo.getUrl({ maxWidth: 400, maxHeight: 300 });
         }
-        const photoName = typeof photo === 'string' ? photo : String(photo);
-        return photoName;
+        return typeof photo.getUrl === 'string' ? photo.getUrl : '';
       })
       .filter((url) => !!url);
   }
@@ -68,8 +67,14 @@ export const createPlaceFromGoogleDetails = (
     name: googlePlace.name || '',
     address: googlePlace.formatted_address || '',
     location: {
-      lat: googlePlace.geometry?.location?.lat() || 0,
-      lng: googlePlace.geometry?.location?.lng() || 0,
+      lat:
+        typeof googlePlace.geometry?.location?.lat === 'function'
+          ? googlePlace.geometry.location.lat()
+          : googlePlace.geometry?.location?.lat || 0,
+      lng:
+        typeof googlePlace.geometry?.location?.lng === 'function'
+          ? googlePlace.geometry.location.lng()
+          : googlePlace.geometry?.location?.lng || 0,
     },
     photoUrls,
     addedBy: userId,

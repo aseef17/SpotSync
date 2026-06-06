@@ -1,6 +1,17 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Plus, Users, ArrowLeft, Eye, EyeOff, MapIcon, X, Edit } from 'lucide-react';
+import {
+  Plus,
+  Users,
+  ArrowLeft,
+  Eye,
+  EyeOff,
+  MapIcon,
+  X,
+  Edit,
+  Share2,
+  RefreshCw,
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { logger } from '@/utils/logger';
@@ -35,7 +46,7 @@ export const ListView: React.FunctionComponent = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const { list, places, loading, error, loadListData, updatePlace, updateList } =
+  const { list, places, loading, error, updateList } =
     useListDetails(listId);
   const isMobile = useIsMobile();
 
@@ -46,6 +57,7 @@ export const ListView: React.FunctionComponent = () => {
   const [showEditList, setShowEditList] = useState(false);
   const [deletingListId, setDeletingListId] = useState<string | null>(null);
   const [hiddenPlaceIds, setHiddenPlaceIds] = useState<Set<string>>(new Set());
+  const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
   const [optimisticPlaces, setOptimisticPlaces] = useState<Place[]>([]);
   const [pendingUpdate, setPendingUpdate] = useState<Partial<typeof list>>(null);
   const { trigger: triggerAction } = useDeferredAction();
@@ -78,8 +90,16 @@ export const ListView: React.FunctionComponent = () => {
     return list;
   }, [list, pendingUpdate]);
 
+  const currentUserRole = displayedList?.collaborators.find(
+    (c) => c.userId === user?.id
+  )?.permission;
+  const isOwner = user?.id === displayedList?.ownerId || currentUserRole === 'owner';
+  const canEditList = isOwner || currentUserRole === 'editor';
+  const isSavedList = user?.savedLists?.includes(displayedList?.id || '');
+  const isMember = !!currentUserRole || isOwner;
+
   const handleUpdateList = async (data: Partial<PlaceList>) => {
-    if (!list || !user) return;
+    if (!list || !user || !canEditList) return;
 
     setPendingUpdate(data);
 
@@ -103,7 +123,8 @@ export const ListView: React.FunctionComponent = () => {
 
   const getCanDelete = (place: Place): boolean => {
     if (!user) return false;
-    return user.id === place.addedBy || user.id === list?.ownerId;
+    if (canEditList) return true; // Editors and owners can delete any place
+    return user.id === place.addedBy;
   };
 
   const visiblePlaces = React.useMemo(() => {
@@ -162,6 +183,19 @@ export const ListView: React.FunctionComponent = () => {
 
   const basePlaces = aiMatchedPlaces || visiblePlaces;
 
+  const { availableCategories, availableCuisines } = React.useMemo(() => {
+    return {
+      availableCategories: [
+        ...new Set(basePlaces.map((p) => p.category).filter((c): c is string => Boolean(c))),
+      ],
+      availableCuisines: [
+        ...new Set(
+          basePlaces.flatMap((p) => p.cuisines || []).filter((c): c is string => Boolean(c))
+        ),
+      ],
+    };
+  }, [basePlaces]);
+
   // Final list to show: Intersection of (Standard Filters) AND (AI Matches)
   const effectiveFilteredPlaces = React.useMemo(() => {
     if (aiMatchedIds === null) return filteredPlaces;
@@ -215,24 +249,15 @@ export const ListView: React.FunctionComponent = () => {
     }
   }, [places, selectedPlace]);
 
-  // Optimized callback - updates single place instead of reloading all
+  // With real-time listeners, place data auto-updates via onSnapshot.
+  // This callback only needs to sync the selectedPlace panel.
   const handlePlaceUpdated = useCallback(
     (place?: Place) => {
       if (place?.id) {
-        updatePlace(place.id);
-        // Update selectedPlace if it's the one that was updated
         setSelectedPlace((prev) => (prev?.id === place.id ? { ...prev, ...place } : prev));
-      } else {
-        loadListData(true).then(() => {
-          // After full reload, try to find the selected place in the new list to update its data
-          setSelectedPlace((prev) => {
-            if (!prev) return null;
-            return prev;
-          });
-        });
       }
     },
-    [updatePlace, loadListData]
+    []
   );
 
   const handleAddExternalPlace = useCallback(
@@ -309,13 +334,23 @@ export const ListView: React.FunctionComponent = () => {
     [listId, user, handlePlaceAdded, handleUndoAdd, triggerAction, handlePlaceUpdated]
   );
 
+  const handlePlaceClick = useCallback((place: Place) => {
+    setSelectedPlace(place);
+    setShowPlaceDetails(true);
+  }, []);
+
+  const handleBackToList = useCallback(() => {
+    setShowPlaceDetails(false);
+    setSelectedPlace(null);
+  }, []);
+
   if (loading) {
     return (
       <div className={`min-h-screen ${themeColors.background.app}`}>
         <header
           className={`shadow-sm border-b ${themeColors.background.card} ${themeColors.border.default}`}
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="w-full px-4 sm:px-6 lg:px-12">
             <div className="flex items-center h-16">
               <Link
                 to="/"
@@ -329,7 +364,7 @@ export const ListView: React.FunctionComponent = () => {
             </div>
           </div>
         </header>
-        <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <main className="w-full py-6 px-4 sm:px-6 lg:px-12">
           <div
             className={`animate-pulse ${themeColors.background.card} rounded-lg shadow-sm border p-6`}
           >
@@ -354,7 +389,7 @@ export const ListView: React.FunctionComponent = () => {
         <header
           className={`shadow-sm border-b ${themeColors.background.card} ${themeColors.border.default}`}
         >
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="w-full px-4 sm:px-6 lg:px-12">
             <div className="flex items-center h-16">
               <Link
                 to="/"
@@ -368,7 +403,7 @@ export const ListView: React.FunctionComponent = () => {
             </div>
           </div>
         </header>
-        <main className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
+        <main className="w-full py-6 px-4 sm:px-6 lg:px-12">
           <div className={`${themeColors.background.card} rounded-lg shadow-sm border p-6`}>
             <div className="text-center py-12">
               <h3 className={`text-lg font-medium ${themeColors.text.primary}`}>List Not Found</h3>
@@ -416,19 +451,10 @@ export const ListView: React.FunctionComponent = () => {
             onPlaceHidden={handlePlaceHidden}
             onPlaceRestored={handlePlaceRestored}
             highlightedPlaceId={selectedPlace?.id}
+            canEditList={canEditList}
           />
 
           {/* Shared modals for mobile */}
-          <PlaceSearchModal
-            isOpen={showAddPlacesModal}
-            onClose={() => setShowAddPlacesModal(false)}
-            onPlaceAdded={handlePlaceAdded}
-            onUndoAdd={handleUndoAdd}
-            onPlaceUpdated={handlePlaceUpdated}
-            onReplaceId={handleReplacePlaceId}
-            listId={list.id}
-          />
-
           {showCollaborators && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
               <div className="light-bg-card rounded-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto border light-border-default">
@@ -445,7 +471,6 @@ export const ListView: React.FunctionComponent = () => {
                   list={list}
                   currentUserId={user?.id || ''}
                   onUpdate={() => {
-                    loadListData();
                     setShowCollaborators(false);
                   }}
                 />
@@ -463,7 +488,7 @@ export const ListView: React.FunctionComponent = () => {
                 setShowEditList(false);
               }}
               currentUserId={user?.id}
-              onUpdate={loadListData}
+              onUpdate={undefined}
             />
           )}
 
@@ -485,269 +510,378 @@ export const ListView: React.FunctionComponent = () => {
     );
   }
 
-  const handlePlaceClick = (place: Place) => {
-    setSelectedPlace(place);
-    setShowPlaceDetails(true);
-  };
-
-  const handleBackToList = () => {
-    setShowPlaceDetails(false);
-    setSelectedPlace(null);
-  };
-
   return (
     <div
-      className={`w-full ${themeColors.background.app} relative flex flex-col ${!isMobile && viewMode === 'map' ? 'h-screen overflow-hidden' : 'min-h-screen'}`}
+      className={`w-full ${themeColors.background.app} relative overflow-hidden ${!isMobile && viewMode === 'map' ? 'h-screen' : 'min-h-screen flex flex-col'}`}
     >
-      {isAiMode && (
-        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-purple-500/20 blur-[120px] rounded-full mix-blend-multiply dark:mix-blend-screen opacity-50 animate-pulse" />
-          <div className="absolute top-[-100px] right-0 w-[800px] h-[600px] bg-indigo-500/20 blur-[100px] rounded-full mix-blend-multiply dark:mix-blend-screen opacity-50" />
+      {/* Background Map - Full Bleed */}
+      {!isMobile && viewMode === 'map' && (
+        <div className="absolute inset-0 z-0">
+          <MapView
+            places={effectiveFilteredPlaces}
+            onPlaceClick={handlePlaceClick}
+            markerIcon={displayedList?.icon}
+            markerColor={displayedList?.color}
+            markerSize={displayedList?.iconSize}
+            highlightedPlaceId={selectedPlace?.id}
+            onUserLocationUpdate={setUserLocation}
+          />
         </div>
       )}
-
-      <header
-        className={`shadow-sm border-b ${themeColors.background.card} ${themeColors.border.default} relative z-10 shrink-0`}
+      {/* Foreground Container */}
+      <div
+        className={`relative z-10 flex flex-col pointer-events-none w-full h-full ${!isMobile && viewMode === 'map' ? '' : 'bg-white dark:bg-gray-900'}`}
       >
-        <div className="w-full px-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 gap-4">
-            <div className="flex items-center min-w-0">
-              <Link
-                to="/"
-                className={`p-2 rounded-md ${themeColors.text.secondary} hover:${themeColors.text.primary} mr-2 flex-shrink-0`}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <div className="min-w-0 flex-1">
-                <h1 className={`text-xl font-semibold ${themeColors.text.primary} truncate`}>
-                  {displayedList.name}
-                </h1>
-                <div
-                  className={`flex flex-wrap items-center mt-1 gap-x-4 gap-y-1 text-sm ${themeColors.text.secondary}`}
-                >
-                  <span className="flex items-center">
-                    <span className="flex items-center">
-                      {effectiveFilteredPlaces.length} of {places.length} places
-                    </span>
-                  </span>
-                  <span className="flex items-center">
-                    {displayedList.isPublic ? (
-                      <>
-                        <Eye className="h-4 w-4 mr-1" />
-                        Public
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff className="h-4 w-4 mr-1" />
-                        Private
-                      </>
-                    )}
-                  </span>
-                  <span className="flex items-center">
-                    <Users className="h-4 w-4 mr-1" />
-                    {displayedList.collaborators.length}{' '}
-                    {displayedList.collaborators.length === 1 ? 'collaborator' : 'collaborators'}
-                  </span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 ml-4">
-                <OptionsMenu
-                  options={[
-                    {
-                      label: 'Edit List',
-                      icon: <Edit className="h-5 w-5" />,
-                      onClick: () => setShowEditList(true),
-                    },
-                    {
-                      label: 'Delete List',
-                      icon: <X className="h-5 w-5" />,
-                      onClick: () => setDeletingListId(list.id),
-                      variant: 'danger',
-                    },
-                  ]}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <main
-        className={`flex-1 relative w-full ${
-          !isMobile && viewMode === 'map'
-            ? 'flex overflow-hidden'
-            : 'max-w-7xl mx-auto w-full py-6 px-4 sm:px-6 lg:px-8'
-        }`}
-      >
+        {/* Floating Sidebar (Desktop Map) or Standard Layout (Otherwise) */}
         <div
-          className={`
-            ${
-              !isMobile && viewMode === 'map'
-                ? 'w-1/3 min-w-[400px] border-r light-border-default bg-white dark:bg-gray-900 overflow-y-auto custom-scrollbar flex flex-col z-20 shadow-xl'
-                : 'w-full'
-            }
-        `}
+          className={`pointer-events-auto flex flex-col ${!isMobile && viewMode === 'map' ? `w-[420px] h-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-2xl border-r ${themeColors.border.default}` : 'w-full flex-1'}`}
         >
-          {!isMobile && viewMode === 'map' && showPlaceDetails && selectedPlace ? (
-            <div className="h-full flex flex-col">
-              <PlaceDetailsPane
-                place={selectedPlace}
-                onClose={handleBackToList}
-                onPlaceUpdated={handlePlaceUpdated}
-                onPlaceHidden={(id) => {
-                  setHiddenPlaceIds((prev) => {
-                    const next = new Set(prev);
-                    next.add(id);
-                    return next;
-                  });
-                  handleBackToList();
-                }}
-                onPlaceRestored={handlePlaceRestored}
-                canDelete={getCanDelete(selectedPlace)}
-                className="border-none shadow-none"
-              />
-            </div>
-          ) : (
-            <div className={`${!isMobile && viewMode === 'map' ? 'px-2 pt-2 pb-20' : ''}`}>
-              {displayedList.description && (
-                <div className="mb-6">
-                  <p className={`${themeColors.text.secondary}`}>{displayedList.description}</p>
-                </div>
-              )}
-
-              {places.length > 0 && (
-                <PlaceFilters
-                  filters={filters}
-                  onFiltersChange={setFilters}
-                  availableCategories={[
-                    ...new Set(
-                      basePlaces.map((p) => p.category).filter((c): c is string => Boolean(c))
-                    ),
-                  ]}
-                  availableCuisines={[
-                    ...new Set(
-                      basePlaces
-                        .flatMap((p) => p.cuisines || [])
-                        .filter((c): c is string => Boolean(c))
-                    ),
-                  ]}
-                  customStatuses={displayedList.customStatuses}
-                  totalPlaces={basePlaces.length}
-                  filteredCount={effectiveFilteredPlaces.length}
-                  viewMode={viewMode}
-                  onViewModeChange={setViewMode}
-                  onAiSearch={handleAiSearchSubmit}
-                  isAiMode={isAiMode}
-                  onAiModeChange={handleAiModeChange}
-                  isAiLoading={isAiSearching}
-                  userLocation={userLocation}
-                  density={density}
-                  onDensityChange={setDensity}
-                  isInSidebar={!isMobile && viewMode === 'map'}
-                />
-              )}
-
-              {places.length === 0 ? (
-                <div className={`${themeColors.background.card} rounded-lg shadow-sm border p-12`}>
-                  <div className="text-center">
-                    <MapIcon className={`mx-auto h-12 w-12 ${themeColors.text.secondary}`} />
-                    <h3 className={`mt-2 text-lg font-medium ${themeColors.text.primary}`}>
-                      No places yet
-                    </h3>
-                    <p className={`mt-1 ${themeColors.text.secondary}`}>
-                      Get started by adding some places to your list.
-                    </p>
-                    <button
-                      onClick={() => setShowAddPlacesModal(true)}
-                      className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.primary} transition-colors`}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Add Your First Place
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <motion.div
-                  initial="hidden"
-                  animate="visible"
-                  variants={{
-                    hidden: { opacity: 0 },
-                    visible: {
-                      opacity: 1,
-                      transition: {
-                        staggerChildren: 0.05,
-                      },
-                    },
-                  }}
-                  className={`
-                       ${
-                         density === 'compact'
-                           ? 'flex flex-col gap-3'
-                           : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-                       }
-                       ${!isMobile && viewMode === 'map' ? '!grid-cols-1 !gap-4' : ''}
-                    `}
-                >
-                  {effectiveFilteredPlaces.map((place) =>
-                    density === 'compact' ? (
-                      <CompactPlaceCard
-                        key={place.id}
-                        place={place}
-                        list={list}
-                        onClick={() => handlePlaceClick(place)}
-                        onStatusChange={() => updatePlace(place.id)}
-                        layout
-                      />
-                    ) : (
-                      <PlaceCard
-                        key={place.id}
-                        place={place}
-                        list={list}
-                        onClick={() => handlePlaceClick(place)}
-                        onStatusChange={() => updatePlace(place.id)}
-                        layout
-                        density={density}
-                      />
-                    )
-                  )}
-                </motion.div>
-              )}
+          {isAiMode && (
+            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-purple-500/20 blur-[120px] rounded-full mix-blend-multiply dark:mix-blend-screen opacity-50 animate-pulse" />
+              <div className="absolute top-[-100px] right-0 w-[800px] h-[600px] bg-indigo-500/20 blur-[100px] rounded-full mix-blend-multiply dark:mix-blend-screen opacity-50" />
             </div>
           )}
+
+          <header
+            className={`shadow-sm border-b ${themeColors.border.default} shrink-0 ${!isMobile && viewMode === 'map' ? 'bg-transparent' : themeColors.background.card}`}
+          >
+            <div className="w-full px-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 gap-4">
+                <div className="flex items-center min-w-0">
+                  <Link
+                    to="/"
+                    className={`p-2 rounded-md ${themeColors.text.secondary} hover:${themeColors.text.primary} mr-2 flex-shrink-0`}
+                  >
+                    <ArrowLeft className="h-5 w-5" />
+                  </Link>
+                  <div className="min-w-0 flex-1">
+                    <h1 className={`text-xl font-semibold ${themeColors.text.primary} truncate`}>
+                      {displayedList.name}
+                    </h1>
+                    <div
+                      className={`flex flex-wrap items-center mt-1 gap-x-4 gap-y-1 text-sm ${themeColors.text.secondary}`}
+                    >
+                      <span className="flex items-center">
+                        <span className="flex items-center">
+                          {effectiveFilteredPlaces.length} of {places.length} places
+                        </span>
+                      </span>
+                      <span className="flex items-center">
+                        {displayedList.isPublic ? (
+                          <>
+                            <Eye className="h-4 w-4 mr-1" />
+                            Public
+                          </>
+                        ) : (
+                          <>
+                            <EyeOff className="h-4 w-4 mr-1" />
+                            Private
+                          </>
+                        )}
+                      </span>
+                      <span className="flex items-center">
+                        <button
+                          onClick={() => {
+                            if (!canEditList) {
+                              toast.error('You do not have permission to manage collaborators.');
+                              return;
+                            }
+                            setShowCollaborators(true);
+                          }}
+                          className="flex items-center hover:underline focus:outline-none"
+                        >
+                          <Users className="h-4 w-4 mr-1" />
+                          {displayedList.collaborators.length}{' '}
+                          {displayedList.collaborators.length === 1
+                            ? 'collaborator'
+                            : 'collaborators'}
+                        </button>
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 ml-4">
+                    {displayedList.isPublic && user && !isMember && !isSavedList && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const { UserService } = await import('@/features/auth/api/userService');
+                            await UserService.saveListToProfile(user.id, displayedList.id);
+                            toast.success('List saved to your homepage!');
+                            // Optimistically update the user context or reload
+                            window.location.reload();
+                          } catch {
+                            toast.error('Failed to save list.');
+                          }
+                        }}
+                        className={`px-3 py-1.5 text-sm font-medium rounded-md ${themeColors.button.primary} transition-colors whitespace-nowrap`}
+                      >
+                        Save to Homepage
+                      </button>
+                    )}
+                    {displayedList.isPublic && user && isSavedList && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            const { UserService } = await import('@/features/auth/api/userService');
+                            await UserService.removeListFromProfile(user.id, displayedList.id);
+                            toast.success('List removed from your homepage.');
+                            window.location.reload();
+                          } catch {
+                            toast.error('Failed to remove list.');
+                          }
+                        }}
+                        className={`px-3 py-1.5 text-sm font-medium border rounded-md ${themeColors.button.secondary} transition-colors whitespace-nowrap`}
+                      >
+                        Remove from Homepage
+                      </button>
+                    )}
+                    <OptionsMenu
+                      options={[
+                        {
+                          label: 'Share List',
+                          icon: <Share2 className="h-5 w-5" />,
+                          onClick: () => {
+                            if (!displayedList.isPublic) {
+                              toast.error('Please make the list public before sharing.');
+                              if (canEditList) setShowEditList(true);
+                              return;
+                            }
+                            navigator.clipboard.writeText(window.location.href);
+                            toast.success('Link copied to clipboard!');
+                          },
+                        },
+                        ...(canEditList
+                          ? [
+                              {
+                                label: isSyncingPhotos ? 'Syncing Photos...' : 'Sync Photos',
+                                icon: (
+                                  <RefreshCw
+                                    className={`h-5 w-5 ${isSyncingPhotos ? 'animate-spin' : ''}`}
+                                  />
+                                ),
+                                onClick: async () => {
+                                  setIsSyncingPhotos(true);
+                                  toast.info('Syncing photos in the background...');
+                                  try {
+                                    await PlaceService.syncListPhotos(list.id);
+                                    toast.success('Photos synced successfully!');
+                                  } catch {
+                                    toast.error('Failed to sync photos.');
+                                  } finally {
+                                    setIsSyncingPhotos(false);
+                                  }
+                                },
+                              },
+                              {
+                                label: 'Edit List',
+                                icon: <Edit className="h-5 w-5" />,
+                                onClick: () => setShowEditList(true),
+                              },
+                            ]
+                          : []),
+                      ]}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          </header>
+
+          <main
+            className={`flex-1 relative w-full ${
+              !isMobile && viewMode === 'map'
+                ? 'overflow-y-auto custom-scrollbar flex flex-col'
+                : 'w-full px-4 sm:px-6 lg:px-12 py-6'
+            }`}
+          >
+            <div className="w-full h-full flex flex-col">
+              {!isMobile && viewMode === 'map' && showPlaceDetails && selectedPlace ? (
+                <div className="h-full flex flex-col">
+                  <PlaceDetailsPane
+                    place={selectedPlace}
+                    onClose={handleBackToList}
+                    onPlaceUpdated={handlePlaceUpdated}
+                    onPlaceHidden={(id) => {
+                      setHiddenPlaceIds((prev) => {
+                        const next = new Set(prev);
+                        next.add(id);
+                        return next;
+                      });
+                      handleBackToList();
+                    }}
+                    onPlaceRestored={handlePlaceRestored}
+                    canDelete={getCanDelete(selectedPlace)}
+                    className="border-none shadow-none"
+                  />
+                </div>
+              ) : (
+                <div
+                  className={`${!isMobile && viewMode === 'map' ? 'px-2 pt-2 pb-20 h-full flex flex-col' : ''}`}
+                >
+                  {!isMobile && viewMode === 'map' && showAddPlacesModal ? (
+                    <div className="flex-1 min-h-0 w-full h-full relative">
+                      <PlaceSearchModal
+                        isOpen={showAddPlacesModal}
+                        onClose={() => setShowAddPlacesModal(false)}
+                        listId={list.id}
+                        onPlaceAdded={handlePlaceAdded}
+                        onUndoAdd={(tempId) =>
+                          setHiddenPlaceIds((prev) => new Set([...prev, tempId]))
+                        }
+                        onPlaceUpdated={handlePlaceUpdated}
+                        onReplaceId={handleReplacePlaceId}
+                        inline={true}
+                      />
+                    </div>
+                  ) : (
+                    <>
+                      {displayedList.description && (
+                        <div className="mb-6">
+                          <p className={`${themeColors.text.secondary}`}>
+                            {displayedList.description}
+                          </p>
+                        </div>
+                      )}
+
+                      {places.length > 0 && (
+                        <PlaceFilters
+                          filters={filters}
+                          onFiltersChange={setFilters}
+                          availableCategories={availableCategories}
+                          availableCuisines={availableCuisines}
+                          customStatuses={displayedList.customStatuses}
+                          totalPlaces={basePlaces.length}
+                          filteredCount={effectiveFilteredPlaces.length}
+                          viewMode={viewMode}
+                          onViewModeChange={setViewMode}
+                          onAiSearch={handleAiSearchSubmit}
+                          isAiMode={isAiMode}
+                          onAiModeChange={handleAiModeChange}
+                          isAiLoading={isAiSearching}
+                          userLocation={userLocation}
+                          density={density}
+                          onDensityChange={setDensity}
+                          isInSidebar={!isMobile && viewMode === 'map'}
+                        />
+                      )}
+
+                      {places.length === 0 ? (
+                        <div
+                          className={`${themeColors.background.card} rounded-lg shadow-sm border p-12`}
+                        >
+                          <div className="text-center">
+                            <MapIcon
+                              className={`mx-auto h-12 w-12 ${themeColors.text.secondary}`}
+                            />
+                            <h3 className={`mt-2 text-lg font-medium ${themeColors.text.primary}`}>
+                              No places yet
+                            </h3>
+                            <p className={`mt-1 ${themeColors.text.secondary}`}>
+                              Get started by adding some places to your list.
+                            </p>
+                            <button
+                              onClick={() => setShowAddPlacesModal(true)}
+                              className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.primary} transition-colors`}
+                            >
+                              <Plus className="h-4 w-4 mr-2" />
+                              Add Your First Place
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <AnimatePresence mode="popLayout">
+                          <motion.div
+                            initial="hidden"
+                            animate="visible"
+                            variants={{
+                              hidden: { opacity: 0 },
+                              visible: {
+                                opacity: 1,
+                                transition: {
+                                  staggerChildren: 0.05,
+                                },
+                              },
+                            }}
+                            className={`
+                             ${
+                               density === 'compact'
+                                 ? 'flex flex-col gap-3'
+                                 : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+                             }
+                             ${!isMobile && viewMode === 'map' ? '!grid-cols-1 !gap-4' : ''}
+                          `}
+                          >
+                            {effectiveFilteredPlaces.map((place) =>
+                              density === 'compact' ? (
+                                <motion.div
+                                  key={`${place.id}-compact-${viewMode}`}
+                                  layoutId={`card-${place.id}`}
+                                  initial={{ opacity: 0, y: 20 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.95 }}
+                                  transition={{ duration: 0.2 }}
+                                >
+                                  <CompactPlaceCard
+                                    place={place}
+                                    list={list}
+                                    onClick={handlePlaceClick}
+                                    onStatusChange={() => {}}
+                                    layout
+                                  />
+                                </motion.div>
+                              ) : (
+                                <motion.div
+                                  key={`${place.id}-comfortable-${viewMode}`}
+                                  layoutId={`card-${place.id}`}
+                                  initial={{ opacity: 0, y: 20 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  exit={{ opacity: 0, scale: 0.95 }}
+                                  transition={{ duration: 0.2 }}
+                                >
+                                  <PlaceCard
+                                    place={place}
+                                    list={list}
+                                    onClick={handlePlaceClick}
+                                    onStatusChange={() => {}}
+                                    layout
+                                    density={density}
+                                  />
+                                </motion.div>
+                              )
+                            )}
+                          </motion.div>
+                        </AnimatePresence>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </main>
+        </div>{' '}
+        {/* End floating sidebar */}
+      </div>{' '}
+      {/* End foreground container */}
+      {canEditList && !isMobile && viewMode === 'map' && (
+        <div className="absolute bottom-8 right-8 z-20 pointer-events-auto">
+          <FAB onClick={() => setShowAddPlacesModal(true)} label="Add Places" />
         </div>
-
-        {!isMobile && viewMode === 'map' && (
-          <div className="flex-1 relative h-full">
-            <div className="absolute inset-0">
-              <MapView
-                places={effectiveFilteredPlaces}
-                onPlaceClick={handlePlaceClick}
-                markerIcon={displayedList?.icon}
-                markerColor={displayedList?.color}
-                markerSize={displayedList?.iconSize}
-                highlightedPlaceId={selectedPlace?.id}
-                onUserLocationUpdate={setUserLocation}
-              />
-            </div>
-            <div className="absolute bottom-8 right-8 z-10">
-              <FAB onClick={() => setShowAddPlacesModal(true)} label="Add Places" />
-            </div>
-          </div>
-        )}
-      </main>
-
-      {!(!isMobile && viewMode === 'map') && (
+      )}
+      {canEditList && !(!isMobile && viewMode === 'map') && (
         <FAB onClick={() => setShowAddPlacesModal(true)} label="Add Places" />
       )}
-
-      <PlaceSearchModal
-        isOpen={showAddPlacesModal}
-        onClose={() => setShowAddPlacesModal(false)}
-        listId={listId!}
-        onPlaceAdded={handlePlaceAdded}
-        onUndoAdd={handleUndoAdd}
-      />
-
+      {canEditList && !(!isMobile && viewMode === 'map') && (
+        <PlaceSearchModal
+          isOpen={showAddPlacesModal}
+          onClose={() => setShowAddPlacesModal(false)}
+          listId={list.id}
+          onPlaceAdded={handlePlaceAdded}
+          onUndoAdd={handleUndoAdd}
+          onPlaceUpdated={handlePlaceUpdated}
+          onReplaceId={handleReplacePlaceId}
+        />
+      )}
       {selectedPlace && !(!isMobile && viewMode === 'map') && (
         <PlaceDetailsModal
           place={selectedPlace}
@@ -768,9 +902,9 @@ export const ListView: React.FunctionComponent = () => {
           }}
           onPlaceRestored={handlePlaceRestored}
           canDelete={getCanDelete(selectedPlace)}
+          canEdit={canEditList}
         />
       )}
-
       {showCollaborators && list && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
           <motion.div
@@ -794,14 +928,12 @@ export const ListView: React.FunctionComponent = () => {
                 list={list}
                 currentUserId={user?.id || ''}
                 onUpdate={() => {
-                  loadListData();
                 }}
               />
             </div>
           </motion.div>
         </div>
       )}
-
       {showEditList && list && (
         <CreateListModal
           isOpen={showEditList}
@@ -814,7 +946,6 @@ export const ListView: React.FunctionComponent = () => {
             triggerAction(
               async () => {
                 await ListService.updateList(list.id, data, user?.id);
-                loadListData();
                 setPendingUpdate(null);
               },
               {
@@ -825,16 +956,14 @@ export const ListView: React.FunctionComponent = () => {
                 },
                 onError: (err) => {
                   logger.error('Update list failed', err);
-                  loadListData();
                 },
               }
             );
           }}
           currentUserId={user?.id}
-          onUpdate={loadListData}
+          onUpdate={undefined}
         />
       )}
-
       {deletingListId && (
         <ConfirmDialog
           isOpen={!!deletingListId}

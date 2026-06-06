@@ -38,11 +38,14 @@ A real-time collaborative map app for organizing shared places. Import directly 
 
 - **Secure Authentication**: Integration with Google OAuth and standard email/password flows.
 - **Real-time Collaboration**: Share lists with specific collaborators and manage permissions.
+- **Public Lists & Dashboard**: Make lists public for view-only access, allowing others to "Save to Dashboard" without editing rights.
 - **Google Maps Synchronization**: Import existing saved lists from Google Maps directly into the app.
+- **Robust Photo Syncing & Optimization**: Automatically resolves and permanently saves ephemeral Google Places API photos directly to your own Firebase Storage. Features lossless WebP compression and browser caching to minimize reads/writes and API costs.
 - **AI-Powered Search**: Ask natural language questions about your saved places (e.g., "Find brunch spots") using Gemini AI.
 - **Comprehensive Place Data**: Captures detailed info including hours, delivery/dine-in options, accessibility, and service options.
+- **Responsive Design**: A unified, responsive list view providing the exact same robust filtering and sorting features on both mobile and desktop.
+- **Google Maps UX/UI Redesign**: A modern, premium aesthetic featuring a full-bleed map with a floating glassmorphic sidebar for desktop, and a sticky map with a dynamic bottom sheet and pill-shaped filters for mobile.
 - **Smart Push Notifications**: Reliable delivery system optimized for both Chrome and Safari.
-- **Design System**: A cohesive, premium dark-mode aesthetic with smooth animations.
 
 ## Technical Foundation
 
@@ -165,7 +168,15 @@ src/
 5. **Configure Cloud Functions** (optional, for AI Search):
    See [Cloud Functions Setup](docs/setup/cloud-functions.md) for Gemini AI configuration.
 
-6. Launch development server:
+6. **Configure Firebase Storage CORS** (Required for Photo Syncing):
+   In the Google Cloud Shell for your project, run the following to allow the app to upload images to your storage bucket directly from the browser:
+
+   ```bash
+   echo '[{"origin": ["*"], "method": ["GET", "HEAD", "PUT", "POST", "DELETE", "OPTIONS"], "maxAgeSeconds": 3600}]' > cors.json
+   gcloud storage buckets update gs://your-exact-bucket-name.appspot.com --cors-file=cors.json
+   ```
+
+7. Launch development server:
    ```bash
    npm run dev
    ```

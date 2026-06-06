@@ -8,83 +8,76 @@ import type { Place } from '@/features/places/types/place';
 export const useListDetails = (listId: string | undefined) => {
   const [list, setList] = useState<PlaceList | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(!!listId);
+  const [error, setError] = useState<string | null>(listId ? null : 'No list ID provided');
 
-  const loadListData = useCallback(
-    async (silent: boolean = false) => {
-      try {
-        if (!silent) {
-          setLoading(true);
-        }
-        setError(null);
+  useEffect(() => {
+    if (!listId) {
+      return;
+    }
 
-        if (!listId) {
-          setError('No list ID provided');
-          return;
-        }
+    setLoading(true);
+    let listLoaded = false;
+    let placesLoaded = false;
 
-        const [listData, placesData] = await Promise.all([
-          ListService.getList(listId),
-          PlaceService.getListPlaces(listId),
-        ]);
+    const checkLoading = () => {
+      if (listLoaded && placesLoaded) {
+        setLoading(false);
+      }
+    };
 
+    const unsubscribeList = ListService.subscribeToList(
+      listId,
+      (listData) => {
         if (!listData) {
           setError('List not found');
-          return;
+        } else {
+          setList(listData);
+          setError(null);
         }
-
-        setList(listData);
-        setPlaces(placesData);
-      } catch (err) {
-        logger.error('Error loading list data:', err);
+        listLoaded = true;
+        checkLoading();
+      },
+      (err) => {
+        logger.error('Error listening to list:', err);
         setError(
           `Failed to load list data: ${err instanceof Error ? err.message : 'Unknown error'}`
         );
-      } finally {
-        if (!silent) {
-          setLoading(false);
-        }
+        listLoaded = true;
+        checkLoading();
       }
-    },
-    [listId]
-  );
+    );
 
-  useEffect(() => {
-    if (listId) {
-      loadListData();
-    }
-  }, [listId, loadListData]);
-
-  // Update a single place in the local state (optimistic update)
-  const updatePlace = useCallback(
-    async (placeId: string) => {
-      try {
-        const updatedPlace = await PlaceService.getPlace(placeId);
-        if (updatedPlace) {
-          setPlaces((prevPlaces) => prevPlaces.map((p) => (p.id === placeId ? updatedPlace : p)));
-        }
-      } catch (err) {
-        logger.error('Error updating place:', err);
-        // If update fails, reload all data
-        loadListData();
+    const unsubscribePlaces = PlaceService.subscribeToListPlaces(
+      listId,
+      (placesData) => {
+        setPlaces(placesData);
+        placesLoaded = true;
+        checkLoading();
+      },
+      (err) => {
+        logger.error('Error listening to places:', err);
+        placesLoaded = true;
+        checkLoading();
       }
-    },
-    [loadListData]
-  );
+    );
+
+    return () => {
+      unsubscribeList();
+      unsubscribePlaces();
+    };
+  }, [listId]);
 
   const updateList = useCallback(
     async (listId: string, data: Partial<PlaceList>, userId?: string) => {
       try {
         await ListService.updateList(listId, data, userId);
-        setList((prev) => (prev ? { ...prev, ...data } : null));
       } catch (err) {
         logger.error('Error updating list:', err);
-        loadListData();
         throw err;
       }
     },
-    [loadListData]
+    []
   );
 
   return {
@@ -92,8 +85,6 @@ export const useListDetails = (listId: string | undefined) => {
     places,
     loading,
     error,
-    loadListData,
-    updatePlace,
     updateList,
   };
 };

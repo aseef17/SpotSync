@@ -19,6 +19,7 @@ export interface PlaceDetailsPaneProps {
   onPlaceRestored: (id: string) => void;
   className?: string;
   canDelete?: boolean;
+  canEdit?: boolean;
 }
 
 const formatDate = (date: unknown): string => {
@@ -57,6 +58,7 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
   onPlaceRestored,
   className = '',
   canDelete = false,
+  canEdit = true,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedNotes, setEditedNotes] = useState(place.notes || '');
@@ -208,21 +210,7 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
               )}
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 mt-2">
-              {place.category && (
-                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200">
-                  {place.category}
-                </span>
-              )}
-              {place.cuisines?.map((cuisine) => (
-                <span
-                  key={cuisine}
-                  className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 capitalize"
-                >
-                  {cuisine}
-                </span>
-              ))}
-            </div>
+            {/* Removing duplicated category/cuisines here as they are shown later */}
 
             <div className="flex items-center space-x-4 text-sm light-text-secondary">
               <div className="flex items-center">
@@ -258,69 +246,82 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
           </div>
 
           <div className="space-y-4">
-            {place.cuisines && place.cuisines.length > 0 && (
-              <div className="flex flex-wrap gap-2">
-                {place.cuisines.map((cuisine) => (
-                  <span
-                    key={cuisine}
-                    className="px-3 py-1 bg-purple-100/80 text-black border border-purple-200 dark:bg-purple-900/40 dark:text-white dark:border-purple-800 rounded-full text-xs font-bold capitalize"
-                  >
-                    {cuisine}
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {(place.businessStatus || place.openNow !== undefined) && (
-              <div className="flex items-center gap-4">
-                {place.businessStatus && (
-                  <span
-                    className={`px-2 py-1 rounded text-xs font-bold ${
-                      place.businessStatus === 'OPERATIONAL'
-                        ? 'bg-green-100/80 text-black border border-green-200 dark:bg-green-900/40 dark:text-white dark:border-green-800'
-                        : 'bg-red-100/80 text-black border border-red-200 dark:bg-red-900/40 dark:text-white dark:border-red-800'
-                    }`}
-                  >
-                    {place.businessStatus === 'OPERATIONAL' ? '✓ Open' : '✗ Closed'}
+            <div className="flex flex-col gap-3">
+              {/* Categories & Tags */}
+              <div className="flex flex-wrap items-center gap-2">
+                {place.category && (
+                  <span className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-800 dark:text-gray-200 border border-gray-200 dark:border-gray-700 rounded-full text-xs font-bold capitalize">
+                    {place.category}
                   </span>
                 )}
-                {place.openNow !== undefined && (
-                  <div className="flex items-center gap-2">
-                    <div
-                      className={`w-2 h-2 rounded-full ${place.openNow ? 'bg-green-500' : 'bg-red-500'}`}
-                    />
-                    <span className="text-sm light-text-secondary">
-                      {place.openNow ? 'Open now' : 'Closed now'}
+                {place.cuisines &&
+                  place.cuisines.map((cuisine) => (
+                    <span
+                      key={cuisine}
+                      className="px-3 py-1 bg-blue-50/80 text-blue-800 border border-blue-200 dark:bg-blue-900/40 dark:text-blue-100 dark:border-blue-800 rounded-full text-xs font-bold capitalize"
+                    >
+                      {cuisine}
                     </span>
+                  ))}
+              </div>
+
+              {/* Status and Attributes Row */}
+              <div className="flex flex-wrap items-center gap-2">
+                {(place.businessStatus || place.openNow !== undefined) && (
+                  <div className="flex items-center gap-2 mr-2">
+                    {place.businessStatus && (
+                      <span
+                        className={`px-2 py-1 rounded-md text-xs font-bold ${
+                          place.businessStatus === 'OPERATIONAL'
+                            ? 'bg-green-50 text-green-700 border border-green-200 dark:bg-green-900/30 dark:text-green-300 dark:border-green-800'
+                            : 'bg-red-50 text-red-700 border border-red-200 dark:bg-red-900/30 dark:text-red-300 dark:border-red-800'
+                        }`}
+                      >
+                        {place.businessStatus === 'OPERATIONAL' ? '✓ Open' : '✗ Closed'}
+                      </span>
+                    )}
+                    {place.openNow !== undefined && (
+                      <div className="flex items-center gap-1.5 px-2 py-1 bg-gray-50 dark:bg-gray-800/50 rounded-md border border-gray-100 dark:border-gray-700">
+                        <div
+                          className={`w-1.5 h-1.5 rounded-full ${place.openNow ? 'bg-green-500' : 'bg-red-500'}`}
+                        />
+                        <span className="text-xs font-medium light-text-secondary">
+                          {place.openNow ? 'Open now' : 'Closed now'}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
-              </div>
-            )}
 
-            {(place.delivery || place.dineIn || place.takeout || place.reservable) && (
-              <div className="flex flex-wrap gap-2">
-                {place.delivery && (
-                  <span className="px-2 py-1 bg-green-100/80 text-black border border-green-200 dark:bg-green-900/40 dark:text-white dark:border-green-800 text-xs rounded font-bold">
-                    🚚 Delivery
-                  </span>
-                )}
-                {place.dineIn && (
-                  <span className="px-2 py-1 bg-blue-100/80 text-black border border-blue-200 dark:bg-blue-900/40 dark:text-white dark:border-blue-800 text-xs rounded font-bold">
-                    🍽️ Dine-in
-                  </span>
-                )}
-                {place.takeout && (
-                  <span className="px-2 py-1 bg-purple-100/80 text-black border border-purple-200 dark:bg-purple-900/40 dark:text-white dark:border-purple-800 text-xs rounded font-bold">
-                    📦 Takeout
-                  </span>
-                )}
-                {place.reservable && (
-                  <span className="px-2 py-1 bg-orange-100/80 text-black border border-orange-200 dark:bg-orange-900/40 dark:text-white dark:border-orange-800 text-xs rounded font-bold">
-                    📅 Reservations
-                  </span>
+                {(place.delivery || place.dineIn || place.takeout || place.reservable) && (
+                  <>
+                    <div className="h-4 w-px bg-gray-200 dark:bg-gray-700 mx-1 hidden sm:block"></div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {place.delivery && (
+                        <span className="px-2 py-1 bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-xs rounded-md font-medium flex items-center gap-1">
+                          <span>🚚</span> Delivery
+                        </span>
+                      )}
+                      {place.dineIn && (
+                        <span className="px-2 py-1 bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-xs rounded-md font-medium flex items-center gap-1">
+                          <span>🍽️</span> Dine-in
+                        </span>
+                      )}
+                      {place.takeout && (
+                        <span className="px-2 py-1 bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-xs rounded-md font-medium flex items-center gap-1">
+                          <span>📦</span> Takeout
+                        </span>
+                      )}
+                      {place.reservable && (
+                        <span className="px-2 py-1 bg-gray-50 dark:bg-gray-800/50 text-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-700 text-xs rounded-md font-medium flex items-center gap-1">
+                          <span>📅</span> Reservations
+                        </span>
+                      )}
+                    </div>
+                  </>
                 )}
               </div>
-            )}
+            </div>
 
             {place.openingHours && place.openingHours.length > 0 && (
               <div className="space-y-2">
@@ -356,7 +357,7 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
         <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-sm font-medium light-text-secondary">Notes</h3>
-            {!isEditing && (
+            {!isEditing && canEdit && (
               <button
                 onClick={() => setIsEditing(true)}
                 className="light-text-secondary hover:light-text-primary flex items-center gap-1 text-xs"

@@ -13,11 +13,34 @@ import {
   arrayUnion,
   arrayRemove,
   writeBatch,
+  onSnapshot,
+} from 'firebase/firestore';
+import type {
+  FirestoreDataConverter,
+  QueryDocumentSnapshot,
+  SnapshotOptions,
+  DocumentData,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { PlaceList, Collaborator, Permission } from '@/features/lists/types/list';
 import { logger } from '@/utils/logger';
 import { toMilliseconds } from '@/utils/date';
+import { omit } from '@/utils/objectUtils';
+
+export const listConverter: FirestoreDataConverter<PlaceList> = {
+  toFirestore(list: PlaceList): DocumentData {
+    return omit(list, ['id']);
+  },
+  fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): PlaceList {
+    const data = snapshot.data(options);
+    return {
+      id: snapshot.id,
+      ...data,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
+    } as PlaceList;
+  },
+};
 
 export class ListService {
   static async createList(
@@ -77,10 +100,9 @@ export class ListService {
 
   static async getList(listId: string): Promise<PlaceList | null> {
     try {
-      const listDoc = await getDoc(doc(db, 'lists', listId));
+      const listDoc = await getDoc(doc(db, 'lists', listId).withConverter(listConverter));
       if (listDoc.exists()) {
-        const data = listDoc.data();
-        return { id: listDoc.id, ...data } as PlaceList;
+        return listDoc.data();
       }
       return null;
     } catch (error) {
@@ -95,8 +117,11 @@ export class ListService {
 
       // Get all lists where user is owner OR collaborator in a single query
       // This will automatically find legacy lists (via ownerId) and shared lists (via collaboratorIds)
+      const { UserService } = await import('@/features/auth/api/userService');
+      const user = await UserService.getUser(userId);
+
       const q = query(
-        collection(db, 'lists'),
+        collection(db, 'lists').withConverter(listConverter),
         or(where('ownerId', '==', userId), where('collaboratorIds', 'array-contains', userId))
       );
 
@@ -105,8 +130,8 @@ export class ListService {
       let updatesNeeded = false;
 
       snapshot.forEach((snapDoc) => {
-        const data = snapDoc.data() as PlaceList;
-        const list = { ...data, id: snapDoc.id };
+        const data = snapDoc.data();
+        const list = { ...data };
         lists.push(list);
 
         // Self-healing: Ensure collaboratorIds includes owner
@@ -124,6 +149,35 @@ export class ListService {
         batch.commit().catch((err) => logger.error('Error in list self-healing:', err));
       }
 
+      // Fetch saved lists
+      if (user?.savedLists && user.savedLists.length > 0) {
+        const { documentId } = await import('firebase/firestore');
+        const uniqueIds = Array.from(new Set(user.savedLists));
+        // Remove ids we already fetched
+        const existingIds = new Set(lists.map((l) => l.id));
+        const idsToFetch = uniqueIds.filter((id) => !existingIds.has(id));
+
+        if (idsToFetch.length > 0) {
+          const chunks: string[][] = [];
+          for (let i = 0; i < idsToFetch.length; i += 10) {
+            chunks.push(idsToFetch.slice(i, i + 10));
+          }
+
+          for (const chunk of chunks) {
+            const savedQuery = query(
+              collection(db, 'lists').withConverter(listConverter),
+              where(documentId(), 'in', chunk)
+            );
+            const savedSnap = await getDocs(savedQuery);
+            savedSnap.forEach((docSnap) => {
+              lists.push({ ...docSnap.data(), isSavedList: true } as PlaceList & {
+                isSavedList: boolean;
+              });
+            });
+          }
+        }
+      }
+
       // Sort client-side by updatedAt descending
       return lists.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
     } catch (error) {
@@ -135,18 +189,12 @@ export class ListService {
   static async getPublicLists(): Promise<PlaceList[]> {
     try {
       const q = query(
-        collection(db, 'lists'),
+        collection(db, 'lists').withConverter(listConverter),
         where('isPublic', '==', true),
         orderBy('updatedAt', 'desc')
       );
       const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          id: doc.id,
-          ...data,
-        } as PlaceList;
-      });
+      return querySnapshot.docs.map((doc) => doc.data());
     } catch (error) {
       logger.error('Error getting public lists:', error);
       throw error;
@@ -280,6 +328,26 @@ export class ListService {
     }
   }
 
+  static async savePublicList(listId: string, userId: string): Promise<void> {
+    try {
+      const { UserService } = await import('@/features/auth/api/userService');
+      await UserService.saveListToProfile(userId, listId);
+    } catch (error) {
+      logger.error('Error saving public list:', error);
+      throw error;
+    }
+  }
+
+  static async unsavePublicList(listId: string, userId: string): Promise<void> {
+    try {
+      const { UserService } = await import('@/features/auth/api/userService');
+      await UserService.removeListFromProfile(userId, listId);
+    } catch (error) {
+      logger.error('Error unsaving public list:', error);
+      throw error;
+    }
+  }
+
   static async addCustomStatus(listId: string, status: string): Promise<void> {
     try {
       await updateDoc(doc(db, 'lists', listId), {
@@ -302,5 +370,73 @@ export class ListService {
       logger.error('Error removing custom status:', error);
       throw error;
     }
+  }
+
+  static subscribeToUserLists(
+    userId: string,
+    onUpdate: (lists: PlaceList[]) => void,
+    onError: (error: Error) => void
+  ): () => void {
+    const q = query(
+      collection(db, 'lists').withConverter(listConverter),
+      or(where('ownerId', '==', userId), where('collaboratorIds', 'array-contains', userId))
+    );
+
+    return onSnapshot(
+      q,
+      (snapshot) => {
+        const lists: PlaceList[] = [];
+        const batch = writeBatch(db);
+        let updatesNeeded = false;
+
+        snapshot.forEach((snapDoc) => {
+          const data = snapDoc.data();
+          const list = { ...data };
+          lists.push(list);
+
+          // Self-healing: Ensure collaboratorIds includes owner
+          const expectedIds = Array.from(
+            new Set([data.ownerId, ...(data.collaborators?.map((c) => c.userId) || [])])
+          );
+
+          if (!data.collaboratorIds || data.collaboratorIds.length !== expectedIds.length) {
+            batch.update(snapDoc.ref, { collaboratorIds: expectedIds });
+            updatesNeeded = true;
+          }
+        });
+
+        if (updatesNeeded) {
+          batch.commit().catch((err) => logger.error('Error in list self-healing:', err));
+        }
+
+        onUpdate(lists);
+      },
+      (err) => {
+        logger.error('Error subscribing to user lists:', err);
+        onError(err);
+      }
+    );
+  }
+
+  static subscribeToList(
+    listId: string,
+    onUpdate: (list: PlaceList | null) => void,
+    onError: (error: Error) => void
+  ): () => void {
+    const listRef = doc(db, 'lists', listId).withConverter(listConverter);
+    return onSnapshot(
+      listRef,
+      (docSnap) => {
+        if (docSnap.exists()) {
+          onUpdate(docSnap.data());
+        } else {
+          onUpdate(null);
+        }
+      },
+      (err) => {
+        logger.error('Error subscribing to list:', err);
+        onError(err);
+      }
+    );
   }
 }

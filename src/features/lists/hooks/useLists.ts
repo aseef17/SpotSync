@@ -10,30 +10,38 @@ export const useLists = (userId: string | undefined) => {
   const [error, setError] = useState<string | null>(null);
 
   const loadUserLists = useCallback(
-    async (options: { silent?: boolean } = {}) => {
-      if (!userId) return;
-      try {
-        if (!options.silent) {
-          setLoading(true);
-        }
-        const userLists = await ListService.getUserLists(userId);
-        setLists(userLists);
-        setError(null);
-      } catch (err) {
-        logger.error('Error loading lists:', err);
-        setError('Failed to load lists');
-      } finally {
-        if (!options.silent) {
-          setLoading(false);
-        }
-      }
+    async () => {
+      // Legacy stub: no longer needed because of real-time subscriptions,
+      // but kept to prevent breaking child components that pass it to modals.
+      return Promise.resolve();
     },
-    [userId]
+    []
   );
 
   useEffect(() => {
-    loadUserLists();
-  }, [loadUserLists]);
+    if (!userId) {
+      setLists([]);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    const unsubscribe = ListService.subscribeToUserLists(
+      userId,
+      (updatedLists) => {
+        setLists(updatedLists);
+        setLoading(false);
+        setError(null);
+      },
+      (err) => {
+        logger.error('Error in lists subscription:', err);
+        setError('Failed to load lists');
+        setLoading(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [userId]);
 
   const createList = async (data: {
     name: string;

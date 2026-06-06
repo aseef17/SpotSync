@@ -11,6 +11,7 @@ interface PlaceDetailsModalProps {
   onPlaceHidden: (id: string) => void;
   onPlaceRestored: (id: string) => void;
   canDelete?: boolean;
+  canEdit?: boolean;
 }
 
 export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> = ({
@@ -21,6 +22,7 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
   onPlaceHidden,
   onPlaceRestored,
   canDelete,
+  canEdit,
 }) => {
   return (
     <AnimatePresence>
@@ -51,6 +53,7 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
               onPlaceHidden={onPlaceHidden}
               onPlaceRestored={onPlaceRestored}
               canDelete={canDelete}
+              canEdit={canEdit}
               className="w-full h-full"
             />
           </motion.div>

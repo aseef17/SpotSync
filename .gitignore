@@ -26,3 +26,10 @@ dist-ssr
 # Security
 public/firebase-messaging-sw.js
 .env
+
+# Local tooling
+.cursor/
+hooks/
+AGENTS.md
+CLAUDE.md
+.worktrees/

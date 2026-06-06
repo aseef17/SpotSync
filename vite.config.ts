@@ -25,4 +25,16 @@ export default defineConfig({
     // Globally define __DEV__ for conditional console logging
     __DEV__: process.env.NODE_ENV !== 'production',
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ['react', 'react-dom', 'react-router-dom'],
+          firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore', 'firebase/storage'],
+          ui: ['lucide-react', 'framer-motion'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 1000,
+  },
 });

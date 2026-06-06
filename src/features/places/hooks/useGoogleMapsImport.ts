@@ -77,6 +77,22 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
 
   const handleParseUrl = async () => {
     if (!importUrl) return;
+
+    try {
+      if (targetListId && targetListId !== 'new') {
+        const placeId = extractPlaceIdFromUrl(importUrl);
+        if (placeId) {
+          const existingPlaces = await PlaceService.getListPlaces(targetListId);
+          if (existingPlaces.some((p) => p.googlePlaceId === placeId || p.id === placeId)) {
+            toast.info('This place is already in the list.');
+            return;
+          }
+        }
+      }
+    } catch (e) {
+      logger.warn('Failed pre-check for existing place', e);
+    }
+
     setParsing(true);
     try {
       // Use client-side parser to bypass bot detection
@@ -149,7 +165,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       const uniquePlaces = placesFound.filter((p) => {
         const pAddr = p.address ? p.address.toLowerCase().trim() : '';
         const pName = p.title.toLowerCase().trim();
-        const batchKey = p.googlePlaceId || `${pName}|${pAddr}`;
+        const batchKey = p.placeId || p.googlePlaceId || `${pName}|${pAddr}`;
 
         if (batchMap.has(batchKey)) {
           setSkippedPlaces((prev) => [...prev, p]);

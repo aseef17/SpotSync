@@ -1,0 +1,75 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(listData) {
+      return isAuthenticated() && listData.ownerId == request.auth.uid;
+    }
+    
+    function isCollaborator(listData) {
+      return isAuthenticated() && (request.auth.uid in listData.collaboratorIds);
+    }
+    
+    function isEditor(listData) {
+      // Find the collaborator's role
+      let collabs = listData.collaborators;
+      // In a real production environment, you may want to structure collaborators as a map for easier rule checking:
+      // collaborators: { "userId1": "editor", "userId2": "viewer" }
+      // For now, this is a simplified check if they are at least in the array
+      return isCollaborator(listData); 
+    }
+
+    // LISTS
+    match /lists/{listId} {
+      // Anyone can read a public list, or if they are the owner/collaborator
+      allow read: if resource.data.isPublic == true || isOwner(resource.data) || isCollaborator(resource.data);
+      
+      // Only authenticated users can create lists
+      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      
+      // Only owners or editors can update the list
+      allow update: if isOwner(resource.data) || isEditor(resource.data) || 
+                    // Allow adding oneself as a viewer (Save to Dashboard)
+                    (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['collaborators', 'collaboratorIds', 'updatedAt']));
+      
+      // Only owners can delete the list
+      allow delete: if isOwner(resource.data);
+      
+      // PLACES (Subcollection)
+      match /places/{placeId} {
+        // Inherit read permissions from the parent list
+        allow read: if get(/databases/$(database)/documents/lists/$(listId)).data.isPublic == true || 
+                       isOwner(get(/databases/$(database)/documents/lists/$(listId)).data) || 
+                       isCollaborator(get(/databases/$(database)/documents/lists/$(listId)).data);
+        
+        // Inherit write permissions from parent list
+        allow write: if isOwner(get(/databases/$(database)/documents/lists/$(listId)).data) || 
+                        isEditor(get(/databases/$(database)/documents/lists/$(listId)).data);
+      }
+    }
+    
+    // PLACES (top-level collection, linked to lists via listId field)
+    match /places/{placeId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated();
+      allow delete: if isAuthenticated();
+    }
+    
+    // USERS
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if request.auth.uid == userId;
+    }
+    
+    // USERNAMES
+    match /usernames/{username} {
+      allow read: if true;
+    }
+  }
+}

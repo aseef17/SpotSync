@@ -1,21 +1,55 @@
 import {
-  doc,
-  getDoc,
-  setDoc,
-  updateDoc,
-  deleteDoc,
   collection,
   query,
   where,
   getDocs,
+  doc,
+  getDoc,
+  setDoc,
+  deleteDoc,
+  updateDoc,
   writeBatch,
   arrayUnion,
   arrayRemove,
+  onSnapshot,
+} from 'firebase/firestore';
+import imageCompression from 'browser-image-compression';
+import type {
+  FirestoreDataConverter,
+  QueryDocumentSnapshot,
+  SnapshotOptions,
+  DocumentData,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Place, PlaceStatus } from '@/features/places/types/place';
 import { logger } from '@/utils/logger';
 import { toMilliseconds } from '@/utils/date';
+import { omit } from '@/utils/objectUtils';
+
+export const placeConverter: FirestoreDataConverter<Place> = {
+  toFirestore(place: Place): DocumentData {
+    return omit(place, ['id']);
+  },
+  fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): Place {
+    const data = snapshot.data(options);
+
+    const validStatuses: PlaceStatus[] = ['not_visited', 'visited', 'not_going', 'custom'];
+    const status =
+      typeof data.status === 'string' && validStatuses.includes(data.status as PlaceStatus)
+        ? data.status
+        : 'not_visited';
+
+    return {
+      ...data,
+      id: snapshot.id,
+      name: typeof data.name === 'string' ? data.name : 'Unknown',
+      address: typeof data.address === 'string' ? data.address : '',
+      status: status,
+      addedAt: data.addedAt?.toDate ? data.addedAt.toDate() : new Date(),
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
+    } as Place;
+  },
+};
 
 export class PlaceService {
   static async createPlace(
@@ -124,16 +158,9 @@ export class PlaceService {
 
   static async getPlace(placeId: string): Promise<Place | null> {
     try {
-      const placeDoc = await getDoc(doc(db, 'places', placeId));
-      const data = placeDoc.data();
-      if (placeDoc.exists() && data) {
-        return {
-          id: placeDoc.id,
-          name: typeof data.name === 'string' ? data.name : 'Unknown',
-          address: typeof data.address === 'string' ? data.address : '',
-          status: this.isPlaceStatus(data.status) ? data.status : 'not_visited',
-          ...data,
-        } as Place;
+      const placeDoc = await getDoc(doc(db, 'places', placeId).withConverter(placeConverter));
+      if (placeDoc.exists()) {
+        return placeDoc.data();
       }
       return null;
     } catch (error) {
@@ -142,22 +169,14 @@ export class PlaceService {
     }
   }
 
-  private static isPlaceStatus(status: unknown): status is PlaceStatus {
-    const validStatuses: PlaceStatus[] = ['not_visited', 'visited', 'not_going', 'custom'];
-    return typeof status === 'string' && validStatuses.includes(status as PlaceStatus);
-  }
-
   static async getListPlaces(listId: string): Promise<Place[]> {
     try {
-      const q = query(collection(db, 'places'), where('listId', '==', listId));
+      const q = query(
+        collection(db, 'places').withConverter(placeConverter),
+        where('listId', '==', listId)
+      );
       const querySnapshot = await getDocs(q);
-      const places = querySnapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          ...data,
-          id: doc.id,
-        } as Place;
-      });
+      const places = querySnapshot.docs.map((doc) => doc.data());
       // Sort client-side desc
       return places.sort((a, b) => {
         const aTime = toMilliseconds(a.addedAt);
@@ -252,14 +271,14 @@ export class PlaceService {
       // Try to find by plus code first (most reliable)
       if (placeData.plusCode) {
         q = query(
-          collection(db, 'places'),
+          collection(db, 'places').withConverter(placeConverter),
           where('listId', '==', listId),
           where('plusCode', '==', placeData.plusCode)
         );
       } else if (placeData.googlePlaceId) {
         // Fallback to Google Place ID
         q = query(
-          collection(db, 'places'),
+          collection(db, 'places').withConverter(placeConverter),
           where('listId', '==', listId),
           where('googlePlaceId', '==', placeData.googlePlaceId)
         );
@@ -279,14 +298,7 @@ export class PlaceService {
         const querySnapshot = await getDocs(q);
         if (!querySnapshot.empty) {
           const doc = querySnapshot.docs[0];
-          const data = doc.data();
-          return {
-            ...data,
-            id: doc.id, // Must come after spread to override any stored 'id' field
-            name: typeof data.name === 'string' ? data.name : 'Unknown',
-            address: typeof data.address === 'string' ? data.address : '',
-            status: this.isPlaceStatus(data.status) ? data.status : 'not_visited',
-          } as Place;
+          return doc.data();
         }
       }
 
@@ -485,5 +497,191 @@ export class PlaceService {
       logger.error('Error asking list:', error);
       throw error;
     }
+  }
+
+  static getPhotoHash(url: string): string {
+    if (url.includes('/photos/')) {
+      const parts = url.split('/photos/');
+      if (parts.length > 1) {
+        const hashPart = parts[1].split('/')[0];
+        return hashPart.split('?')[0];
+      }
+    }
+
+    let hash = 0;
+    for (let i = 0; i < url.length; i++) {
+      const char = url.charCodeAt(i);
+      hash = (hash << 5) - hash + char;
+      hash = hash & hash;
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  static async syncListPhotos(listId: string): Promise<void> {
+    try {
+      const { PhotoService } = await import('@/features/places/api/photoService');
+      const { GoogleMapsService } = await import('@/features/places/api/googleMapsService');
+      const places = await this.getListPlaces(listId);
+
+      for (const place of places) {
+        if (!place.photoUrls || place.photoUrls.length === 0) continue;
+
+        const maxPhotos = Math.min(10, place.photoUrls.length); // Fetch max 10 photos
+        const updatedPhotoUrls = [...place.photoUrls];
+        let hasUpdates = false;
+
+        let photoCache: Cache | null = null;
+        try {
+          photoCache = await caches.open('places-photo-cache');
+        } catch (e) {
+          logger.warn('Cache API not available', e);
+        }
+
+        for (let i = 0; i < maxPhotos; i++) {
+          let rawUrl = updatedPhotoUrls[i];
+
+          if (!rawUrl) continue;
+
+          // Skip if already stored in Firebase
+          if (rawUrl.includes('firebasestorage.googleapis.com')) continue;
+
+          const googlePlaceId = place.googlePlaceId || place.id;
+          const photoHash = this.getPhotoHash(rawUrl);
+
+          // Check if another list has already uploaded this place's photo to Firebase
+          const existingFirebaseUrl = await PhotoService.getSharedPlacePhotoUrl(
+            googlePlaceId,
+            photoHash
+          );
+          if (existingFirebaseUrl) {
+            updatedPhotoUrls[i] = existingFirebaseUrl;
+            hasUpdates = true;
+            logger.info(`Reused existing globally synced photo ${photoHash} for place ${place.id}`);
+            continue;
+          }
+
+          try {
+            let fetchUrl = rawUrl.startsWith('places/')
+              ? GoogleMapsService.getPhotoUrl(rawUrl, 1200, 1200)
+              : rawUrl;
+
+            let response: Response | undefined;
+            if (photoCache) {
+              response = await photoCache.match(fetchUrl);
+            }
+
+            if (!response) {
+              response = await fetch(fetchUrl);
+              if (response.ok && photoCache) {
+                photoCache.put(fetchUrl, response.clone());
+              }
+            }
+
+            // If token expired (400 Bad Request), try fetching fresh place details to get a new photo token
+            if (!response.ok && response.status === 400) {
+              logger.warn(
+                `Photo token might be expired for place ${place.id}, refreshing details...`
+              );
+              const freshDetails = await GoogleMapsService.getPlaceDetails(googlePlaceId);
+
+              if (freshDetails && freshDetails.photos && freshDetails.photos.length > i) {
+                const photoUrlObj = freshDetails.photos[i].getUrl;
+                const freshPhotoName =
+                  typeof photoUrlObj === 'function'
+                    ? photoUrlObj({
+                        maxWidth: 1200,
+                        maxHeight: 1200,
+                      })
+                    : photoUrlObj;
+                fetchUrl = GoogleMapsService.getPhotoUrl(freshPhotoName, 1200, 1200);
+
+                if (photoCache) {
+                  response = await photoCache.match(fetchUrl);
+                }
+                if (!response) {
+                  response = await fetch(fetchUrl);
+                  if (response.ok && photoCache) {
+                    photoCache.put(fetchUrl, response.clone());
+                  }
+                }
+
+                if (response.ok) {
+                  rawUrl = freshPhotoName;
+                }
+              }
+            }
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            const blob = await response.blob();
+            let fileToUpload = new File([blob], `photo_${googlePlaceId}_${photoHash}.jpg`, {
+              type: blob.type || 'image/jpeg',
+            });
+
+            try {
+              const options = {
+                maxSizeMB: 1,
+                maxWidthOrHeight: 1200,
+                useWebWorker: true,
+                fileType: 'image/webp',
+              };
+              fileToUpload = await imageCompression(fileToUpload, options);
+            } catch (err) {
+              logger.warn('Image compression failed, uploading original', err);
+            }
+
+            const firebasePhotoUrl = await PhotoService.uploadSharedPlacePhoto(
+              fileToUpload,
+              googlePlaceId,
+              photoHash
+            );
+
+            updatedPhotoUrls[i] = firebasePhotoUrl;
+            hasUpdates = true;
+            logger.info(`Synced photo ${photoHash} for place ${place.id}`);
+          } catch (photoErr) {
+            logger.error(`Failed to sync photo ${photoHash} for place ${place.id}`, photoErr);
+          }
+        }
+
+        if (hasUpdates) {
+          await this.updatePlace(place.id, {
+            photoUrls: updatedPhotoUrls,
+          });
+        }
+      }
+    } catch (error) {
+      logger.error('Error syncing list photos:', error);
+      throw error;
+    }
+  }
+
+  static subscribeToListPlaces(
+    listId: string,
+    onUpdate: (places: Place[]) => void,
+    onError: (error: Error) => void
+  ): () => void {
+    const q = query(
+      collection(db, 'places').withConverter(placeConverter),
+      where('listId', '==', listId)
+    );
+
+    return onSnapshot(
+      q,
+      (querySnapshot) => {
+        const places = querySnapshot.docs.map((doc) => doc.data());
+        // Sort client-side desc
+        const sortedPlaces = places.sort((a, b) => {
+          const aTime = toMilliseconds(a.addedAt);
+          const bTime = toMilliseconds(b.addedAt);
+          return bTime - aTime;
+        });
+        onUpdate(sortedPlaces);
+      },
+      (err) => {
+        logger.error('Error subscribing to list places:', err);
+        onError(err);
+      }
+    );
   }
 }
