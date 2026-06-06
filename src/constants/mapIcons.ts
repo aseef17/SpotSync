@@ -1,4 +1,11 @@
+import type React from 'react';
 import * as Icons from 'lucide-react';
+import { MapPin } from 'lucide-react';
+
+export const getMapIconComponent = (name: string): React.ElementType => {
+  const Icon = Icons[name as keyof typeof Icons];
+  return (Icon || MapPin) as React.ElementType;
+};
 
 export const AVAILABLE_ICONS: (keyof typeof Icons)[] = [
   'MapPin',

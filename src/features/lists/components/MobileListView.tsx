@@ -96,6 +96,21 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   const [showListInfo, setShowListInfo] = useState(false);
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
   const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
+  const [mapMounted, setMapMounted] = useState(false);
+
+  // Defer Google Maps until idle — list UI paints first on mobile
+  useEffect(() => {
+    const win = window as Window & {
+      requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (win.requestIdleCallback) {
+      const id = win.requestIdleCallback(() => setMapMounted(true), { timeout: 2000 });
+      return () => win.cancelIdleCallback?.(id);
+    }
+    const t = setTimeout(() => setMapMounted(true), 600);
+    return () => clearTimeout(t);
+  }, []);
 
   // Auto-collapse filters on scroll
   useEffect(() => {
@@ -206,6 +221,10 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
     clearSearch,
     debouncedMapSearchQuery,
   } = useMapSearch({ listId: list.id, userLocation, currentUserId: user?.id });
+
+  useEffect(() => {
+    if (isMapSearching) setMapMounted(true);
+  }, [isMapSearching]);
 
   React.useEffect(() => {
     GoogleMapsService.getUserLocation().then((loc) => {
@@ -495,26 +514,30 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
       )}
 
       <div className="absolute inset-0 z-0 overflow-hidden">
-        <MapView
-          places={effectiveFilteredPlaces}
-          onPlaceClick={onPlaceClick}
-          markerIcon={list.icon}
-          markerColor={list.color}
-          markerSize={list.iconSize}
-          highlightedPlaceId={highlightedPlaceId}
-          previewPlace={(() => {
-            if (!selectedPlace?.isPreview) return null;
-            const normalizeId = (id: string | undefined) => id?.replace(/^places\//, '') || '';
-            const selectedId = normalizeId(selectedPlace?.googlePlaceId);
-            const existsInList = places.some(
-              (p) => normalizeId(p.googlePlaceId) === selectedId || p.id === selectedPlace?.id
-            );
-            return existsInList ? null : selectedPlace;
-          })()}
-          onLayerMenuOpen={(isOpen) => setForcedSnap(isOpen ? 0 : undefined)}
-          onAddExternalPlace={onAddExternalPlace}
-          onUserLocationUpdate={setUserLocation}
-        />
+        {mapMounted ? (
+          <MapView
+            places={effectiveFilteredPlaces}
+            onPlaceClick={onPlaceClick}
+            markerIcon={list.icon}
+            markerColor={list.color}
+            markerSize={list.iconSize}
+            highlightedPlaceId={highlightedPlaceId}
+            previewPlace={(() => {
+              if (!selectedPlace?.isPreview) return null;
+              const normalizeId = (id: string | undefined) => id?.replace(/^places\//, '') || '';
+              const selectedId = normalizeId(selectedPlace?.googlePlaceId);
+              const existsInList = places.some(
+                (p) => normalizeId(p.googlePlaceId) === selectedId || p.id === selectedPlace?.id
+              );
+              return existsInList ? null : selectedPlace;
+            })()}
+            onLayerMenuOpen={(isOpen) => setForcedSnap(isOpen ? 0 : undefined)}
+            onAddExternalPlace={onAddExternalPlace}
+            onUserLocationUpdate={setUserLocation}
+          />
+        ) : (
+          <div className="w-full h-full bg-gray-100 dark:bg-gray-800" />
+        )}
       </div>
 
       {!selectedPlace && (

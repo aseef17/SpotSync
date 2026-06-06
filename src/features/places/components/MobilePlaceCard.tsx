@@ -121,20 +121,16 @@ export const MobilePlaceCard = React.memo<MobilePlaceCardProps>(
         )}
 
         {photos.length > 0 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide mb-2 justify-start">
-            {photos.slice(0, 5).map((photo: string, i: number) => (
-              <div
-                key={i}
-                className="flex-shrink-0 w-24 h-24 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800"
-              >
-                <img
-                  src={GoogleMapsService.getPhotoUrl(photo, 300, 300)}
-                  alt={place.name}
-                  className="w-full h-full object-cover"
-                  loading="lazy"
-                />
-              </div>
-            ))}
+          <div className="mb-2">
+            <div className="w-full h-32 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
+              <img
+                src={GoogleMapsService.getPhotoUrl(photos[0], 400, 240)}
+                alt={place.name}
+                className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+            </div>
           </div>
         )}
 

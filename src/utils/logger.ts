@@ -1,4 +1,4 @@
-import { analytics } from '@/lib/firebase';
+import { getFirebaseAnalytics } from '@/lib/firebase';
 import { logEvent } from 'firebase/analytics';
 
 // Development-only logging utility
@@ -10,19 +10,21 @@ export const logger = {
       console.error(message, ...args);
     }
     if (!import.meta.env.DEV) {
-      try {
-        // Log to Google Analytics
-        logEvent(analytics, 'exception', {
-          description:
-            `${message} ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`.substring(
-              0,
-              100
-            ), // Limit length
-          fatal: false,
-        });
-      } catch {
-        // Ignore analytics errors to prevent loops
-      }
+      void getFirebaseAnalytics().then((analytics) => {
+        if (!analytics) return;
+        try {
+          logEvent(analytics, 'exception', {
+            description:
+              `${message} ${args.map((a) => (typeof a === 'object' ? JSON.stringify(a) : String(a))).join(' ')}`.substring(
+                0,
+                100
+              ),
+            fatal: false,
+          });
+        } catch {
+          // Ignore analytics errors to prevent loops
+        }
+      });
     }
   },
   warn: (message: string, ...args: unknown[]) => {

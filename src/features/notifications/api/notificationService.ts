@@ -1,6 +1,6 @@
 import { getToken, onMessage, type Messaging } from 'firebase/messaging';
 import { logger } from '@/utils/logger';
-import { messaging, db } from '@/lib/firebase';
+import { ensureFirebaseMessaging, db } from '@/lib/firebase';
 import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 export interface NotificationPayload {
@@ -13,6 +13,7 @@ export interface NotificationPayload {
 
 export class NotificationService {
   static async requestPermission(userId: string): Promise<boolean> {
+    const messaging = await ensureFirebaseMessaging();
     if (!messaging) {
       logger.warn('Firebase Messaging not supported');
       return false;
@@ -112,7 +113,8 @@ export class NotificationService {
     }
   }
 
-  static onMessageListener(callback?: (payload: NotificationPayload) => void) {
+  static async onMessageListener(callback?: (payload: NotificationPayload) => void) {
+    const messaging = await ensureFirebaseMessaging();
     if (!messaging) return;
     return onMessage(messaging, (payload) => {
       logger.debug('Foreground message received:', payload);

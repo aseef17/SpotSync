@@ -6,9 +6,9 @@ import {
   persistentMultipleTabManager,
 } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { getMessaging } from 'firebase/messaging';
+import type { Messaging } from 'firebase/messaging';
+import type { Analytics } from 'firebase/analytics';
 import { getFunctions } from 'firebase/functions';
-import { getAnalytics } from 'firebase/analytics';
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -26,8 +26,40 @@ export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
 });
 export const storage = getStorage(app);
-export const messaging = getMessaging(app);
 export const functions = getFunctions(app, 'us-east4');
-export const analytics = getAnalytics(app);
+
+let messagingInstance: Messaging | null | undefined;
+let analyticsInstance: Analytics | null | undefined;
+
+/** Ensures messaging is loaded before notification APIs run. */
+export async function ensureFirebaseMessaging(): Promise<Messaging | null> {
+  if (messagingInstance !== undefined) return messagingInstance;
+  if (typeof window === 'undefined') {
+    messagingInstance = null;
+    return messagingInstance;
+  }
+  try {
+    const { getMessaging } = await import('firebase/messaging');
+    messagingInstance = getMessaging(app);
+  } catch {
+    messagingInstance = null;
+  }
+  return messagingInstance;
+}
+
+export async function getFirebaseAnalytics(): Promise<Analytics | null> {
+  if (analyticsInstance !== undefined) return analyticsInstance;
+  if (typeof window === 'undefined') {
+    analyticsInstance = null;
+    return analyticsInstance;
+  }
+  try {
+    const { getAnalytics } = await import('firebase/analytics');
+    analyticsInstance = getAnalytics(app);
+  } catch {
+    analyticsInstance = null;
+  }
+  return analyticsInstance;
+}
 
 export default app;

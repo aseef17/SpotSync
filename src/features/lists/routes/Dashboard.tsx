@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Plus, Users, Settings, Eye, EyeOff, Edit, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -51,18 +51,15 @@ export const Dashboard: React.FunctionComponent = () => {
   const myLists = useMemo(() => displayedLists.filter((l) => !l.isSavedList), [displayedLists]);
   const savedLists = useMemo(() => displayedLists.filter((l) => l.isSavedList), [displayedLists]);
 
-  // Sync optimistic lists with real lists (derived state)
-  const [prevLists, setPrevLists] = useState(lists);
-  if (lists !== prevLists) {
-    setPrevLists(lists);
-    if (lists.length > 0) {
-      const realIds = new Set(lists.map((l) => l.id));
-      setOptimisticLists((prev) => {
-        const stillOptimistic = prev.filter((l) => !realIds.has(l.id));
-        return stillOptimistic.length !== prev.length ? stillOptimistic : prev;
-      });
-    }
-  }
+  // Sync optimistic lists with real lists when Firestore data arrives
+  useEffect(() => {
+    if (lists.length === 0) return;
+    const realIds = new Set(lists.map((l) => l.id));
+    setOptimisticLists((prev) => {
+      const stillOptimistic = prev.filter((l) => !realIds.has(l.id));
+      return stillOptimistic.length !== prev.length ? stillOptimistic : prev;
+    });
+  }, [lists]);
 
   const resetForm = () => {
     setEditingList(null);

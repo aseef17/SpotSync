@@ -33,3 +33,8 @@ hooks/
 AGENTS.md
 CLAUDE.md
 .worktrees/
+
+# Local performance audit artifacts (not shipped)
+perf-reports/
+scripts/perf-audit.mjs
+scripts/playwright-perf.mjs

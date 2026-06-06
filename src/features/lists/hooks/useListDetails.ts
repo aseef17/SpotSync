@@ -10,15 +10,13 @@ export const useListDetails = (listId: string | undefined) => {
   const [places, setPlaces] = useState<Place[]>([]);
   const [loading, setLoading] = useState(!!listId);
   const [error, setError] = useState<string | null>(listId ? null : 'No list ID provided');
-  const [activeListId, setActiveListId] = useState(listId);
 
-  if (listId !== activeListId) {
-    setActiveListId(listId);
+  useEffect(() => {
     setList(null);
     setPlaces([]);
     setLoading(!!listId);
     setError(listId ? null : 'No list ID provided');
-  }
+  }, [listId]);
 
   useEffect(() => {
     if (!listId) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ListService } from '@/features/lists/api/listService';
 import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
@@ -104,15 +104,18 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
     }
   }, []);
 
-  const value: ListsContextValue = {
-    lists,
-    loading,
-    creating,
-    error,
-    createList,
-    updateList,
-    deleteList,
-  };
+  const value = useMemo<ListsContextValue>(
+    () => ({
+      lists,
+      loading,
+      creating,
+      error,
+      createList,
+      updateList,
+      deleteList,
+    }),
+    [lists, loading, creating, error, createList, updateList, deleteList]
+  );
 
   return <ListsContext.Provider value={value}>{children}</ListsContext.Provider>;
 };

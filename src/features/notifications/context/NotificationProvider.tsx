@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { logger } from '@/utils/logger';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { NotificationService } from '@/features/notifications/api/notificationService';
@@ -73,7 +73,7 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
     return () => unsubscribe();
   }, [user?.id]);
 
-  const requestPermission = async () => {
+  const requestPermission = useCallback(async () => {
     if (!user) return false;
     const granted = await NotificationService.requestPermission(user.id);
     if (granted) {
@@ -81,9 +81,9 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
     }
     setPermissionGranted(granted);
     return granted;
-  };
+  }, [user]);
 
-  const disableNotifications = async () => {
+  const disableNotifications = useCallback(async () => {
     if (!user) return;
 
     // Set global flag first so UI updates immediately
@@ -91,7 +91,8 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
 
     // Try to get current token to remove only this device from the active tokens list
     try {
-      const { messaging: fbMessaging } = await import('@/lib/firebase');
+      const { ensureFirebaseMessaging } = await import('@/lib/firebase');
+      const fbMessaging = await ensureFirebaseMessaging();
       if (fbMessaging) {
         const token = await NotificationService.getFCMToken(fbMessaging);
         if (token) {
@@ -101,34 +102,45 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
     } catch (err) {
       logger.warn('Failed to remove specific device token during disable', err);
     }
-  };
+  }, [user]);
+
+  const contextValue = useMemo(
+    () => ({
+      permissionGranted,
+      tokenSynced: !!user?.id && tokenSynced,
+      notificationsDisabled,
+      requestPermission,
+      disableNotifications,
+    }),
+    [
+      permissionGranted,
+      user?.id,
+      tokenSynced,
+      notificationsDisabled,
+      requestPermission,
+      disableNotifications,
+    ]
+  );
 
   // Listen for FCM Messages (Foreground)
   useEffect(() => {
     if (permissionGranted && !notificationsDisabled) {
-      const unsubscribe = NotificationService.onMessageListener((payload) => {
+      let unsubscribe: (() => void) | undefined;
+      NotificationService.onMessageListener((payload) => {
         const { title, body } = payload.notification || {};
         if (title && body) {
           addToast('info', body, title, 5000);
         }
+      }).then((unsub) => {
+        unsubscribe = unsub;
       });
       return () => {
-        if (unsubscribe) unsubscribe();
+        unsubscribe?.();
       };
     }
   }, [permissionGranted, notificationsDisabled, addToast]);
 
   return (
-    <NotificationContext.Provider
-      value={{
-        permissionGranted,
-        tokenSynced: !!user?.id && tokenSynced,
-        notificationsDisabled,
-        requestPermission,
-        disableNotifications,
-      }}
-    >
-      {children}
-    </NotificationContext.Provider>
+    <NotificationContext.Provider value={contextValue}>{children}</NotificationContext.Provider>
   );
 };

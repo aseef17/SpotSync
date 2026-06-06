@@ -1,7 +1,21 @@
 /// <reference types="google.maps" />
 import React, { useEffect, useState, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import * as Icons from 'lucide-react';
+import {
+  Plus,
+  ExternalLink,
+  Crosshair,
+  Layers,
+  X,
+  Map as MapLayerIcon,
+  Globe,
+  Mountain,
+  Train,
+  Car,
+  Bike,
+  MapPin,
+} from 'lucide-react';
+import { getMapIconComponent } from '@/constants/mapIcons';
 import { APIProvider, Map, AdvancedMarker, useMap, InfoWindow } from '@vis.gl/react-google-maps';
 import type { Place } from '@/features/places/types/place';
 import { getColorByName } from '@/constants/mapIcons';
@@ -175,7 +189,7 @@ const LocationButton = ({
         aria-label="Current Location"
         style={{ zIndex: 5 }}
       >
-        <Icons.Crosshair className={`h-6 w-6 ${loading ? 'animate-spin' : ''}`} />
+        <Crosshair className={`h-6 w-6 ${loading ? 'animate-spin' : ''}`} />
       </button>
 
       {createPortal(
@@ -255,7 +269,7 @@ const MapLayersControl: React.FunctionComponent<{ onOpenChange?: (isOpen: boolea
         className={`absolute top-4 right-4 mt-[env(safe-area-inset-top)] bg-white dark:bg-gray-800 p-3 rounded-lg shadow-md z-10 hover:bg-gray-100 dark:hover:bg-gray-700 focus:outline-none ${themeColors.text.primary} transition-colors`}
         aria-label="Map Layers"
       >
-        <Icons.Layers className="h-6 w-6" />
+        <Layers className="h-6 w-6" />
       </button>
 
       {isOpen &&
@@ -273,14 +287,14 @@ const MapLayersControl: React.FunctionComponent<{ onOpenChange?: (isOpen: boolea
                     onClick={() => setIsOpen(false)}
                     className={`p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 ${themeColors.text.secondary}`}
                   >
-                    <Icons.X className="h-5 w-5" />
+                    <X className="h-5 w-5" />
                   </button>
                 </div>
                 <div className="flex gap-4">
                   {[
-                    { id: 'roadmap', label: 'Default', icon: Icons.Map },
-                    { id: 'satellite', label: 'Satellite', icon: Icons.Globe },
-                    { id: 'terrain', label: 'Terrain', icon: Icons.Mountain },
+                    { id: 'roadmap', label: 'Default', icon: MapLayerIcon },
+                    { id: 'satellite', label: 'Satellite', icon: Globe },
+                    { id: 'terrain', label: 'Terrain', icon: Mountain },
                   ].map((type) => (
                     <button
                       key={type.id}
@@ -302,9 +316,9 @@ const MapLayersControl: React.FunctionComponent<{ onOpenChange?: (isOpen: boolea
                   </h4>
                   <div className="flex gap-4">
                     {[
-                      { id: 'transit', label: 'Transit', icon: Icons.Train },
-                      { id: 'traffic', label: 'Traffic', icon: Icons.Car },
-                      { id: 'bicycling', label: 'Biking', icon: Icons.Bike },
+                      { id: 'transit', label: 'Transit', icon: Train },
+                      { id: 'traffic', label: 'Traffic', icon: Car },
+                      { id: 'bicycling', label: 'Biking', icon: Bike },
                     ].map((layer) => (
                       <button
                         key={layer.id}
@@ -353,13 +367,23 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
 
   const map = useMap();
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const placesRef = useRef(places);
+  const onPlaceClickRef = useRef(onPlaceClick);
+  const lastLocationPushRef = useRef(0);
 
-  // Real-time location tracking
+  placesRef.current = places;
+  onPlaceClickRef.current = onPlaceClick;
+
+  // Throttled location tracking — avoids re-rendering the full tree on every GPS tick
   useEffect(() => {
     if (!navigator.geolocation) return;
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
+        const now = Date.now();
+        if (now - lastLocationPushRef.current < 30_000) return;
+        lastLocationPushRef.current = now;
+
         const newPos = {
           lat: position.coords.latitude,
           lng: position.coords.longitude,
@@ -370,7 +394,7 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
       (error) => {
         logger.warn('User location tracking error:', error);
       },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60_000 }
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
@@ -379,23 +403,19 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
   useEffect(() => {
     if (!map) return;
 
-    // Use the native google maps 'click' event which handles POIs
     const clickListener = map.addListener('click', (e: google.maps.MapMouseEvent) => {
-      // If the event has a placeId, it's a POI
       if ('placeId' in e && e.placeId) {
-        // Normalize IDs for comparison (handle both old format places/ChIJ... and new format ChIJ...)
         const normalizeId = (id: string | undefined) => id?.replace(/^places\//, '') || '';
         const poiId = normalizeId(e.placeId as string);
 
-        // Check if this POI is already in our places list
-        const existingPlace = places.find((p) => normalizeId(p.googlePlaceId) === poiId);
+        const existingPlace = placesRef.current.find(
+          (p) => normalizeId(p.googlePlaceId) === poiId
+        );
         if (existingPlace) {
-          // Place already exists in list - select it directly (no preview)
-          onPlaceClick(existingPlace);
+          onPlaceClickRef.current(existingPlace);
           return;
         }
 
-        // Not in list - show POI info window for adding
         setSelectedPoi({
           placeId: e.placeId as string,
           name: (e as { name?: string }).name || 'Place',
@@ -407,7 +427,7 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
     return () => {
       google.maps.event.removeListener(clickListener);
     };
-  }, [map, places, onPlaceClick]);
+  }, [map]);
 
   // Calculate center using robust coord helper
   const center = React.useMemo(() => {
@@ -472,7 +492,7 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
                 }}
                 className="w-full flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-xs font-semibold transition-colors shadow-sm"
               >
-                <Icons.Plus className="h-3 w-3" />
+                <Plus className="h-3 w-3" />
                 Add to List
               </button>
               <a
@@ -482,7 +502,7 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
                 className="w-full flex items-center justify-center gap-2 px-3 py-1.5 border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 text-gray-600 dark:text-gray-400 rounded-md text-xs font-medium transition-colors"
                 onClick={(e) => e.stopPropagation()}
               >
-                <Icons.ExternalLink className="h-3 w-3" />
+                <ExternalLink className="h-3 w-3" />
                 View on Maps
               </a>
             </div>
@@ -516,8 +536,7 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
               ? markerColor
               : 'Blue';
 
-        const PlaceIcon = (Icons[iconName as keyof typeof Icons] ||
-          Icons.MapPin) as React.ElementType;
+        const PlaceIcon = getMapIconComponent(iconName || 'MapPin');
         const placeColorObj = getColorByName(colorName || 'Blue');
 
         return (
@@ -566,7 +585,7 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
                   className="rounded-full flex items-center justify-center shadow-lg border-2 border-white bg-blue-600 text-white"
                   style={{ width: 48, height: 48 }}
                 >
-                  <Icons.MapPin size={24} strokeWidth={2.5} />
+                  <MapPin size={24} strokeWidth={2.5} />
                 </div>
                 <div className="absolute -top-8 left-1/2 -translate-x-1/2 px-2 py-0.5 rounded shadow text-xs font-bold whitespace-nowrap pointer-events-none z-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
                   {previewPlace.name}
