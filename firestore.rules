@@ -24,6 +24,28 @@ service cloud.firestore {
       return isCollaborator(listData); 
     }
 
+    function listData(listId) {
+      return get(/databases/$(database)/documents/lists/$(listId)).data;
+    }
+
+    function canReadList(listId) {
+      let list = listData(listId);
+      return list.isPublic == true || isOwner(list) || isCollaborator(list);
+    }
+
+    function canWriteList(listId) {
+      let list = listData(listId);
+      return isOwner(list) || isEditor(list);
+    }
+
+    function isSelfJoinUpdate() {
+      return isAuthenticated()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['collaborators', 'collaboratorIds', 'updatedAt'])
+        && request.auth.uid in request.resource.data.collaboratorIds
+        && !(request.auth.uid in resource.data.collaboratorIds)
+        && request.resource.data.collaboratorIds.size() == resource.data.collaboratorIds.size() + 1;
+    }
+
     // LISTS
     match /lists/{listId} {
       // Anyone can read a public list, or if they are the owner/collaborator
@@ -32,10 +54,8 @@ service cloud.firestore {
       // Only authenticated users can create lists
       allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
       
-      // Only owners or editors can update the list
-      allow update: if isOwner(resource.data) || isEditor(resource.data) || 
-                    // Allow adding oneself as a viewer (Save to Dashboard)
-                    (isAuthenticated() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['collaborators', 'collaboratorIds', 'updatedAt']));
+      // Only owners or editors can update the list, or invitees can add themselves once
+      allow update: if isOwner(resource.data) || isEditor(resource.data) || isSelfJoinUpdate();
       
       // Only owners can delete the list
       allow delete: if isOwner(resource.data);
@@ -43,22 +63,27 @@ service cloud.firestore {
       // PLACES (Subcollection)
       match /places/{placeId} {
         // Inherit read permissions from the parent list
-        allow read: if get(/databases/$(database)/documents/lists/$(listId)).data.isPublic == true || 
-                       isOwner(get(/databases/$(database)/documents/lists/$(listId)).data) || 
-                       isCollaborator(get(/databases/$(database)/documents/lists/$(listId)).data);
+        allow read: if canReadList(listId);
         
         // Inherit write permissions from parent list
-        allow write: if isOwner(get(/databases/$(database)/documents/lists/$(listId)).data) || 
-                        isEditor(get(/databases/$(database)/documents/lists/$(listId)).data);
+        allow write: if canWriteList(listId);
       }
     }
     
     // PLACES (top-level collection, linked to lists via listId field)
     match /places/{placeId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated();
-      allow update: if isAuthenticated();
-      allow delete: if isAuthenticated();
+      allow read: if isAuthenticated()
+        && resource.data.listId is string
+        && canReadList(resource.data.listId);
+      allow create: if isAuthenticated()
+        && request.resource.data.listId is string
+        && canWriteList(request.resource.data.listId);
+      allow update: if isAuthenticated()
+        && resource.data.listId is string
+        && canWriteList(resource.data.listId);
+      allow delete: if isAuthenticated()
+        && resource.data.listId is string
+        && canWriteList(resource.data.listId);
     }
     
     // USERS
@@ -66,10 +91,29 @@ service cloud.firestore {
       allow read: if isAuthenticated();
       allow write: if request.auth.uid == userId;
     }
-    
+
     // USERNAMES
     match /usernames/{username} {
       allow read: if true;
+      allow create: if isAuthenticated() && request.resource.data.uid == request.auth.uid;
+      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+    }
+
+    // INVITATIONS
+    match /invitations/{invitationId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.invitedBy == request.auth.uid;
+      allow update: if isAuthenticated() && (
+        resource.data.invitedBy == request.auth.uid
+        || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+      );
+      allow delete: if isAuthenticated() && resource.data.invitedBy == request.auth.uid;
+    }
+
+    // PLACES CACHE (shared Google Maps details)
+    match /places_cache/{placeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
   }
 }

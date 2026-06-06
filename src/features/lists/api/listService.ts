@@ -149,34 +149,9 @@ export class ListService {
         batch.commit().catch((err) => logger.error('Error in list self-healing:', err));
       }
 
-      // Fetch saved lists
-      if (user?.savedLists && user.savedLists.length > 0) {
-        const { documentId } = await import('firebase/firestore');
-        const uniqueIds = Array.from(new Set(user.savedLists));
-        // Remove ids we already fetched
-        const existingIds = new Set(lists.map((l) => l.id));
-        const idsToFetch = uniqueIds.filter((id) => !existingIds.has(id));
-
-        if (idsToFetch.length > 0) {
-          const chunks: string[][] = [];
-          for (let i = 0; i < idsToFetch.length; i += 10) {
-            chunks.push(idsToFetch.slice(i, i + 10));
-          }
-
-          for (const chunk of chunks) {
-            const savedQuery = query(
-              collection(db, 'lists').withConverter(listConverter),
-              where(documentId(), 'in', chunk)
-            );
-            const savedSnap = await getDocs(savedQuery);
-            savedSnap.forEach((docSnap) => {
-              lists.push({ ...docSnap.data(), isSavedList: true } as PlaceList & {
-                isSavedList: boolean;
-              });
-            });
-          }
-        }
-      }
+      const existingIds = new Set(lists.map((l) => l.id));
+      const savedLists = await this.fetchSavedListsByIds(user?.savedLists || [], existingIds);
+      lists.push(...savedLists);
 
       // Sort client-side by updatedAt descending
       return lists.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
@@ -372,6 +347,37 @@ export class ListService {
     }
   }
 
+  private static async fetchSavedListsByIds(
+    savedListIds: string[],
+    excludeIds: Set<string>
+  ): Promise<PlaceList[]> {
+    const uniqueIds = Array.from(new Set(savedListIds)).filter((id) => !excludeIds.has(id));
+    if (uniqueIds.length === 0) {
+      return [];
+    }
+
+    const { documentId } = await import('firebase/firestore');
+    const savedLists: PlaceList[] = [];
+    const chunks: string[][] = [];
+
+    for (let i = 0; i < uniqueIds.length; i += 10) {
+      chunks.push(uniqueIds.slice(i, i + 10));
+    }
+
+    for (const chunk of chunks) {
+      const savedQuery = query(
+        collection(db, 'lists').withConverter(listConverter),
+        where(documentId(), 'in', chunk)
+      );
+      const savedSnap = await getDocs(savedQuery);
+      savedSnap.forEach((docSnap) => {
+        savedLists.push({ ...docSnap.data(), isSavedList: true });
+      });
+    }
+
+    return savedLists;
+  }
+
   static subscribeToUserLists(
     userId: string,
     onUpdate: (lists: PlaceList[]) => void,
@@ -382,7 +388,30 @@ export class ListService {
       or(where('ownerId', '==', userId), where('collaboratorIds', 'array-contains', userId))
     );
 
-    return onSnapshot(
+    let ownedLists: PlaceList[] = [];
+    let savedLists: PlaceList[] = [];
+    let savedListIdsKey = '';
+
+    const emitCombinedLists = () => {
+      const ownedIds = new Set(ownedLists.map((list) => list.id));
+      const savedOnly = savedLists.filter((list) => !ownedIds.has(list.id));
+      const combined = [...ownedLists, ...savedOnly];
+      combined.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
+      onUpdate(combined);
+    };
+
+    const refreshSavedLists = async (savedListIds: string[]) => {
+      const ownedIds = new Set(ownedLists.map((list) => list.id));
+      try {
+        savedLists = await this.fetchSavedListsByIds(savedListIds, ownedIds);
+        emitCombinedLists();
+      } catch (err) {
+        logger.error('Error fetching saved lists:', err);
+        onError(err instanceof Error ? err : new Error('Failed to fetch saved lists'));
+      }
+    };
+
+    const unsubscribeLists = onSnapshot(
       q,
       (snapshot) => {
         const lists: PlaceList[] = [];
@@ -391,8 +420,7 @@ export class ListService {
 
         snapshot.forEach((snapDoc) => {
           const data = snapDoc.data();
-          const list = { ...data };
-          lists.push(list);
+          lists.push({ ...data });
 
           // Self-healing: Ensure collaboratorIds includes owner
           const expectedIds = Array.from(
@@ -409,13 +437,36 @@ export class ListService {
           batch.commit().catch((err) => logger.error('Error in list self-healing:', err));
         }
 
-        onUpdate(lists);
+        ownedLists = lists;
+        emitCombinedLists();
       },
       (err) => {
         logger.error('Error subscribing to user lists:', err);
         onError(err);
       }
     );
+
+    const unsubscribeUser = onSnapshot(
+      doc(db, 'users', userId),
+      (userSnap) => {
+        const savedListIds = (userSnap.data()?.savedLists as string[] | undefined) || [];
+        const nextKey = [...savedListIds].sort().join(',');
+        if (nextKey === savedListIdsKey) {
+          return;
+        }
+        savedListIdsKey = nextKey;
+        void refreshSavedLists(savedListIds);
+      },
+      (err) => {
+        logger.error('Error subscribing to user saved lists:', err);
+        onError(err);
+      }
+    );
+
+    return () => {
+      unsubscribeLists();
+      unsubscribeUser();
+    };
   }
 
   static subscribeToList(

@@ -424,9 +424,14 @@ export class CollaborationService {
       const updatedCollaborators = list.collaborators.filter(
         (c) => c.userId !== collaboratorUserId
       );
+      const updatedCollaboratorIds = (list.collaboratorIds || []).filter(
+        (id) => id !== collaboratorUserId
+      );
 
       await updateDoc(listRef, {
         collaborators: updatedCollaborators,
+        collaboratorIds: updatedCollaboratorIds,
+        updatedAt: new Date(),
       });
     } catch (error) {
       logger.error('Error removing collaborator:', error);
