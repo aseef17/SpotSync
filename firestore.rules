@@ -2,7 +2,6 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper Functions
     function isAuthenticated() {
       return request.auth != null;
     }
@@ -24,12 +23,8 @@ service cloud.firestore {
     }
 
     function isEditor(listData) {
-      // Find the collaborator's role
-      let collabs = listData.collaborators;
-      // In a real production environment, you may want to structure collaborators as a map for easier rule checking:
-      // collaborators: { "userId1": "editor", "userId2": "viewer" }
-      // For now, this is a simplified check if they are at least in the array
-      return isCollaborator(listData);
+      return isOwner(listData) ||
+        (isAuthenticated() && listData.editorIds != null && request.auth.uid in listData.editorIds);
     }
 
     function canReadList(listId) {
@@ -42,29 +37,31 @@ service cloud.firestore {
       return isOwner(data) || isEditor(data);
     }
 
+    function currentUsername() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username;
+    }
+
+    function isInvitationRecipient(invitation) {
+      return isAuthenticated() && (
+        (invitation.invitedEmail != null && invitation.invitedEmail == request.auth.token.email) ||
+        (invitation.invitedUsername != null && invitation.invitedUsername == currentUsername())
+      );
+    }
+
     // LISTS
     match /lists/{listId} {
-      // Anyone can read a public list, or if they are the owner/collaborator
       allow read: if resource.data.isPublic == true || isOwner(resource.data) || isCollaborator(resource.data);
 
-      // Only authenticated users can create lists
       allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
 
-      // Only owners or editors can update the list (invitation accept uses a Cloud Function)
       allow update: if isOwner(resource.data) || isEditor(resource.data);
 
-      // Only owners can delete the list
       allow delete: if isOwner(resource.data);
 
       // PLACES (Subcollection)
       match /places/{placeId} {
-        // Inherit read permissions from the parent list
-        allow read: if listData(listId).isPublic == true ||
-                       isOwner(listData(listId)) ||
-                       isCollaborator(listData(listId));
-
-        // Inherit write permissions from parent list
-        allow write: if isOwner(listData(listId)) || isEditor(listData(listId));
+        allow read: if canReadList(listId);
+        allow write: if canWriteList(listId);
       }
     }
 
@@ -104,17 +101,27 @@ service cloud.firestore {
 
     // INVITATIONS
     match /invitations/{invitationId} {
-      allow read: if isAuthenticated();
-      allow create: if isAuthenticated() && request.resource.data.invitedBy == request.auth.uid;
+      allow read: if isAuthenticated() && (
+        resource.data.invitedBy == request.auth.uid ||
+        isInvitationRecipient(resource.data) ||
+        canWriteList(resource.data.listId)
+      );
+
+      allow create: if isAuthenticated() &&
+        request.resource.data.invitedBy == request.auth.uid &&
+        canWriteList(request.resource.data.listId);
+
       // Inviter can cancel; invitees can decline. Accept runs via Cloud Function.
       allow update: if isAuthenticated() && (
         resource.data.invitedBy == request.auth.uid ||
         (
+          isInvitationRecipient(resource.data) &&
           resource.data.status == 'pending' &&
           request.resource.data.status == 'declined' &&
           request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
         )
       );
+
       allow delete: if isAuthenticated() && resource.data.invitedBy == request.auth.uid;
     }
   }
