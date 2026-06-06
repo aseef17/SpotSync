@@ -1,8 +1,17 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { UserService } from '@/features/auth/api/userService';
 import { logger } from '@/utils/logger';
 import { useUsernameAvailability } from '@/features/auth/hooks/useUsernameAvailability';
+
+const getCollaboratorNotificationsPref = (): boolean => {
+  const prefs = localStorage.getItem('notification-prefs');
+  if (prefs) {
+    const parsed = JSON.parse(prefs);
+    return parsed.collaborator !== false;
+  }
+  return true;
+};
 
 export const useProfile = () => {
   const { user, firebaseUser } = useAuth();
@@ -10,24 +19,19 @@ export const useProfile = () => {
   const [displayName, setDisplayName] = useState('');
   const [username, setUsername] = useState('');
   const [collaboratorNotifications, setCollaboratorNotifications] = useState(true);
+  const [syncedUserId, setSyncedUserId] = useState<string | undefined>(undefined);
+
+  if (user && user.id !== syncedUserId) {
+    setSyncedUserId(user.id);
+    setDisplayName(user.displayName || '');
+    setUsername(user.username || '');
+    setCollaboratorNotifications(getCollaboratorNotificationsPref());
+  }
 
   const { usernameAvailable, checkingUsername, isUsernameValid } = useUsernameAvailability(
     username,
     user?.username
   );
-
-  useEffect(() => {
-    if (user) {
-      setDisplayName(user.displayName || '');
-      setUsername(user.username || '');
-
-      const prefs = localStorage.getItem('notification-prefs');
-      if (prefs) {
-        const parsed = JSON.parse(prefs);
-        setCollaboratorNotifications(parsed.collaborator !== false);
-      }
-    }
-  }, [user]);
 
   const saveProfile = async () => {
     if (!firebaseUser) return;

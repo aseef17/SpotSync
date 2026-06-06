@@ -46,8 +46,7 @@ export const ListView: React.FunctionComponent = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const { list, places, loading, error, updateList } =
-    useListDetails(listId);
+  const { list, places, loading, error, updateList } = useListDetails(listId);
   const isMobile = useIsMobile();
 
   const [showAddPlacesModal, setShowAddPlacesModal] = useState(false);
@@ -251,14 +250,11 @@ export const ListView: React.FunctionComponent = () => {
 
   // With real-time listeners, place data auto-updates via onSnapshot.
   // This callback only needs to sync the selectedPlace panel.
-  const handlePlaceUpdated = useCallback(
-    (place?: Place) => {
-      if (place?.id) {
-        setSelectedPlace((prev) => (prev?.id === place.id ? { ...prev, ...place } : prev));
-      }
-    },
-    []
-  );
+  const handlePlaceUpdated = useCallback((place?: Place) => {
+    if (place?.id) {
+      setSelectedPlace((prev) => (prev?.id === place.id ? { ...prev, ...place } : prev));
+    }
+  }, []);
 
   const handleAddExternalPlace = useCallback(
     async (placeData: Partial<Place>) => {
@@ -924,12 +920,7 @@ export const ListView: React.FunctionComponent = () => {
               </button>
             </div>
             <div className="flex-1 overflow-y-auto">
-              <CollaboratorManager
-                list={list}
-                currentUserId={user?.id || ''}
-                onUpdate={() => {
-                }}
-              />
+              <CollaboratorManager list={list} currentUserId={user?.id || ''} onUpdate={() => {}} />
             </div>
           </motion.div>
         </div>

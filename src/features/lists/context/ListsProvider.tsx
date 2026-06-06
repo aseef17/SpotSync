@@ -1,37 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { ListService } from '@/features/lists/api/listService';
 import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
-
-interface ListsContextValue {
-  lists: PlaceList[];
-  loading: boolean;
-  creating: boolean;
-  error: string | null;
-  createList: (data: {
-    name: string;
-    description?: string;
-    icon: string;
-    color: string;
-    iconSize: number;
-    isPublic: boolean;
-    email: string;
-    username: string;
-    clientId?: string;
-  }) => Promise<string | undefined>;
-  updateList: (listId: string, data: Partial<PlaceList>, userId?: string) => Promise<void>;
-  deleteList: (listId: string) => Promise<void>;
-}
-
-const ListsContext = createContext<ListsContextValue | null>(null);
-
-export const useListsContext = (): ListsContextValue => {
-  const ctx = useContext(ListsContext);
-  if (!ctx) {
-    throw new Error('useListsContext must be used within a ListsProvider');
-  }
-  return ctx;
-};
+import { ListsContext, type ListsContextValue } from '@/features/lists/context/ListsContext';
 
 interface ListsProviderProps {
   userId: string | undefined;
@@ -109,17 +80,20 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
     [userId]
   );
 
-  const updateList = useCallback(async (listId: string, data: Partial<PlaceList>, userId?: string) => {
-    setCreating(true);
-    try {
-      await ListService.updateList(listId, data, userId);
-    } catch (err) {
-      logger.error('Error updating list:', err);
-      throw err;
-    } finally {
-      setCreating(false);
-    }
-  }, []);
+  const updateList = useCallback(
+    async (listId: string, data: Partial<PlaceList>, userId?: string) => {
+      setCreating(true);
+      try {
+        await ListService.updateList(listId, data, userId);
+      } catch (err) {
+        logger.error('Error updating list:', err);
+        throw err;
+      } finally {
+        setCreating(false);
+      }
+    },
+    []
+  );
 
   const deleteList = useCallback(async (listId: string) => {
     try {

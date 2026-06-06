@@ -10,7 +10,7 @@ import { CreateListModal } from '@/features/lists/components/CreateListModal';
 import type { PlaceList } from '@/features/lists/types/list';
 import { themeColors } from '@/styles/colors';
 import { InvitationList } from '@/features/lists/components/InvitationList';
-import { useListsContext } from '@/features/lists/context/ListsProvider';
+import { useListsContext } from '@/features/lists/context/useListsContext';
 import { useToast } from '@/hooks/useToast';
 import { ListIcon } from '@/features/lists/components/ListIcon';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
@@ -20,8 +20,7 @@ import { useDeferredAction } from '@/hooks/useDeferredAction';
 export const Dashboard: React.FunctionComponent = () => {
   const { user, logout } = useAuth();
   const { toast } = useToast();
-  const { lists, loading, creating, error, createList, updateList, deleteList } =
-    useListsContext();
+  const { lists, loading, creating, error, createList, updateList, deleteList } = useListsContext();
 
   const { permissionGranted, tokenSynced, notificationsDisabled } = useNotifications();
   const [showCreateForm, setShowCreateForm] = useState(false);
