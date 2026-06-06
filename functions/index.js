@@ -3,6 +3,7 @@ const {
   onDocumentUpdated,
   onDocumentDeleted,
 } = require('firebase-functions/v2/firestore');
+const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldPath, FieldValue } = require('firebase-admin/firestore');
@@ -634,6 +635,104 @@ exports.onListDeleted = onDocumentDeleted(
     }
   }
 );
+
+/**
+ * Accept a list invitation server-side so list collaborator updates cannot be forged by clients.
+ */
+exports.acceptInvitation = onCall({ region: 'us-east4' }, async (request) => {
+  if (!request.auth) {
+    throw new HttpsError('unauthenticated', 'You must be signed in to accept an invitation.');
+  }
+
+  const { invitationId } = request.data || {};
+  if (!invitationId || typeof invitationId !== 'string') {
+    throw new HttpsError('invalid-argument', 'invitationId is required.');
+  }
+
+  const userId = request.auth.uid;
+  const email = (request.auth.token.email || '').toLowerCase();
+  const db = getFirestore();
+  const invitationRef = db.collection('invitations').doc(invitationId);
+  const invitationSnap = await invitationRef.get();
+
+  if (!invitationSnap.exists) {
+    throw new HttpsError('not-found', 'Invitation not found.');
+  }
+
+  const invitation = invitationSnap.data();
+  const userDoc = await db.collection('users').doc(userId).get();
+  if (!userDoc.exists) {
+    throw new HttpsError('not-found', 'User profile not found.');
+  }
+
+  const userData = userDoc.data();
+  const invitedEmail = invitation.invitedEmail
+    ? String(invitation.invitedEmail).toLowerCase()
+    : null;
+  const invitedUsername = invitation.invitedUsername
+    ? String(invitation.invitedUsername).trim()
+    : null;
+
+  const matchesInvitee =
+    (invitedEmail && invitedEmail === email) ||
+    (invitedUsername && invitedUsername === userData.username);
+
+  if (!matchesInvitee) {
+    throw new HttpsError('permission-denied', 'This invitation is not for you.');
+  }
+
+  const expiresAt =
+    invitation.expiresAt && typeof invitation.expiresAt.toDate === 'function'
+      ? invitation.expiresAt.toDate()
+      : new Date(invitation.expiresAt);
+
+  if (expiresAt < new Date()) {
+    await invitationRef.update({ status: 'expired' });
+    throw new HttpsError('failed-precondition', 'Invitation has expired.');
+  }
+
+  if (invitation.status !== 'pending') {
+    throw new HttpsError('failed-precondition', 'Invitation has already been responded to.');
+  }
+
+  const listRef = db.collection('lists').doc(invitation.listId);
+  const listSnap = await listRef.get();
+
+  if (!listSnap.exists) {
+    throw new HttpsError('not-found', 'List not found.');
+  }
+
+  const list = listSnap.data();
+  const now = new Date();
+  const newCollaborator = {
+    userId,
+    username: userData.username || '',
+    email: userData.email || email,
+    permission: invitation.role,
+    invitedAt: invitation.createdAt,
+    joinedAt: now,
+  };
+
+  const allCollaboratorIds = Array.from(
+    new Set([...(list.collaborators || []).map((c) => c.userId), list.ownerId, userId])
+  );
+
+  await db.runTransaction(async (transaction) => {
+    const freshInvitation = await transaction.get(invitationRef);
+    if (!freshInvitation.exists || freshInvitation.data().status !== 'pending') {
+      throw new HttpsError('failed-precondition', 'Invitation has already been responded to.');
+    }
+
+    transaction.update(listRef, {
+      collaborators: [...(list.collaborators || []), newCollaborator],
+      collaboratorIds: allCollaboratorIds,
+      updatedAt: now,
+    });
+    transaction.update(invitationRef, { status: 'accepted' });
+  });
+
+  return { listId: invitation.listId };
+});
 
 exports.getGoogleMapsList = require('./getGoogleMapsList').getGoogleMapsList;
 exports.askList = require('./aiSearch').askList;

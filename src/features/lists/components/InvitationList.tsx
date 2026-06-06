@@ -45,12 +45,7 @@ export const InvitationList: React.FunctionComponent<InvitationListProps> = ({
     setActionLoading(invitation.id);
 
     try {
-      await CollaborationService.acceptInvitation(
-        invitation.id,
-        user.id,
-        user.username,
-        user.email
-      );
+      await CollaborationService.acceptInvitation(invitation.id);
       setInvitations((prev) => prev.filter((inv) => inv.id !== invitation.id));
       toast.success(`You joined ${invitation.listName}`);
       if (onInvitationAccepted) {
