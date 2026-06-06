@@ -5,6 +5,7 @@ import { Eye, EyeOff } from 'lucide-react';
 import { logger } from '@/utils/logger';
 import { themeColors } from '@/styles/colors';
 import { useUsernameAvailability } from '@/features/auth/hooks/useUsernameAvailability';
+import { UserService } from '@/features/auth/api/userService';
 
 export const Register: React.FunctionComponent = () => {
   const [formData, setFormData] = useState({
@@ -54,6 +55,13 @@ export const Register: React.FunctionComponent = () => {
     setLoading(true);
 
     try {
+      const usernameExists = await UserService.checkUsernameExists(formData.username);
+      if (usernameExists) {
+        setError('This username is already taken. Please choose another one.');
+        setLoading(false);
+        return;
+      }
+
       await register(formData.email, formData.password, formData.username, formData.displayName);
       setSuccess(true);
     } catch (err: unknown) {

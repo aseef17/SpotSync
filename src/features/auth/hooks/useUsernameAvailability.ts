@@ -40,7 +40,7 @@ export const useUsernameAvailability = (username: string, currentUsername?: stri
   }, [username, checkUsernameAvailability, currentUsername]);
 
   const isUsernameValid =
-    username.length < 3 || username === currentUsername || usernameAvailable === true;
+    username === currentUsername || (username.length >= 3 && usernameAvailable === true);
 
   return {
     usernameAvailable,
