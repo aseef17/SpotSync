@@ -9,6 +9,7 @@ import {
   where,
   orderBy,
   Timestamp,
+  arrayRemove,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import type { Invitation } from '@/features/lists/types/invitation';
@@ -265,11 +266,20 @@ export class CollaborationService {
       const allCollaboratorIds = Array.from(
         new Set([...list.collaborators.map((c) => c.userId), list.ownerId, userId])
       );
+      const updatedCollaborators = [...list.collaborators, newCollaborator];
+      const editorIds = Array.from(
+        new Set(
+          updatedCollaborators
+            .filter((c) => c.permission === 'owner' || c.permission === 'editor')
+            .map((c) => c.userId)
+        )
+      );
 
       // Update list with new collaborator and synced IDs
       await updateDoc(listRef, {
-        collaborators: [...list.collaborators, newCollaborator],
+        collaborators: updatedCollaborators,
         collaboratorIds: allCollaboratorIds,
+        editorIds,
       });
 
       // Mark invitation as accepted
@@ -424,13 +434,11 @@ export class CollaborationService {
       const updatedCollaborators = list.collaborators.filter(
         (c) => c.userId !== collaboratorUserId
       );
-      const updatedCollaboratorIds = (list.collaboratorIds || []).filter(
-        (id) => id !== collaboratorUserId
-      );
 
       await updateDoc(listRef, {
         collaborators: updatedCollaborators,
-        collaboratorIds: updatedCollaboratorIds,
+        collaboratorIds: arrayRemove(collaboratorUserId),
+        editorIds: arrayRemove(collaboratorUserId),
         updatedAt: new Date(),
       });
     } catch (error) {
@@ -472,9 +480,17 @@ export class CollaborationService {
       const updatedCollaborators = list.collaborators.map((c) =>
         c.userId === collaboratorUserId ? { ...c, permission: newRole } : c
       );
+      const editorIds = Array.from(
+        new Set(
+          updatedCollaborators
+            .filter((c) => c.permission === 'owner' || c.permission === 'editor')
+            .map((c) => c.userId)
+        )
+      );
 
       await updateDoc(listRef, {
         collaborators: updatedCollaborators,
+        editorIds,
       });
     } catch (error) {
       logger.error('Error updating collaborator role:', error);

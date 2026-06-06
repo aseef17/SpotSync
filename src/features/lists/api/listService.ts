@@ -27,6 +27,41 @@ import { logger } from '@/utils/logger';
 import { toMilliseconds } from '@/utils/date';
 import { omit } from '@/utils/objectUtils';
 
+function getExpectedCollaboratorIds(list: PlaceList): string[] {
+  return Array.from(
+    new Set([list.ownerId, ...(list.collaborators?.map((c) => c.userId) || [])])
+  );
+}
+
+function getExpectedEditorIds(list: PlaceList): string[] {
+  return Array.from(
+    new Set(
+      (list.collaborators || [])
+        .filter((c) => c.permission === 'owner' || c.permission === 'editor')
+        .map((c) => c.userId)
+    )
+  );
+}
+
+function needsListPermissionSync(data: PlaceList): Partial<PlaceList> | null {
+  const updates: Partial<PlaceList> = {};
+  const expectedIds = getExpectedCollaboratorIds(data);
+  if (!data.collaboratorIds || data.collaboratorIds.length !== expectedIds.length) {
+    updates.collaboratorIds = expectedIds;
+  }
+
+  const expectedEditorIds = getExpectedEditorIds(data);
+  const editorIdsMatch =
+    data.editorIds &&
+    data.editorIds.length === expectedEditorIds.length &&
+    expectedEditorIds.every((id) => data.editorIds!.includes(id));
+  if (!editorIdsMatch) {
+    updates.editorIds = expectedEditorIds;
+  }
+
+  return Object.keys(updates).length > 0 ? updates : null;
+}
+
 export const listConverter: FirestoreDataConverter<PlaceList> = {
   toFirestore(list: PlaceList): DocumentData {
     return omit(list, ['id']);
@@ -72,6 +107,7 @@ export class ListService {
           },
         ],
         collaboratorIds: [ownerId],
+        editorIds: [ownerId],
         places: [],
         customStatuses: [],
         tags: [],
@@ -134,13 +170,9 @@ export class ListService {
         const list = { ...data };
         lists.push(list);
 
-        // Self-healing: Ensure collaboratorIds includes owner
-        const expectedIds = Array.from(
-          new Set([data.ownerId, ...(data.collaborators?.map((c) => c.userId) || [])])
-        );
-
-        if (!data.collaboratorIds || data.collaboratorIds.length !== expectedIds.length) {
-          batch.update(snapDoc.ref, { collaboratorIds: expectedIds });
+        const permissionUpdates = needsListPermissionSync(data);
+        if (permissionUpdates) {
+          batch.update(snapDoc.ref, permissionUpdates);
           updatesNeeded = true;
         }
       });
@@ -250,11 +282,15 @@ export class ListService {
         invitedAt: new Date(),
       };
 
-      await updateDoc(doc(db, 'lists', listId), {
+      const listUpdates: Record<string, unknown> = {
         collaborators: arrayUnion(collaborator),
         collaboratorIds: arrayUnion(userId),
         updatedAt: new Date(),
-      });
+      };
+      if (permission === 'editor' || permission === 'owner') {
+        listUpdates.editorIds = arrayUnion(userId);
+      }
+      await updateDoc(doc(db, 'lists', listId), listUpdates);
     } catch (error) {
       logger.error('Error adding collaborator:', error);
       throw error;
@@ -272,6 +308,7 @@ export class ListService {
       await updateDoc(doc(db, 'lists', listId), {
         collaborators: arrayRemove(collaboratorToRemove),
         collaboratorIds: arrayRemove(userId),
+        editorIds: arrayRemove(userId),
         updatedAt: new Date(),
       });
     } catch (error) {
@@ -292,9 +329,11 @@ export class ListService {
       const updatedCollaborators = list.collaborators.map((c) =>
         c.userId === userId ? { ...c, permission } : c
       );
+      const editorIds = getExpectedEditorIds({ ...list, collaborators: updatedCollaborators });
 
       await updateDoc(doc(db, 'lists', listId), {
         collaborators: updatedCollaborators,
+        editorIds,
         updatedAt: new Date(),
       });
     } catch (error) {
@@ -383,36 +422,51 @@ export class ListService {
     onUpdate: (lists: PlaceList[]) => void,
     onError: (error: Error) => void
   ): () => void {
-    const q = query(
-      collection(db, 'lists').withConverter(listConverter),
-      or(where('ownerId', '==', userId), where('collaboratorIds', 'array-contains', userId))
-    );
-
     let ownedLists: PlaceList[] = [];
     let savedLists: PlaceList[] = [];
-    let savedListIdsKey = '';
+    let savedListIds: string[] = [];
+    let fetchSavedListsSeq = 0;
 
-    const emitCombinedLists = () => {
-      const ownedIds = new Set(ownedLists.map((list) => list.id));
-      const savedOnly = savedLists.filter((list) => !ownedIds.has(list.id));
-      const combined = [...ownedLists, ...savedOnly];
-      combined.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
-      onUpdate(combined);
+    const emit = () => {
+      const existingIds = new Set(ownedLists.map((list) => list.id));
+      const merged = [
+        ...ownedLists,
+        ...savedLists.filter((list) => !existingIds.has(list.id)),
+      ];
+      merged.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
+      onUpdate(merged);
     };
 
-    const refreshSavedLists = async (savedListIds: string[]) => {
-      const ownedIds = new Set(ownedLists.map((list) => list.id));
+    const fetchSavedLists = async (ids: string[]) => {
+      const seq = ++fetchSavedListsSeq;
+
+      if (!ids.length) {
+        savedLists = [];
+        if (seq === fetchSavedListsSeq) {
+          emit();
+        }
+        return;
+      }
+
       try {
-        savedLists = await this.fetchSavedListsByIds(savedListIds, ownedIds);
-        emitCombinedLists();
+        const existingIds = new Set(ownedLists.map((list) => list.id));
+        savedLists = await this.fetchSavedListsByIds(ids, existingIds);
+        if (seq === fetchSavedListsSeq) {
+          emit();
+        }
       } catch (err) {
         logger.error('Error fetching saved lists:', err);
         onError(err instanceof Error ? err : new Error('Failed to fetch saved lists'));
       }
     };
 
+    const listsQuery = query(
+      collection(db, 'lists').withConverter(listConverter),
+      or(where('ownerId', '==', userId), where('collaboratorIds', 'array-contains', userId))
+    );
+
     const unsubscribeLists = onSnapshot(
-      q,
+      listsQuery,
       (snapshot) => {
         const lists: PlaceList[] = [];
         const batch = writeBatch(db);
@@ -422,13 +476,9 @@ export class ListService {
           const data = snapDoc.data();
           lists.push({ ...data });
 
-          // Self-healing: Ensure collaboratorIds includes owner
-          const expectedIds = Array.from(
-            new Set([data.ownerId, ...(data.collaborators?.map((c) => c.userId) || [])])
-          );
-
-          if (!data.collaboratorIds || data.collaboratorIds.length !== expectedIds.length) {
-            batch.update(snapDoc.ref, { collaboratorIds: expectedIds });
+          const permissionUpdates = needsListPermissionSync(data);
+          if (permissionUpdates) {
+            batch.update(snapDoc.ref, permissionUpdates);
             updatesNeeded = true;
           }
         });
@@ -438,7 +488,8 @@ export class ListService {
         }
 
         ownedLists = lists;
-        emitCombinedLists();
+        emit();
+        void fetchSavedLists(savedListIds);
       },
       (err) => {
         logger.error('Error subscribing to user lists:', err);
@@ -449,16 +500,11 @@ export class ListService {
     const unsubscribeUser = onSnapshot(
       doc(db, 'users', userId),
       (userSnap) => {
-        const savedListIds = (userSnap.data()?.savedLists as string[] | undefined) || [];
-        const nextKey = [...savedListIds].sort().join(',');
-        if (nextKey === savedListIdsKey) {
-          return;
-        }
-        savedListIdsKey = nextKey;
-        void refreshSavedLists(savedListIds);
+        savedListIds = (userSnap.data()?.savedLists as string[] | undefined) || [];
+        void fetchSavedLists(savedListIds);
       },
       (err) => {
-        logger.error('Error subscribing to user saved lists:', err);
+        logger.error('Error subscribing to saved lists:', err);
         onError(err);
       }
     );
