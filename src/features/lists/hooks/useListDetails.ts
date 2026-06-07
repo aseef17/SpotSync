@@ -17,6 +17,7 @@ import {
 import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
+  shouldClearAccessRevokedOnContextReturn,
   shouldHydrateCachedListSnapshot,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import { shouldGrantListAccess } from '@/features/lists/lib/listAccessFromSnapshot';
@@ -99,6 +100,16 @@ export const useListDetails = (listId: string | undefined) => {
     hadListFromContextRef.current = !!listFromContext;
 
     if (listFromContext) {
+      if (
+        shouldClearAccessRevokedOnContextReturn({
+          hadListFromContext,
+          list: listFromContext,
+          userId: user?.id,
+        })
+      ) {
+        accessRevokedRef.current = false;
+      }
+
       const contextAccess = resolveListFromContextAccess({
         list: listFromContext,
         userId: user?.id,

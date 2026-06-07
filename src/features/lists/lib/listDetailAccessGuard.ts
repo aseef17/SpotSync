@@ -31,8 +31,18 @@ export function resolveListFromContextAccess(options: {
   if (!userCanReadList(options.list, options.userId)) {
     return 'deny-no-access';
   }
-  if (options.accessRevoked) {
+  // Mirror shouldGrantListAccess: public lists stay readable after saved-list removal.
+  if (options.accessRevoked && !options.list.isPublic) {
     return 'deny-revoked';
   }
   return 'grant';
+}
+
+/** Clear sticky revocation when a list reappears in live context after being absent. */
+export function shouldClearAccessRevokedOnContextReturn(options: {
+  hadListFromContext: boolean;
+  list: PlaceList;
+  userId: string | undefined;
+}): boolean {
+  return !options.hadListFromContext && userCanReadList(options.list, options.userId);
 }

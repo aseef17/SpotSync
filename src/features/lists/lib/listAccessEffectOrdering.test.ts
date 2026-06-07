@@ -70,7 +70,7 @@ describe('places effect access baseline', () => {
     ).toBe(true);
   });
 
-  it('blocks stale context lists after collaborator access was revoked', () => {
+  it('blocks stale private context lists after collaborator access was revoked', () => {
     expect(
       applyPlacesEffectAccessBaseline({
         listFromContext: list(),
