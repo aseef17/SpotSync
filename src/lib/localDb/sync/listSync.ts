@@ -5,6 +5,7 @@ import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { acquireSubscription } from '@/lib/localDb/subscriptionRegistry';
 import { removeCachedList, upsertCachedList } from '@/lib/localDb/listCache';
 import { enqueueSnapshotTask } from '@/lib/localDb/snapshotQueue';
+import { getCachedUser } from '@/lib/localDb/userCache';
 import { removeCachedUserList, writeUserListsForDashboard } from '@/lib/localDb/userListsCache';
 import { listConverter } from '@/features/lists/api/listFirestore';
 import {
@@ -65,6 +66,35 @@ const userListsState = new Map<string, UserListsSyncState>();
 const pendingSavedListIds = new Map<string, string[]>();
 const ownedListsSnapshotChains = new Map<string, Promise<void>>();
 const listSnapshotChains = new Map<string, Promise<void>>();
+
+function initUserListsSyncState(userId: string): void {
+  if (userListsState.has(userId)) {
+    return;
+  }
+
+  userListsState.set(userId, {
+    ownedLists: [],
+    savedLists: [],
+    fetchSavedListsSeq: 0,
+    savedListsHydrated: false,
+  });
+
+  const pendingIds = pendingSavedListIds.get(userId);
+  if (pendingIds) {
+    pendingSavedListIds.delete(userId);
+    void fetchSavedListsForUser(userId, pendingIds);
+    return;
+  }
+
+  void (async () => {
+    const user = await getCachedUser(userId);
+    if (!user) {
+      return;
+    }
+
+    setUserSavedListIds(userId, user.savedLists ?? []);
+  })();
+}
 
 async function publishUserLists(userId: string): Promise<void> {
   const state = userListsState.get(userId);
@@ -156,19 +186,10 @@ export function setUserSavedListIds(userId: string, savedListIds: string[]): voi
 }
 
 export function acquireUserOwnedListsSync(userId: string): () => void {
-  return acquireSubscription(`sync:lists:user:${userId}`, () => {
-    userListsState.set(userId, {
-      ownedLists: [],
-      savedLists: [],
-      fetchSavedListsSeq: 0,
-      savedListsHydrated: false,
-    });
+  initUserListsSyncState(userId);
 
-    const pendingIds = pendingSavedListIds.get(userId);
-    if (pendingIds) {
-      pendingSavedListIds.delete(userId);
-      void fetchSavedListsForUser(userId, pendingIds);
-    }
+  return acquireSubscription(`sync:lists:user:${userId}`, () => {
+    initUserListsSyncState(userId);
 
     const listsQuery = query(
       collection(db, 'lists').withConverter(listConverter),
