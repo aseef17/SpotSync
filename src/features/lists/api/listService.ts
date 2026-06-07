@@ -24,6 +24,8 @@ import type {
 import { db } from '@/lib/firebase';
 import type { PlaceList, Collaborator, Permission } from '@/features/lists/types/list';
 import { logger } from '@/utils/logger';
+import { subscribeToUserProfile } from '@/features/auth/api/userProfileStore';
+import { getPlaceListAccessFields } from '@/features/places/utils/placeAccess';
 import { toMilliseconds } from '@/utils/date';
 import { omit } from '@/utils/objectUtils';
 
@@ -235,6 +237,51 @@ export class ListService {
     }
   }
 
+  static async beginBulkImport(listId: string, userId?: string): Promise<void> {
+    await this.updateList(listId, { importInProgress: true }, userId);
+  }
+
+  static async completeBulkImport(
+    listId: string,
+    importCount: number,
+    userId?: string
+  ): Promise<void> {
+    await this.updateList(
+      listId,
+      {
+        importInProgress: false,
+        lastImportCount: importCount,
+      },
+      userId
+    );
+  }
+
+  static async syncPlaceAccessFields(listId: string): Promise<void> {
+    try {
+      const list = await this.getList(listId);
+      if (!list) return;
+
+      const accessFields = getPlaceListAccessFields(list);
+      const placesQuery = query(collection(db, 'places'), where('listId', '==', listId));
+      const placesSnapshot = await getDocs(placesQuery);
+      if (placesSnapshot.empty) return;
+
+      const BATCH_SIZE = 500;
+      const docs = placesSnapshot.docs;
+
+      for (let i = 0; i < docs.length; i += BATCH_SIZE) {
+        const batch = writeBatch(db);
+        docs.slice(i, i + BATCH_SIZE).forEach((placeDoc) => {
+          batch.update(placeDoc.ref, { ...accessFields });
+        });
+        await batch.commit();
+      }
+    } catch (error) {
+      logger.error('Error syncing place access fields:', error);
+      throw error;
+    }
+  }
+
   static async updateList(
     listId: string,
     updates: Partial<PlaceList>,
@@ -421,6 +468,7 @@ export class ListService {
     let ownedLists: PlaceList[] = [];
     let savedLists: PlaceList[] = [];
     let savedListIds: string[] = [];
+    let lastSavedListIdsKey = '';
     let fetchSavedListsSeq = 0;
 
     const emit = () => {
@@ -507,7 +555,6 @@ export class ListService {
 
         ownedLists = lists;
         emit();
-        void fetchSavedLists(savedListIds);
       },
       (err) => {
         logger.error('Error subscribing to user lists:', err);
@@ -515,17 +562,15 @@ export class ListService {
       }
     );
 
-    const unsubscribeUser = onSnapshot(
-      doc(db, 'users', userId),
-      (userSnap) => {
-        savedListIds = (userSnap.data()?.savedLists as string[] | undefined) || [];
+    const unsubscribeUser = subscribeToUserProfile(userId, (profile) => {
+      const ids = profile?.savedLists ?? [];
+      const idsKey = ids.join('|');
+      if (idsKey !== lastSavedListIdsKey) {
+        lastSavedListIdsKey = idsKey;
+        savedListIds = ids;
         void fetchSavedLists(savedListIds);
-      },
-      (err) => {
-        logger.error('Error subscribing to saved lists:', err);
-        onError(err);
       }
-    );
+    });
 
     return () => {
       unsubscribeLists();

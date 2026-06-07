@@ -19,6 +19,15 @@ export interface Place {
   userRatingsTotal?: number;
   priceLevel?: number;
   photoUrls?: string[];
+  /** First photo URL for list cards — avoids loading full photoUrls array in list views. */
+  thumbnailUrl?: string;
+  photoCount?: number;
+  /** Denormalized from parent list — avoids security-rule get() on every place read. */
+  listOwnerId?: string;
+  listIsPublic?: boolean;
+  listCollaboratorIds?: string[];
+  /** Set during bulk import to suppress per-place Cloud Function notifications. */
+  suppressNotifications?: boolean;
   googleMapsUrl?: string;
   lat?: number;
   lng?: number;

@@ -5,6 +5,7 @@ import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { PlaceStatusSelector } from '@/features/places/components/PlaceStatusSelector';
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList } from '@/features/lists/types/list';
+import { getPlaceThumbnail } from '@/features/places/utils/placeHelpers';
 import { themeColors } from '@/styles/colors';
 
 interface CompactPlaceCardProps {
@@ -36,9 +37,9 @@ export const CompactPlaceCard = React.memo<CompactPlaceCardProps>(
         onClick={() => onClick(place)}
       >
         <div className="w-20 h-20 shrink-0 bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
-          {place.photoUrls && place.photoUrls.length > 0 ? (
+          {getPlaceThumbnail(place) ? (
             <img
-              src={GoogleMapsService.getPhotoUrl(place.photoUrls[0], 200, 200)}
+              src={GoogleMapsService.getPhotoUrl(getPlaceThumbnail(place)!, 200, 200)}
               alt={place.name}
               className="w-full h-full object-cover"
               loading="lazy"
