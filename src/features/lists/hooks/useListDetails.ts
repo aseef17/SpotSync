@@ -8,6 +8,7 @@ import {
 import { useListsContext } from '@/features/lists/context/useListsContext';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { logger } from '@/utils/logger';
+import { shouldClearStaleListContextView } from '@/features/lists/hooks/listDetailsAccessGuard';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
@@ -34,17 +35,32 @@ export const useListDetails = (listId: string | undefined) => {
     onProgress: null as (() => void) | null,
   });
   const listAccessibleRef = useRef(true);
+  const hadListFromContextRef = useRef(!!listFromContext);
 
   useEffect(() => {
     if (listFromContext) {
+      hadListFromContextRef.current = true;
       listAccessibleRef.current = true;
       setList(listFromContext);
       setError(null);
       loadTrackingRef.current.listLoaded = true;
       loadTrackingRef.current.hasCachedData = true;
       loadTrackingRef.current.onProgress?.();
+      return;
     }
-  }, [listFromContext]);
+
+    if (
+      shouldClearStaleListContextView(hadListFromContextRef.current, listFromContext, listId)
+    ) {
+      listAccessibleRef.current = false;
+      setList(null);
+      setPlaces([]);
+      setError(null);
+      loadTrackingRef.current.hasCachedData = false;
+      loadTrackingRef.current.listLoaded = false;
+      loadTrackingRef.current.onProgress?.();
+    }
+  }, [listFromContext, listId]);
 
   useEffect(() => {
     if (!listId || listFromContext) {
@@ -52,6 +68,7 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
+    listAccessibleRef.current = false;
     loadTrackingRef.current.listLoaded = false;
     loadTrackingRef.current.onProgress?.();
 
@@ -77,9 +94,13 @@ export const useListDetails = (listId: string | undefined) => {
       (err) => {
         if (cancelled) return;
         logger.error('Error listening to list:', err);
+        listAccessibleRef.current = false;
+        setList(null);
+        setPlaces([]);
         setError(
           `Failed to load list data: ${err instanceof Error ? err.message : 'Unknown error'}`
         );
+        loadTrackingRef.current.hasCachedData = false;
         loadTrackingRef.current.listLoaded = true;
         loadTrackingRef.current.onProgress?.();
       }
@@ -97,7 +118,7 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
-    listAccessibleRef.current = true;
+    listAccessibleRef.current = !!listFromContext;
     loadTrackingRef.current.listLoaded = !!listFromContext;
     loadTrackingRef.current.hasCachedData = !!listFromContext;
     let listLoaded = loadTrackingRef.current.listLoaded;
