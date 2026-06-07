@@ -23,6 +23,7 @@ import {
   trimPhotoUrlsForStorage,
   type PlaceListAccessFields,
 } from '@/features/places/utils/placeAccess';
+import { partitionGoogleSyncPhotoFields } from '@/features/places/utils/placeHelpers';
 import imageCompression from 'browser-image-compression';
 
 export {
@@ -657,7 +658,8 @@ export class PlaceService {
 
       const existingFirebaseUrl = await PhotoService.getSharedPlacePhotoUrl(
         googlePlaceId,
-        photoHash
+        photoHash,
+        photoIndex === 0
       );
       if (existingFirebaseUrl && (await PhotoService.storageUrlExists(existingFirebaseUrl))) {
         updatedPhotoUrls[photoIndex] = existingFirebaseUrl;
@@ -786,9 +788,19 @@ export class PlaceService {
     const converted = GoogleMapsService.convertGooglePlaceToPlace(details, place.listId);
     const googleUpdates = this.buildGoogleSyncUpdates(converted);
 
-    await this.updatePlace(placeId, googleUpdates, userId);
+    const { metadataUpdates, photoUrlsForSync } = partitionGoogleSyncPhotoFields(
+      googleUpdates,
+      place.photoUrls
+    );
 
-    const mergedPlace: Place = { ...place, ...googleUpdates, id: placeId };
+    await this.updatePlace(placeId, metadataUpdates, userId);
+
+    const mergedPlace: Place = {
+      ...place,
+      ...metadataUpdates,
+      photoUrls: photoUrlsForSync,
+      id: placeId,
+    };
     const photoCache = await this.openPhotoCache();
     const { photoUrls: syncedPhotoUrls, photoFailures } = await this.syncPlacePhotos(
       mergedPlace,

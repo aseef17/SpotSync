@@ -6,6 +6,24 @@ import { calculateDistance } from '@/utils/geo';
 export const getPlaceThumbnail = (place: Place): string | undefined =>
   place.thumbnailUrl || place.photoUrls?.[0];
 
+/** Splits Google metadata sync updates from photo URLs that must be uploaded first. */
+export function partitionGoogleSyncPhotoFields(
+  googleUpdates: Partial<Place>,
+  existingPhotoUrls?: string[]
+): { metadataUpdates: Partial<Place>; photoUrlsForSync: string[] } {
+  const {
+    photoUrls: googlePhotoRefs,
+    thumbnailUrl: _thumb,
+    photoCount: _count,
+    ...metadataUpdates
+  } = googleUpdates;
+
+  const photoUrlsForSync =
+    googlePhotoRefs && googlePhotoRefs.length > 0 ? googlePhotoRefs : (existingPhotoUrls ?? []);
+
+  return { metadataUpdates, photoUrlsForSync };
+}
+
 /** Use stored Firebase/HTTP URLs as-is; only transform Google Places photo resource names. */
 export function getPlacePhotoDisplayUrl(
   photoRef: string | undefined,

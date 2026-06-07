@@ -12,9 +12,14 @@ import {
 export { didPlacePhotoFieldsChange } from '@/lib/localDb/placePhotoFields';
 
 const inFlight = new Map<string, Promise<Blob | null>>();
+const invalidationGeneration = new Map<string, number>();
 
-function buildInFlightKey(placeId: string, photoIndex: number): string {
-  return `${placeId}:${photoIndex}`;
+function buildInFlightKey(placeId: string, photoIndex: number, photoRef: string): string {
+  return `${placeId}:${photoIndex}:${photoRef}`;
+}
+
+function getInvalidationGeneration(placeId: string): number {
+  return invalidationGeneration.get(placeId) ?? 0;
 }
 
 async function fetchRemotePhotoBlob(
@@ -55,6 +60,14 @@ export async function cachePlacePhotoBlob(
 }
 
 export async function invalidatePlacePhotos(placeId: string): Promise<void> {
+  invalidationGeneration.set(placeId, getInvalidationGeneration(placeId) + 1);
+
+  for (const key of inFlight.keys()) {
+    if (key.startsWith(`${placeId}:`)) {
+      inFlight.delete(key);
+    }
+  }
+
   await deletePlacePhotoBlobs(placeId);
 }
 
@@ -82,16 +95,18 @@ export async function loadPlacePhotoBlob(
     return cached;
   }
 
-  const inFlightKey = buildInFlightKey(placeId, photoIndex);
+  const inFlightKey = buildInFlightKey(placeId, photoIndex, photoRef);
   const pending = inFlight.get(inFlightKey);
   if (pending) {
     return pending;
   }
 
+  const generationAtStart = getInvalidationGeneration(placeId);
+
   const promise = (async () => {
     try {
       const blob = await fetchRemotePhotoBlob(photoRef, maxWidth, maxHeight);
-      if (blob) {
+      if (blob && getInvalidationGeneration(placeId) === generationAtStart) {
         await writePlacePhotoBlob(placeId, photoIndex, blob);
       }
       return blob;
