@@ -20,8 +20,8 @@ A real-time collaborative map app for organizing shared places. Import directly 
 
 Desktop list pages support **list** and **map** view modes. Map mode uses a `ResizableSplitPane` — drag the divider to resize the glassmorphic sidebar against the full-height map.
 
-|                List View                |              Map View (Split Pane)              |                    Expanded Sidebar                     |                   Collaboration                    |
-| :-------------------------------------: | :---------------------------------------------: | :-----------------------------------------------------: | :------------------------------------------------: |
+|                List View                |         Map View (Split Pane)         |                   Expanded Sidebar                   |                    Collaboration                    |
+| :-------------------------------------: | :-----------------------------------: | :--------------------------------------------------: | :-------------------------------------------------: |
 | ![List View](docs/images/list_view.png) | ![Map View](docs/images/list_map.png) | ![Expanded View](docs/images/list_view_expanded.png) | ![Collaborators](docs/images/list_collaborator.png) |
 
 ### Place Discovery & Details
@@ -36,8 +36,8 @@ Search and add flows use modals on the list layout; in map mode, search opens in
 
 On mobile, lists use a sticky map with a draggable bottom sheet for place cards and details (`MobileBottomSheet`).
 
-|                   Dashboard                   |                    List + Map                    |                  Place Details (Bottom Sheet)                  |                      Map View                      |                    Search                    |
-| :-------------------------------------------: | :----------------------------------------------: | :------------------------------------------------------------: | :------------------------------------------------: | :------------------------------------------: |
+|                          Dashboard                           |                       List + Map                        |                     Place Details (Bottom Sheet)                     |                     Map View                     |                         Search                         |
+| :----------------------------------------------------------: | :-----------------------------------------------------: | :------------------------------------------------------------------: | :----------------------------------------------: | :----------------------------------------------------: |
 | ![Mobile Dashboard](docs/images/mobile/mobile_dashboard.png) | ![Mobile List](docs/images/mobile/mobile_list_view.png) | ![Mobile Place Details](docs/images/mobile/mobile_place_details.png) | ![Mobile Map](docs/images/mobile/mobile_map.png) | ![Mobile Search](docs/images/mobile/mobile_search.png) |
 
 ### Google Maps Import
@@ -168,17 +168,17 @@ Subcollection `lists/{listId}/places/{placeId}` also exists for list-scoped plac
 
 Deployed from the repo-root `functions/` directory (region `us-east4`). See [Cloud Functions Setup](docs/setup/cloud-functions.md) for Gemini and deployment.
 
-| Function | Type | Purpose |
-|----------|------|---------|
-| `askList` | Callable | Gemini natural-language place search |
-| `getGoogleMapsList` | Callable | Scrape places from a Google Maps shared list URL |
-| `checkUsernameExists` | Callable | Username availability + legacy registry backfill |
-| `deleteAccount` | Callable | Delete user, owned lists, invitations, and Auth record |
-| `acceptInvitation` | Callable | Server-side invitation accept and collaborator update |
-| `onInvitationCreated` | Firestore trigger | Push notification on new invite |
-| `onInvitationAccepted` | Firestore trigger | Notify inviter on accept |
-| `onPlaceAdded` / `onPlaceUpdated` / `onPlaceDeleted` | Firestore triggers | Collaborator notifications for place changes |
-| `onListUpdated` / `onListDeleted` | Firestore triggers | Sync place denorm fields; list rename/import/delete notifications |
+| Function                                             | Type               | Purpose                                                           |
+| ---------------------------------------------------- | ------------------ | ----------------------------------------------------------------- |
+| `askList`                                            | Callable           | Gemini natural-language place search                              |
+| `getGoogleMapsList`                                  | Callable           | Scrape places from a Google Maps shared list URL                  |
+| `checkUsernameExists`                                | Callable           | Username availability + legacy registry backfill                  |
+| `deleteAccount`                                      | Callable           | Delete user, owned lists, invitations, and Auth record            |
+| `acceptInvitation`                                   | Callable           | Server-side invitation accept and collaborator update             |
+| `onInvitationCreated`                                | Firestore trigger  | Push notification on new invite                                   |
+| `onInvitationAccepted`                               | Firestore trigger  | Notify inviter on accept                                          |
+| `onPlaceAdded` / `onPlaceUpdated` / `onPlaceDeleted` | Firestore triggers | Collaborator notifications for place changes                      |
+| `onListUpdated` / `onListDeleted`                    | Firestore triggers | Sync place denorm fields; list rename/import/delete notifications |
 
 ## Project Structure
 
