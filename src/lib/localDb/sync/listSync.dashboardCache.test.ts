@@ -196,6 +196,43 @@ describe('dashboard cache publish gating', () => {
     expect(fetchSavedListsByIdsMock).toHaveBeenCalledWith(['saved-1'], {});
   });
 
+  it('does not merge stale saved lists while profile ids are being refreshed', async () => {
+    const savedList = {
+      ...ownedList,
+      id: 'saved-1',
+      ownerId: 'other-user',
+      isSavedList: true,
+    } as PlaceList;
+
+    fetchSavedListsByIdsMock.mockResolvedValueOnce({ lists: [savedList], resolved: true });
+
+    acquireUserOwnedListsSync('user-1');
+    setUserSavedListIds('user-1', ['saved-1']);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    let resolveRefresh: (value: { lists: PlaceList[]; resolved: boolean }) => void = () => {};
+    const refreshDeferred = new Promise<{ lists: PlaceList[]; resolved: boolean }>((resolve) => {
+      resolveRefresh = resolve;
+    });
+    fetchSavedListsByIdsMock.mockReturnValueOnce(refreshDeferred);
+
+    setUserSavedListIds('user-1', ['saved-2']);
+    upsertCachedUserListsMock.mockClear();
+    ownedListsSnapshotHandler?.(makeOwnedListsSnapshot());
+
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const lastUpsertCall = upsertCachedUserListsMock.mock.calls.at(-1);
+    expect(lastUpsertCall?.[0]).toBe('user-1');
+    expect(lastUpsertCall?.[1]).toEqual([ownedList]);
+
+    resolveRefresh({ lists: [], resolved: true });
+    await refreshDeferred;
+  });
+
   it('replaces dashboard rows once profile saved-list state is ready', async () => {
     fetchSavedListsByIdsMock.mockResolvedValue({ lists: [], resolved: true });
 
