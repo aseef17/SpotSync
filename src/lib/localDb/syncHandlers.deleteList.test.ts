@@ -71,7 +71,9 @@ describe('applyDeleteList', () => {
     const memberships = Array.from({ length: 600 }, (_, index) =>
       membershipDoc(`list-big_place-${index}`)
     );
-    getDocsMock.mockResolvedValue({ docs: memberships });
+    getDocsMock
+      .mockResolvedValueOnce({ docs: memberships })
+      .mockResolvedValueOnce({ docs: memberships.slice(499) });
 
     await applyPendingMutation({
       id: 'delete-list-big',
@@ -82,8 +84,36 @@ describe('applyDeleteList', () => {
       updatedAt: Date.now(),
     });
 
+    expect(getDocsMock).toHaveBeenCalledTimes(2);
     expect(writeBatch).toHaveBeenCalledTimes(2);
     expect(batchDeleteMock).toHaveBeenCalledTimes(601);
+    expect(batchCommitMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('re-queries memberships so places added mid-delete are still removed', async () => {
+    const initialMemberships = Array.from({ length: 600 }, (_, index) =>
+      membershipDoc(`list-big_place-${index}`)
+    );
+    const membershipsAfterConcurrentAdd = [
+      ...initialMemberships.slice(499),
+      membershipDoc('list-big_place-concurrent'),
+    ];
+
+    getDocsMock
+      .mockResolvedValueOnce({ docs: initialMemberships })
+      .mockResolvedValueOnce({ docs: membershipsAfterConcurrentAdd });
+
+    await applyPendingMutation({
+      id: 'delete-list-race',
+      type: 'deleteList',
+      entityId: 'list-big',
+      payload: { listId: 'list-big' },
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    });
+
+    expect(getDocsMock).toHaveBeenCalledTimes(2);
+    expect(batchDeleteMock).toHaveBeenCalledTimes(602);
     expect(batchCommitMock).toHaveBeenCalledTimes(2);
   });
 });
