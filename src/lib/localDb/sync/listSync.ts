@@ -68,6 +68,8 @@ interface UserListsSyncState {
 }
 
 const userListsState = new Map<string, UserListsSyncState>();
+/** Bumped when sync state is cleared so in-flight cache hydrates cannot apply to a new session. */
+const userListsStateGeneration = new Map<string, number>();
 /** Profile sync can arrive before owned-list sync initializes per-user state. */
 const pendingSavedListIds = new Map<string, string[]>();
 const ownedListsSnapshotChains = new Map<string, Promise<void>>();
@@ -79,10 +81,15 @@ async function hydrateOwnedListsFromCache(userId: string): Promise<void> {
     return;
   }
 
+  const generationAtStart = userListsStateGeneration.get(userId) ?? 0;
   const cachedLists = await getCachedUserLists(userId);
 
   const stateAfterCacheRead = userListsState.get(userId);
-  if (!stateAfterCacheRead || stateAfterCacheRead.ownedListsHydrated) {
+  if (
+    !stateAfterCacheRead ||
+    stateAfterCacheRead.ownedListsHydrated ||
+    (userListsStateGeneration.get(userId) ?? 0) !== generationAtStart
+  ) {
     return;
   }
   if (!cachedLists) {
@@ -329,9 +336,11 @@ export function acquireListSync(listId: string): () => void {
 export function clearUserListsSyncState(userId: string): void {
   userListsState.delete(userId);
   pendingSavedListIds.delete(userId);
+  userListsStateGeneration.set(userId, (userListsStateGeneration.get(userId) ?? 0) + 1);
 }
 
 export function clearAllUserListsSyncState(): void {
   userListsState.clear();
   pendingSavedListIds.clear();
+  userListsStateGeneration.clear();
 }
