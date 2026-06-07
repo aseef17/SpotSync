@@ -153,7 +153,11 @@ function markSavedListsHydrated(userId: string): void {
   }
 }
 
-async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<void> {
+async function fetchSavedListsForUser(
+  userId: string,
+  ids: string[],
+  previousSavedLists: PlaceList[] = []
+): Promise<void> {
   const state = userListsState.get(userId);
   if (!state) {
     return;
@@ -183,11 +187,11 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
       return;
     }
 
-    const hadSavedLists = state.savedLists.length > 0;
+    const hadSavedLists = previousSavedLists.length > 0;
     const { lists: fetched, resolved } = await fetchSavedListsByIds(idsToFetch, listConverter);
 
     if (seq === state.fetchSavedListsSeq) {
-      const removedFromProfile = hasRemovedSavedListIds(ids, state.savedLists, existingIds);
+      const removedFromProfile = hasRemovedSavedListIds(ids, previousSavedLists, existingIds);
       if (
         shouldCommitSavedListFetch(hadSavedLists, fetched.length, resolved) ||
         removedFromProfile
@@ -195,7 +199,7 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
         state.savedLists = reconcileSavedLists({
           profileIds: ids,
           ownedIds: existingIds,
-          previousSavedLists: state.savedLists,
+          previousSavedLists,
           fetched,
           resolved,
         });
@@ -215,9 +219,10 @@ export function setUserSavedListIds(userId: string, savedListIds: string[]): voi
     return;
   }
 
+  const previousSavedLists = state.savedLists;
   state.savedListsHydrated = false;
   state.savedLists = [];
-  void fetchSavedListsForUser(userId, savedListIds);
+  void fetchSavedListsForUser(userId, savedListIds, previousSavedLists);
 }
 
 export function acquireUserOwnedListsSync(userId: string): () => void {
