@@ -4,9 +4,10 @@ const {
   onDocumentDeleted,
 } = require('firebase-functions/v2/firestore');
 const { onCall, HttpsError } = require('firebase-functions/v2/https');
+const { onSchedule } = require('firebase-functions/v2/scheduler');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
-const { getFirestore, FieldPath, FieldValue } = require('firebase-admin/firestore');
+const { getFirestore, FieldPath, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { getMessaging } = require('firebase-admin/messaging');
 
@@ -870,10 +871,51 @@ async function deleteListAndPlaces(db, listId) {
   }
 }
 
+/** Tombstones block stale ID tokens (~1h) from recreating deleted profiles. */
+const ACCOUNT_DELETION_TOMBSTONE_RETENTION_MS = 48 * 60 * 60 * 1000;
+
 async function markAccountDeletionPending(db, uid) {
   await db.collection('accountDeletions').doc(uid).set({
     startedAt: FieldValue.serverTimestamp(),
   });
+}
+
+async function markAccountDeletionCompleted(db, uid) {
+  await db.collection('accountDeletions').doc(uid).set(
+    {
+      completedAt: FieldValue.serverTimestamp(),
+    },
+    { merge: true }
+  );
+}
+
+async function pruneExpiredAccountDeletionTombstones(db) {
+  const cutoff = Timestamp.fromMillis(Date.now() - ACCOUNT_DELETION_TOMBSTONE_RETENTION_MS);
+  const snapshot = await db.collection('accountDeletions').get();
+  const refsToDelete = [];
+
+  for (const doc of snapshot.docs) {
+    const data = doc.data();
+    const completedAt = data.completedAt;
+    const startedAt = data.startedAt;
+
+    if (completedAt?.toMillis() <= cutoff.toMillis()) {
+      refsToDelete.push(doc.ref);
+      continue;
+    }
+
+    // Legacy tombstones written before completedAt existed; startedAt was set at deletion time.
+    if (!completedAt && startedAt?.toMillis() <= cutoff.toMillis()) {
+      refsToDelete.push(doc.ref);
+    }
+  }
+
+  if (refsToDelete.length === 0) {
+    return { pruned: 0 };
+  }
+
+  await batchDeleteDocRefs(db, refsToDelete);
+  return { pruned: refsToDelete.length };
 }
 
 async function pruneSavedListReferences(db, listIds) {
@@ -960,6 +1002,7 @@ exports.deleteAccount = onCall(
           throw error;
         }
       }
+      await markAccountDeletionCompleted(db, uid);
       return { success: true };
     }
 
@@ -1059,18 +1102,28 @@ exports.deleteAccount = onCall(
 
     // Delete the profile before Auth so a failed auth delete can be retried while the user
     // is still signed in. The !userDoc.exists branch above handles the inverse partial run.
-    // Mark deletion first so client orphan recovery cannot recreate the profile. Keep the
-    // marker permanently: deleted users' ID tokens stay valid for up to an hour, so clearing
-    // the marker would let stale sessions run claimUsernameForUser after deletion completes.
+    // Mark deletion first so client orphan recovery cannot recreate the profile while stale
+    // ID tokens remain valid (up to an hour). pruneAccountDeletionTombstones removes markers
+    // after ACCOUNT_DELETION_TOMBSTONE_RETENTION_MS once deletion completes.
     await markAccountDeletionPending(db, uid);
     console.log('[deleteAccount] Deleting users profile document');
     await userRef.delete();
 
     console.log('[deleteAccount] Deleting Firebase Auth user');
     await getAuth().deleteUser(uid);
+    await markAccountDeletionCompleted(db, uid);
 
     console.log(`[deleteAccount] Completed deletion for uid=${uid}`);
     return { success: true };
+  }
+);
+
+exports.pruneAccountDeletionTombstones = onSchedule(
+  { schedule: 'every 24 hours', region: 'us-east4' },
+  async () => {
+    const db = getFirestore();
+    const result = await pruneExpiredAccountDeletionTombstones(db);
+    console.log(`[pruneAccountDeletionTombstones] Pruned ${result.pruned} tombstone(s)`);
   }
 );
 
