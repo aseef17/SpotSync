@@ -55,6 +55,22 @@ export function resolveListFromContextAccess(options: {
   return 'grant';
 }
 
+/** Re-check server access for trusted owned/collaborator rows while revocation is sticky. */
+export function shouldConfirmPrivateAccessFromTrustedContext(options: {
+  list: PlaceList;
+  userId: string | undefined;
+  accessRevoked: boolean;
+  isOnline: boolean;
+}): boolean {
+  return (
+    options.accessRevoked &&
+    options.isOnline &&
+    !options.list.isPublic &&
+    !options.list.isSavedList &&
+    userCanReadList(options.list, options.userId)
+  );
+}
+
 /** Clear sticky revocation when a public list reappears in live context after being absent. */
 export function shouldClearAccessRevokedOnContextReturn(options: {
   hadListFromContext: boolean;
