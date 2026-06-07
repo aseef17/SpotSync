@@ -13,7 +13,10 @@ export { getCachedUser, upsertCachedUser, patchCachedUser } from '@/lib/localDb/
 export {
   getCachedUserLists,
   upsertCachedUserLists,
+  syncCachedUserLists,
   removeCachedUserList,
+  removeCachedUserListRow,
+  removeCachedUserListMembership,
 } from '@/lib/localDb/userListsCache';
 export {
   getCachedInvitations,

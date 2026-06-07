@@ -15,7 +15,7 @@ import {
   queueOfflineMutation,
   removeCachedList,
   removeCachedPlacesForList,
-  removeCachedUserList,
+  removeCachedUserListMembership,
   upsertCachedList,
   upsertCachedUserLists,
 } from '@/lib/localDb';
@@ -191,14 +191,12 @@ export class ListService {
     }
   }
 
-  static async deleteList(listId: string, userId?: string): Promise<void> {
+  static async deleteList(listId: string, _userId?: string): Promise<void> {
     try {
       await queueOfflineMutation('deleteList', listId, { listId }, async () => {
         await removeCachedPlacesForList(listId);
         await removeCachedList(listId);
-        if (userId) {
-          await removeCachedUserList(userId, listId);
-        }
+        await removeCachedUserListMembership(listId);
       });
     } catch (error) {
       logger.error('Error deleting list:', error);
