@@ -425,6 +425,10 @@ export const useListDetails = (listId: string | undefined) => {
           userId: user?.id,
           accessRevoked: accessRevokedRef.current,
           savedPrivateDenied: savedPrivateDeniedRef.current,
+        }) &&
+        shouldApplyContextListSnapshot({
+          listFromContext: contextList,
+          serverVerifiedPrivateAccess: privateListServerVerifiedRef.current,
         })
       ) {
         setList(contextList);
