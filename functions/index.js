@@ -366,15 +366,6 @@ exports.onPlaceAdded = onDocumentCreated(
     }
 
     const listData = listDoc.data();
-    if (listData.importInProgress) {
-      console.log(`Skipping notification for "${name}" — bulk import in progress`);
-      return;
-    }
-
-    if (countNotificationRecipients(listData, addedBy) === 0) {
-      console.log(`[Notification Warning] No recipients left after excluding actor: ${addedBy}`);
-      return;
-    }
 
     let name = 'A place';
     if (googlePlaceId) {
@@ -385,6 +376,16 @@ exports.onPlaceAdded = onDocumentCreated(
       if (googlePlaceDoc.exists) {
         name = googlePlaceDoc.data().name || name;
       }
+    }
+
+    if (listData.importInProgress) {
+      console.log(`Skipping notification for "${name}" — bulk import in progress`);
+      return;
+    }
+
+    if (countNotificationRecipients(listData, addedBy) === 0) {
+      console.log(`[Notification Warning] No recipients left after excluding actor: ${addedBy}`);
+      return;
     }
 
     console.log(`Place "${name}" added to list ${listId} by ${addedBy}`);
