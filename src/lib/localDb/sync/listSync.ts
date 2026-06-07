@@ -61,6 +61,8 @@ interface UserListsSyncState {
 }
 
 const userListsState = new Map<string, UserListsSyncState>();
+/** Profile sync can arrive before owned-list sync initializes per-user state. */
+const pendingSavedListIds = new Map<string, string[]>();
 const ownedListsSnapshotChains = new Map<string, Promise<void>>();
 const listSnapshotChains = new Map<string, Promise<void>>();
 
@@ -144,9 +146,12 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
 
 export function setUserSavedListIds(userId: string, savedListIds: string[]): void {
   const state = userListsState.get(userId);
-  if (state) {
-    state.savedListsHydrated = false;
+  if (!state) {
+    pendingSavedListIds.set(userId, savedListIds);
+    return;
   }
+
+  state.savedListsHydrated = false;
   void fetchSavedListsForUser(userId, savedListIds);
 }
 
@@ -158,6 +163,12 @@ export function acquireUserOwnedListsSync(userId: string): () => void {
       fetchSavedListsSeq: 0,
       savedListsHydrated: false,
     });
+
+    const pendingIds = pendingSavedListIds.get(userId);
+    if (pendingIds) {
+      pendingSavedListIds.delete(userId);
+      void fetchSavedListsForUser(userId, pendingIds);
+    }
 
     const listsQuery = query(
       collection(db, 'lists').withConverter(listConverter),
@@ -238,8 +249,10 @@ export function acquireListSync(listId: string): () => void {
 
 export function clearUserListsSyncState(userId: string): void {
   userListsState.delete(userId);
+  pendingSavedListIds.delete(userId);
 }
 
 export function clearAllUserListsSyncState(): void {
   userListsState.clear();
+  pendingSavedListIds.clear();
 }
