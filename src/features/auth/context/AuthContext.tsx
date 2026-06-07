@@ -5,6 +5,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
+  deleteUser,
   GoogleAuthProvider,
   signInWithPopup,
   sendEmailVerification,
@@ -35,6 +36,59 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const isEmailPasswordUser = (fbUser: FirebaseUser): boolean =>
+  fbUser.providerData.some((provider) => provider.providerId === 'password');
+
+const buildDefaultUsername = (fbUser: FirebaseUser): string => {
+  const emailPrefix = (fbUser.email || '').split('@')[0].toLowerCase().trim();
+  return emailPrefix || `user_${fbUser.uid.slice(0, 8)}`;
+};
+
+const claimUsernameForUser = async (
+  fbUser: FirebaseUser,
+  preferredUsername: string
+): Promise<string> => {
+  const fallbackUsername = `${preferredUsername}_${fbUser.uid.slice(-6)}`;
+  const finalFallbackUsername = `user_${fbUser.uid.slice(0, 12)}`;
+  const candidates = Array.from(
+    new Set([preferredUsername, fallbackUsername, finalFallbackUsername])
+  );
+
+  return runTransaction(db, async (transaction) => {
+    const userRef = doc(db, 'users', fbUser.uid);
+    const existingUser = await transaction.get(userRef);
+    if (existingUser.exists()) {
+      return (existingUser.data() as User).username;
+    }
+
+    let claimedUsername: string | null = null;
+    for (const candidate of candidates) {
+      const usernameRef = doc(db, 'usernames', candidate);
+      const usernameDoc = await transaction.get(usernameRef);
+      if (!usernameDoc.exists()) {
+        claimedUsername = candidate;
+        transaction.set(usernameRef, { uid: fbUser.uid });
+        break;
+      }
+    }
+
+    if (!claimedUsername) {
+      throw new Error('Unable to provision username');
+    }
+
+    const newUser: User = {
+      id: fbUser.uid,
+      username: claimedUsername,
+      email: fbUser.email || '',
+      displayName: fbUser.displayName || '',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    transaction.set(userRef, newUser);
+    return claimedUsername;
+  });
+};
+
 // Note: eslint-disable is required here for React Fast Refresh to work correctly
 // The useAuth hook must be exported separately from the provider component
 // eslint-disable-next-line react-refresh/only-export-components
@@ -62,25 +116,14 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
         const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
         if (userDoc.exists()) {
           setUser(userDoc.data() as User);
-        } else {
-          // Create new user document
-          const defaultUsername = (fbUser.email || '').split('@')[0].toLowerCase().trim();
-          const newUser: User = {
-            id: fbUser.uid,
-            username: defaultUsername,
-            email: fbUser.email || '',
-            displayName: fbUser.displayName || '',
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-          await setDoc(doc(db, 'users', fbUser.uid), newUser);
-
-          // Also sync with usernames collection
-          await setDoc(doc(db, 'usernames', defaultUsername), {
-            uid: fbUser.uid,
-          });
-
-          setUser(newUser);
+        } else if (!isEmailPasswordUser(fbUser)) {
+          // Email/password registration creates the Firestore profile in register().
+          // Auto-provisioning here races with that flow and can overwrite the chosen username.
+          await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
+          const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
+          if (provisionedUserDoc.exists()) {
+            setUser(provisionedUserDoc.data() as User);
+          }
         }
       } else {
         setFirebaseUser(null);
@@ -111,17 +154,31 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
         updatedAt: new Date(),
       };
 
-      await runTransaction(db, async (transaction) => {
-        const usernameRef = doc(db, 'usernames', normalizedUsername);
-        const usernameDoc = await transaction.get(usernameRef);
+      try {
+        await runTransaction(db, async (transaction) => {
+          const usernameRef = doc(db, 'usernames', normalizedUsername);
+          const usernameDoc = await transaction.get(usernameRef);
 
-        if (usernameDoc.exists()) {
-          throw new Error('Username is not available');
+          if (usernameDoc.exists()) {
+            throw new Error('Username is not available');
+          }
+
+          transaction.set(doc(db, 'users', userCredential.user.uid), newUser);
+          transaction.set(usernameRef, { uid: userCredential.user.uid });
+        });
+      } catch (error) {
+        try {
+          await deleteUser(userCredential.user);
+        } catch (deleteError) {
+          logger.error('Failed to roll back auth user after registration failure:', deleteError);
         }
+        throw error;
+      }
 
-        transaction.set(doc(db, 'users', userCredential.user.uid), newUser);
-        transaction.set(usernameRef, { uid: userCredential.user.uid });
-      });
+      const createdUserDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+      if (createdUserDoc.exists()) {
+        setUser(createdUserDoc.data() as User);
+      }
 
       await sendEmailVerification(userCredential.user);
     },
