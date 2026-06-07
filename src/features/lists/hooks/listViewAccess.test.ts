@@ -7,6 +7,7 @@ import {
   readPersistedListAccessRevoked,
   readPersistedListSavedPrivateDenied,
   shouldClearStaleListView,
+  shouldHydrateListFromPersistentCache,
   shouldTrustPrivateListSnapshot,
   writePersistedListAccessRevoked,
   writePersistedListSavedPrivateDenied,
@@ -116,6 +117,38 @@ describe('shouldTrustPrivateListSnapshot', () => {
         serverVerified: true,
       })
     ).toBe(true);
+  });
+});
+
+describe('shouldHydrateListFromPersistentCache', () => {
+  it('blocks cached private lists until server access is confirmed', () => {
+    expect(
+      shouldHydrateListFromPersistentCache({
+        grantFromAccessRules: true,
+        isPublic: false,
+        serverVerified: false,
+      })
+    ).toBe(false);
+  });
+
+  it('allows cached private lists after server access is confirmed', () => {
+    expect(
+      shouldHydrateListFromPersistentCache({
+        grantFromAccessRules: true,
+        isPublic: false,
+        serverVerified: true,
+      })
+    ).toBe(true);
+  });
+
+  it('does not hydrate when access rules deny the cached list', () => {
+    expect(
+      shouldHydrateListFromPersistentCache({
+        grantFromAccessRules: false,
+        isPublic: false,
+        serverVerified: true,
+      })
+    ).toBe(false);
   });
 });
 

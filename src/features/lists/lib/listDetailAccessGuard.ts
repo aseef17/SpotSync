@@ -57,6 +57,22 @@ export function resolveListFromContextAccess(options: {
   return 'grant';
 }
 
+/** Ignore late server confirmations after navigation or mismatched payloads. */
+export function shouldApplyServerConfirmedPrivateAccess(options: {
+  targetListId: string;
+  currentListId: string | undefined;
+  confirmedList: PlaceList | null;
+  userId: string | undefined;
+}): boolean {
+  if (!options.currentListId || options.targetListId !== options.currentListId) {
+    return false;
+  }
+  if (!options.confirmedList || options.confirmedList.id !== options.targetListId) {
+    return false;
+  }
+  return userCanReadList(options.confirmedList, options.userId);
+}
+
 /** Re-check server access for trusted owned/collaborator rows while revocation is sticky. */
 export function shouldConfirmPrivateAccessFromTrustedContext(options: {
   list: PlaceList;
@@ -71,6 +87,15 @@ export function shouldConfirmPrivateAccessFromTrustedContext(options: {
     !options.list.isSavedList &&
     userCanReadList(options.list, options.userId)
   );
+}
+
+/** Re-check server access for saved-list rows; cached isPublic may be stale after visibility changes. */
+export function shouldConfirmSavedListAccessFromServer(options: {
+  list: PlaceList;
+  accessRevoked: boolean;
+  isOnline: boolean;
+}): boolean {
+  return Boolean(options.accessRevoked && options.isOnline && options.list.isSavedList);
 }
 
 /** Clear sticky revocation when a public list reappears in live context after being absent. */
