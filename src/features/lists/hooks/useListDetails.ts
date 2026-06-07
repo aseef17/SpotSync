@@ -52,7 +52,11 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
+    listAccessibleRef.current = false;
+    setList(null);
+    setPlaces([]);
     loadTrackingRef.current.listLoaded = false;
+    loadTrackingRef.current.hasCachedData = false;
     loadTrackingRef.current.onProgress?.();
 
     const unsubscribeList = ListService.subscribeToList(
@@ -77,9 +81,13 @@ export const useListDetails = (listId: string | undefined) => {
       (err) => {
         if (cancelled) return;
         logger.error('Error listening to list:', err);
+        listAccessibleRef.current = false;
+        setList(null);
+        setPlaces([]);
         setError(
           `Failed to load list data: ${err instanceof Error ? err.message : 'Unknown error'}`
         );
+        loadTrackingRef.current.hasCachedData = false;
         loadTrackingRef.current.listLoaded = true;
         loadTrackingRef.current.onProgress?.();
       }
