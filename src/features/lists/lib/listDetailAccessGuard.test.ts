@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
+  shouldClearAccessRevokedOnContextReturn,
   shouldHydrateCachedListSnapshot,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import type { PlaceList } from '@/features/lists/types/list';
@@ -83,7 +84,7 @@ describe('resolveListFromContextAccess', () => {
     ).toBe('grant');
   });
 
-  it('denies stale context after collaborator access was revoked', () => {
+  it('denies stale private context after collaborator access was revoked', () => {
     expect(
       resolveListFromContextAccess({
         list: list(),
@@ -91,6 +92,16 @@ describe('resolveListFromContextAccess', () => {
         accessRevoked: true,
       })
     ).toBe('deny-revoked');
+  });
+
+  it('still grants public lists after saved-list removal set accessRevoked', () => {
+    expect(
+      resolveListFromContextAccess({
+        list: list({ isPublic: true, collaboratorIds: [] }),
+        userId: 'user-c',
+        accessRevoked: true,
+      })
+    ).toBe('grant');
   });
 
   it('denies context when the user is no longer a collaborator', () => {
@@ -101,5 +112,27 @@ describe('resolveListFromContextAccess', () => {
         accessRevoked: false,
       })
     ).toBe('deny-no-access');
+  });
+});
+
+describe('shouldClearAccessRevokedOnContextReturn', () => {
+  it('clears sticky revocation when a list reappears in live context', () => {
+    expect(
+      shouldClearAccessRevokedOnContextReturn({
+        hadListFromContext: false,
+        list: list(),
+        userId: 'collab-b',
+      })
+    ).toBe(true);
+  });
+
+  it('does not clear revocation while the list stayed in context', () => {
+    expect(
+      shouldClearAccessRevokedOnContextReturn({
+        hadListFromContext: true,
+        list: list(),
+        userId: 'collab-b',
+      })
+    ).toBe(false);
   });
 });
