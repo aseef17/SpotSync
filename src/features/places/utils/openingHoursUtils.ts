@@ -1,7 +1,34 @@
 const MERIDIEM_PATTERN = /\b(am|pm)\b/i;
 const TIME_PATTERN = /(\d{1,2}):(\d{2})\s*(am|pm)?/i;
 
-/** When Google returns "3:00 - 10:00 PM", infer PM on the start time. */
+function parseHourFromTimeFragment(fragment: string): number | null {
+  const match = fragment.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) {
+    return null;
+  }
+
+  return Number.parseInt(match[1], 10);
+}
+
+/** When Google returns "3:00 - 10:00 PM", infer PM on the start time (not "11:00 - 2:00 PM"). */
+function shouldInferPmOnAmbiguousStart(start: string, end: string): boolean {
+  const endMeridiem = end.match(MERIDIEM_PATTERN)?.[1]?.toLowerCase();
+  const startHasMeridiem = MERIDIEM_PATTERN.test(start);
+
+  if (startHasMeridiem || endMeridiem !== 'pm') {
+    return false;
+  }
+
+  const startHour = parseHourFromTimeFragment(start);
+  const endHour = parseHourFromTimeFragment(end);
+
+  if (startHour === null || endHour === null) {
+    return false;
+  }
+
+  return startHour < endHour;
+}
+
 export function normalizeOpeningHoursTimeRange(rangeText: string): string {
   const rangeParts = rangeText.split(/[–—-]/);
   if (rangeParts.length !== 2) {
@@ -10,10 +37,8 @@ export function normalizeOpeningHoursTimeRange(rangeText: string): string {
 
   const start = rangeParts[0].trim();
   const end = rangeParts[1].trim();
-  const endMeridiem = end.match(MERIDIEM_PATTERN)?.[1];
-  const startHasMeridiem = MERIDIEM_PATTERN.test(start);
 
-  if (!startHasMeridiem && endMeridiem?.toLowerCase() === 'pm') {
+  if (shouldInferPmOnAmbiguousStart(start, end)) {
     return `${start} PM - ${end}`;
   }
 
@@ -101,9 +126,9 @@ export function isOpenAtTimeFromHoursText(
     return null;
   }
 
-  const endMeridiem = rangeParts[1].match(MERIDIEM_PATTERN)?.[1]?.toLowerCase();
-  const startHasMeridiem = MERIDIEM_PATTERN.test(rangeParts[0]);
-  const startInherit = !startHasMeridiem && endMeridiem === 'pm' ? ('pm' as const) : undefined;
+  const startInherit = shouldInferPmOnAmbiguousStart(rangeParts[0], rangeParts[1])
+    ? ('pm' as const)
+    : undefined;
 
   const startMinutes = parseOpeningHoursTimeToMinutes(rangeParts[0].trim(), {
     inheritMeridiem: startInherit,
