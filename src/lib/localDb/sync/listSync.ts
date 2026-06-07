@@ -168,6 +168,10 @@ function markSavedListsHydrated(userId: string): void {
   }
 }
 
+function isActiveUserListsState(userId: string, state: UserListsSyncState): boolean {
+  return userListsState.get(userId) === state;
+}
+
 async function fetchSavedListsForUser(
   userId: string,
   ids: string[],
@@ -182,7 +186,7 @@ async function fetchSavedListsForUser(
 
   if (!ids.length) {
     state.savedLists = [];
-    if (seq === state.fetchSavedListsSeq) {
+    if (seq === state.fetchSavedListsSeq && isActiveUserListsState(userId, state)) {
       markSavedListsHydrated(userId);
       await publishUserLists(userId);
     }
@@ -195,7 +199,7 @@ async function fetchSavedListsForUser(
 
     if (!idsToFetch.length) {
       state.savedLists = [];
-      if (seq === state.fetchSavedListsSeq) {
+      if (seq === state.fetchSavedListsSeq && isActiveUserListsState(userId, state)) {
         markSavedListsHydrated(userId);
         await publishUserLists(userId);
       }
@@ -205,7 +209,7 @@ async function fetchSavedListsForUser(
     const hadSavedLists = previousSavedLists.length > 0;
     const { lists: fetched, resolved } = await fetchSavedListsByIds(idsToFetch, listConverter);
 
-    if (seq === state.fetchSavedListsSeq) {
+    if (seq === state.fetchSavedListsSeq && isActiveUserListsState(userId, state)) {
       const removedFromProfile = hasRemovedSavedListIds(ids, previousSavedLists, existingIds);
       if (
         shouldCommitSavedListFetch(hadSavedLists, fetched.length, resolved) ||

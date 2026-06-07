@@ -515,6 +515,46 @@ describe('dashboard cache publish gating', () => {
     expect(lastUpsertCall?.[1]).toEqual([updatedOwnedList]);
   });
 
+  it('ignores orphaned saved-list fetch after sync state reset', async () => {
+    const savedList = {
+      ...ownedList,
+      id: 'saved-1',
+      ownerId: 'other-user',
+      isSavedList: true,
+    } as PlaceList;
+
+    let resolveFetch: (value: { lists: PlaceList[]; resolved: boolean }) => void = () => {};
+    const fetchDeferred = new Promise<{ lists: PlaceList[]; resolved: boolean }>((resolve) => {
+      resolveFetch = resolve;
+    });
+    fetchSavedListsByIdsMock.mockReturnValueOnce(fetchDeferred);
+
+    acquireUserOwnedListsSync('user-1');
+    ownedListsSnapshotHandler?.(makeOwnedListsSnapshot());
+    setUserSavedListIds('user-1', ['saved-1']);
+    await Promise.resolve();
+
+    clearUserListsSyncState('user-1');
+    syncCachedUserListsMock.mockClear();
+    upsertCachedUserListsMock.mockClear();
+    getCachedUserMock.mockResolvedValue(null);
+
+    acquireUserOwnedListsSync('user-1');
+    ownedListsSnapshotHandler?.(makeOwnedListsSnapshot());
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    resolveFetch({ lists: [savedList], resolved: true });
+    await fetchDeferred;
+    await Promise.resolve();
+    await Promise.resolve();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    // Orphaned fetch must not mark the new sync generation hydrated and prune saved rows.
+    expect(syncCachedUserListsMock).not.toHaveBeenCalled();
+  });
+
   it('does not prune dashboard rows when profile hydrates before owned lists load', async () => {
     acquireUserOwnedListsSync('user-1');
 
