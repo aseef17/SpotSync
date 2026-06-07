@@ -34,7 +34,7 @@ describe('initialCacheHydration', () => {
     ).toBe(true);
   });
 
-  it('keeps hydrating while cache probe is pending', () => {
+  it('does not hydrate while cache probe is pending (routine loading only)', () => {
     expect(
       isInitialCacheHydrating({
         hadCacheInitially: null,
@@ -43,7 +43,7 @@ describe('initialCacheHydration', () => {
         waitForPhotoWarm: false,
         photoWarmInFlight: 0,
       })
-    ).toBe(true);
+    ).toBe(false);
 
     expect(
       isInitialCacheHydrating({
@@ -53,7 +53,20 @@ describe('initialCacheHydration', () => {
         waitForPhotoWarm: true,
         photoWarmInFlight: 0,
       })
-    ).toBe(true);
+    ).toBe(false);
+  });
+
+  it('skips hydration when scope already completed on this device', () => {
+    expect(
+      isInitialCacheHydrating({
+        hadCacheInitially: false,
+        isLoading: true,
+        hasContent: false,
+        waitForPhotoWarm: false,
+        photoWarmInFlight: 0,
+        scopeAlreadyHydrated: true,
+      })
+    ).toBe(false);
   });
 
   it('stops hydrating for empty lists once loading finishes', () => {

@@ -6,6 +6,7 @@ import {
   findGeneralCategory,
 } from '@/constants/placeCategories';
 import { getPrimaryPhotoUrl, trimPhotoUrlsForStorage } from '@/features/places/utils/placeAccess';
+import { normalizeOpeningHours } from '@/features/places/utils/openingHoursUtils';
 
 /**
  * Creates a unified Place object from Google Maps details.
@@ -106,7 +107,7 @@ export const createPlaceFromGoogleDetails = (
     googleMapsUrl: googlePlace.url,
     phoneNumber: googlePlace.formatted_phone_number,
     website: googlePlace.website,
-    openingHours: googlePlace.opening_hours?.weekday_text,
+    openingHours: normalizeOpeningHours(googlePlace.opening_hours?.weekday_text),
     priceLevel: googlePlace.price_level,
 
     ...overrides,

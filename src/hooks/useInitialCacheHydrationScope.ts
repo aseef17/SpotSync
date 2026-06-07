@@ -3,6 +3,8 @@ import { useInitialCacheHydration } from '@/context/useInitialCacheHydration';
 import {
   INITIAL_CACHE_HYDRATION_MAX_MS,
   isInitialCacheHydrating,
+  isScopeHydrationComplete,
+  markScopeHydrationComplete,
 } from '@/lib/localDb/initialCacheHydration';
 import {
   getPhotoWarmInFlightForList,
@@ -36,7 +38,12 @@ export function useInitialCacheHydrationScope(
 
   const [photoWarmInFlight, setPhotoWarmInFlight] = useState(readPhotoWarmInFlight);
   const [hydrationTimedOut, setHydrationTimedOut] = useState(false);
+  const [hydrationCompletionRevision, setHydrationCompletionRevision] = useState(0);
   const hydrationStartedAtRef = useRef<number | null>(null);
+  const scopeAlreadyHydrated =
+    isScopeHydrationComplete(scopeKey) ||
+    options.hadCacheInitially === true ||
+    hydrationCompletionRevision > 0;
 
   useEffect(() => {
     if (!waitForPhotoWarm) {
@@ -48,6 +55,12 @@ export function useInitialCacheHydrationScope(
     });
   }, [waitForPhotoWarm, listIdForPhotoWarm]);
 
+  useEffect(() => {
+    if (options.hadCacheInitially === true) {
+      markScopeHydrationComplete(scopeKey);
+    }
+  }, [options.hadCacheInitially, scopeKey]);
+
   const isHydrating = useMemo(
     () =>
       isInitialCacheHydrating({
@@ -57,6 +70,7 @@ export function useInitialCacheHydrationScope(
         waitForPhotoWarm,
         photoWarmInFlight,
         forcedComplete: hydrationTimedOut,
+        scopeAlreadyHydrated,
       }),
     [
       options.hadCacheInitially,
@@ -65,6 +79,7 @@ export function useInitialCacheHydrationScope(
       waitForPhotoWarm,
       photoWarmInFlight,
       hydrationTimedOut,
+      scopeAlreadyHydrated,
     ]
   );
 
@@ -77,6 +92,7 @@ export function useInitialCacheHydrationScope(
         waitForPhotoWarm,
         photoWarmInFlight,
         forcedComplete: false,
+        scopeAlreadyHydrated,
       }),
     [
       options.hadCacheInitially,
@@ -84,6 +100,7 @@ export function useInitialCacheHydrationScope(
       options.hasContent,
       waitForPhotoWarm,
       photoWarmInFlight,
+      scopeAlreadyHydrated,
     ]
   );
 
@@ -120,8 +137,20 @@ export function useInitialCacheHydrationScope(
   }, [shouldTrackHydrationTimeout, scopeKey]);
 
   useEffect(() => {
+    let completionRevisionTimeoutId: number | undefined;
+
+    if (!isHydrating && hydrationStartedAtRef.current !== null) {
+      markScopeHydrationComplete(scopeKey);
+      completionRevisionTimeoutId = window.setTimeout(() => {
+        setHydrationCompletionRevision((revision) => revision + 1);
+      }, 0);
+    }
+
     setScopeHydrating(scopeKey, isHydrating);
     return () => {
+      if (completionRevisionTimeoutId !== undefined) {
+        window.clearTimeout(completionRevisionTimeoutId);
+      }
       setScopeHydrating(scopeKey, false);
     };
   }, [scopeKey, isHydrating, setScopeHydrating]);

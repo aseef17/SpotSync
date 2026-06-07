@@ -8,6 +8,7 @@ import {
 import { getDoc, setDoc } from 'firebase/firestore';
 import { googlePlaceDocRef } from '@/features/places/api/googlePlaceFirestore';
 import type { GooglePlace as CanonicalGooglePlace } from '@/features/places/types/googlePlace';
+import { normalizeOpeningHours } from '@/features/places/utils/openingHoursUtils';
 import { buildGooglePlacePayload } from '@/features/places/utils/placeWriteSplit';
 
 interface GoogleLocation {
@@ -247,8 +248,9 @@ export class GoogleMapsService {
         formatted_phone_number: data.nationalPhoneNumber,
         website: data.websiteUri,
         opening_hours: {
-          weekday_text:
-            data.currentOpeningHours?.weekdayDescriptions || data.openingHours?.weekdayDescriptions,
+          weekday_text: normalizeOpeningHours(
+            data.currentOpeningHours?.weekdayDescriptions || data.openingHours?.weekdayDescriptions
+          ),
           open_now: data.currentOpeningHours?.openNow,
         },
         // New fields from API v1
@@ -376,7 +378,7 @@ export class GoogleMapsService {
             getUrl: () => photo.name, // Photo reference from API v1
           })) || [],
         opening_hours: {
-          weekday_text: p.currentOpeningHours?.weekdayDescriptions,
+          weekday_text: normalizeOpeningHours(p.currentOpeningHours?.weekdayDescriptions),
           open_now: p.currentOpeningHours?.openNow,
         },
         // New fields from API v1
@@ -550,7 +552,7 @@ export class GoogleMapsService {
       place.website = googlePlace.website;
     }
     if (googlePlace.opening_hours?.weekday_text) {
-      place.openingHours = googlePlace.opening_hours.weekday_text;
+      place.openingHours = normalizeOpeningHours(googlePlace.opening_hours.weekday_text);
     }
 
     // Add top-level lat/lng for map integration
