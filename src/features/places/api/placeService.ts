@@ -48,7 +48,8 @@ export class PlaceService {
 
   private static enrichPlaceWrite(
     placeData: Omit<Place, 'id' | 'addedAt' | 'updatedAt'>,
-    accessFields: PlaceListAccessFields
+    accessFields: PlaceListAccessFields,
+    options?: { suppressNotifications?: boolean }
   ): Omit<Place, 'id' | 'addedAt' | 'updatedAt'> {
     const trimmedPhotos = trimPhotoUrlsForStorage(placeData.photoUrls);
     const thumbnailUrl = placeData.thumbnailUrl ?? getPrimaryPhotoUrl(trimmedPhotos);
@@ -60,6 +61,7 @@ export class PlaceService {
       ...(trimmedPhotos ? { photoUrls: trimmedPhotos } : {}),
       ...(thumbnailUrl ? { thumbnailUrl } : {}),
       ...(photoCount !== undefined ? { photoCount } : {}),
+      ...(options?.suppressNotifications ? { suppressNotifications: true } : {}),
     };
   }
 
@@ -122,7 +124,8 @@ export class PlaceService {
    */
   static async bulkCreatePlaces(
     listId: string,
-    placesData: Array<Omit<Place, 'id' | 'addedAt' | 'updatedAt'>>
+    placesData: Array<Omit<Place, 'id' | 'addedAt' | 'updatedAt'>>,
+    options?: { suppressNotifications?: boolean }
   ): Promise<{
     successCount: number;
     failedCount: number;
@@ -135,6 +138,7 @@ export class PlaceService {
 
     try {
       const accessFields = await this.fetchListAccessFields(listId);
+      const suppressNotifications = options?.suppressNotifications ?? false;
 
       // Process in chunks of 500
       for (let i = 0; i < placesData.length; i += BATCH_SIZE) {
@@ -145,7 +149,9 @@ export class PlaceService {
         for (let j = 0; j < chunk.length; j++) {
           const placeData = chunk[j];
           const placeRef = doc(collection(db, 'places'));
-          const enriched = this.enrichPlaceWrite({ ...placeData, listId }, accessFields);
+          const enriched = this.enrichPlaceWrite({ ...placeData, listId }, accessFields, {
+            suppressNotifications,
+          });
           const newPlace: Omit<Place, 'id'> = {
             ...enriched,
             addedAt: new Date(),

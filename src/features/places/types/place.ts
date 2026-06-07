@@ -26,6 +26,8 @@ export interface Place {
   listOwnerId?: string;
   listIsPublic?: boolean;
   listCollaboratorIds?: string[];
+  /** Set during bulk import to suppress per-place Cloud Function notifications. */
+  suppressNotifications?: boolean;
   googleMapsUrl?: string;
   lat?: number;
   lng?: number;
