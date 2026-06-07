@@ -9,7 +9,10 @@ import { getDoc, setDoc } from 'firebase/firestore';
 import { googlePlaceDocRef } from '@/features/places/api/googlePlaceFirestore';
 import type { GooglePlace as CanonicalGooglePlace } from '@/features/places/types/googlePlace';
 import { normalizeOpeningHours } from '@/features/places/utils/openingHoursUtils';
-import { buildGooglePlacePayload } from '@/features/places/utils/placeWriteSplit';
+import {
+  buildGooglePlacePayload,
+  normalizeGooglePlaceId,
+} from '@/features/places/utils/placeWriteSplit';
 
 interface GoogleLocation {
   latitude: number;
@@ -202,8 +205,9 @@ export class GoogleMapsService {
   }
 
   private static async readCachedPlaceDetails(placeId: string): Promise<LegacyGooglePlace | null> {
+    const canonicalPlaceId = normalizeGooglePlaceId(placeId);
     try {
-      const cacheSnap = await getDoc(googlePlaceDocRef(placeId));
+      const cacheSnap = await getDoc(googlePlaceDocRef(canonicalPlaceId));
       if (!cacheSnap.exists()) {
         return null;
       }
@@ -211,7 +215,7 @@ export class GoogleMapsService {
       const cachedData = cacheSnap.data();
       const fetchedAt = cachedData.detailsFetchedAt ?? cachedData.updatedAt;
       if (fetchedAt && Date.now() - fetchedAt.getTime() < 30 * 24 * 60 * 60 * 1000) {
-        logger.info(`Using cached place details for ${placeId}`);
+        logger.info(`Using cached place details for ${canonicalPlaceId}`);
         return this.canonicalGooglePlaceToLegacy(cachedData);
       }
     } catch (e) {
@@ -233,9 +237,9 @@ export class GoogleMapsService {
   }): Promise<{ details: LegacyGooglePlace | null; canonicalId?: string }> {
     await this.initialize();
 
-    const candidateIds = [input.placeId, input.googlePlaceId].filter((id): id is string =>
-      Boolean(id && this.isCanonicalGooglePlaceId(id))
-    );
+    const candidateIds = [input.placeId, input.googlePlaceId]
+      .filter((id): id is string => Boolean(id && this.isCanonicalGooglePlaceId(id)))
+      .map(normalizeGooglePlaceId);
 
     const uniqueCandidates = [...new Set(candidateIds)];
 
@@ -278,13 +282,14 @@ export class GoogleMapsService {
     options?: { skipCache?: boolean }
   ): Promise<LegacyGooglePlace | null> {
     await this.initialize();
+    const canonicalPlaceId = normalizeGooglePlaceId(placeId);
 
     if (!this.apiKey) {
       throw new Error('Missing Google Maps API key for Places API.');
     }
 
     if (!options?.skipCache) {
-      const cached = await this.readCachedPlaceDetails(placeId);
+      const cached = await this.readCachedPlaceDetails(canonicalPlaceId);
       if (cached) {
         return cached;
       }
@@ -292,7 +297,7 @@ export class GoogleMapsService {
 
     try {
       const response = await fetch(
-        `https://places.googleapis.com/v1/places/${placeId}?fields=id,displayName,formattedAddress,location,rating,userRatingCount,priceLevel,photos,types,primaryType,nationalPhoneNumber,websiteUri,googleMapsUri,businessStatus,currentOpeningHours,timeZone,delivery,dineIn,takeout,curbsidePickup,reservable,servesBeer,servesWine,servesVegetarianFood,servesBreakfast,servesLunch,servesDinner,servesBrunch,accessibilityOptions&key=${this.apiKey}`
+        `https://places.googleapis.com/v1/places/${canonicalPlaceId}?fields=id,displayName,formattedAddress,location,rating,userRatingCount,priceLevel,photos,types,primaryType,nationalPhoneNumber,websiteUri,googleMapsUri,businessStatus,currentOpeningHours,timeZone,delivery,dineIn,takeout,curbsidePickup,reservable,servesBeer,servesWine,servesVegetarianFood,servesBreakfast,servesLunch,servesDinner,servesBrunch,accessibilityOptions&key=${this.apiKey}`
       );
 
       if (!response.ok) {
@@ -301,10 +306,11 @@ export class GoogleMapsService {
       }
 
       const data: GooglePlace = await response.json();
+      const canonicalPlaceId = normalizeGooglePlaceId(data.id);
 
       // Normalize to legacy-like shape for consistency
       const legacyPlace: LegacyGooglePlace = {
-        place_id: data.id,
+        place_id: canonicalPlaceId,
         name: data.displayName?.text,
         formatted_address: data.formattedAddress,
         rating: data.rating,
@@ -355,11 +361,11 @@ export class GoogleMapsService {
         const placeFields = this.convertGooglePlaceToPlace(legacyPlace, '');
         const canonicalPlace = buildGooglePlacePayload(
           { ...placeFields, status: 'not_visited', addedAt: now, updatedAt: now },
-          placeId,
+          canonicalPlaceId,
           { createdAt: now, updatedAt: now }
         );
         await setDoc(
-          googlePlaceDocRef(placeId),
+          googlePlaceDocRef(canonicalPlaceId),
           { ...canonicalPlace, detailsFetchedAt: now },
           { merge: true }
         );
@@ -434,7 +440,7 @@ export class GoogleMapsService {
 
       // Normalize to legacy-like shape expected by convertGooglePlaceToPlace
       return places.map((p) => ({
-        place_id: p.id,
+        place_id: normalizeGooglePlaceId(p.id),
         name: p.displayName?.text,
         formatted_address: p.formattedAddress,
         rating: p.rating,

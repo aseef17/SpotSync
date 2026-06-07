@@ -3,14 +3,21 @@ import {
   buildGooglePlacePayload,
   buildMembershipPayload,
   findDuplicateMembershipIndexes,
+  normalizeGooglePlaceId,
   resolveCanonicalGooglePlaceId,
   resolveMembershipId,
   splitPlaceUpdates,
 } from '@/features/places/utils/placeWriteSplit';
 
 describe('placeWriteSplit', () => {
+  it('strips Places API resource prefix from google place ids', () => {
+    expect(normalizeGooglePlaceId('places/ChIJabc')).toBe('ChIJabc');
+    expect(normalizeGooglePlaceId('ChIJabc')).toBe('ChIJabc');
+  });
+
   it('resolves canonical google place ids', () => {
     expect(resolveCanonicalGooglePlaceId({ googlePlaceId: 'ChIJabc' })).toBe('ChIJabc');
+    expect(resolveCanonicalGooglePlaceId({ googlePlaceId: 'places/ChIJabc' })).toBe('ChIJabc');
     expect(resolveCanonicalGooglePlaceId({ plusCode: '87G8P2V6+XX' })).toBe('plus_87G8P2V6+XX');
     expect(resolveCanonicalGooglePlaceId({})).toMatch(/^manual_/);
   });

@@ -46,12 +46,17 @@ const GOOGLE_PLACE_UPDATE_KEYS = new Set([
   'detailsFetchedAt',
 ]);
 
+/** Strips Places API (New) resource prefix so IDs are safe Firestore document IDs. */
+export function normalizeGooglePlaceId(googlePlaceId: string): string {
+  return googlePlaceId.replace(/^places\//, '');
+}
+
 /** Resolves the canonical googlePlaces document ID for a new place. */
 export function resolveCanonicalGooglePlaceId(
   placeData: Pick<Place, 'googlePlaceId' | 'plusCode'>
 ): string {
   if (placeData.googlePlaceId) {
-    return placeData.googlePlaceId;
+    return normalizeGooglePlaceId(placeData.googlePlaceId);
   }
   if (placeData.plusCode) {
     return `plus_${placeData.plusCode}`;
