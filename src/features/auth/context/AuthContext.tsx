@@ -39,6 +39,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const REGISTRATION_IN_PROGRESS_KEY = 'spotsync_registration_in_progress';
 const REGISTRATION_STALE_MS = 60_000;
+let registrationInFlight = false;
 
 interface RegistrationProgress {
   uid: string;
@@ -177,9 +178,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
           if (profile) {
             setUser(profile);
-          } else {
-            // Profile never appeared — clear any stale registration flag and recover
-            // orphaned auth-only accounts (e.g. after a tab crash mid-registration).
+          } else if (!registrationInFlight) {
+            // Profile never appeared and register() is not running on this page — clear any
+            // stale session flag and recover orphaned auth-only accounts (e.g. tab crash).
             clearRegistrationInProgress();
             await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
             const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
@@ -210,6 +211,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
   const register = useCallback(
     async (email: string, password: string, username: string, displayName: string) => {
+      registrationInFlight = true;
       setRegistrationInProgress('pending');
 
       let userCredential: UserCredential;
@@ -257,6 +259,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
         await sendEmailVerification(userCredential.user);
       } finally {
+        registrationInFlight = false;
         clearRegistrationInProgress();
       }
     },
