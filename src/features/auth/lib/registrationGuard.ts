@@ -140,3 +140,34 @@ export function isRegistrationInProgress(uid: string, now = Date.now()): boolean
   const legacyProgress = readLegacyRegistrationProgress();
   return isRegistrationActiveForUid(legacyProgress, uid, now);
 }
+
+/** True when a username reservation already belongs to the registering user. */
+export function isUsernameOwnedByUid(
+  usernameOwnerUid: string | undefined,
+  registeringUid: string
+): boolean {
+  return usernameOwnerUid === registeringUid;
+}
+
+/**
+ * Orphan recovery can provision the profile while register() is still pending in another tab.
+ * Never delete the auth user when a profile already exists or the username is already theirs.
+ */
+export function shouldDeleteAuthUserOnRegistrationFailure(options: {
+  userProfileExists: boolean;
+  usernameExists: boolean;
+  usernameOwnerUid?: string;
+  registeringUid: string;
+}): boolean {
+  const { userProfileExists, usernameExists, usernameOwnerUid, registeringUid } = options;
+
+  if (userProfileExists) {
+    return false;
+  }
+
+  if (usernameExists && isUsernameOwnedByUid(usernameOwnerUid, registeringUid)) {
+    return false;
+  }
+
+  return true;
+}
