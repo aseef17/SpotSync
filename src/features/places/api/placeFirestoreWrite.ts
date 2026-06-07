@@ -3,8 +3,8 @@ import {
   arrayUnion,
   deleteDoc,
   doc,
-  setDoc,
   updateDoc,
+  writeBatch,
   type WriteBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -50,21 +50,20 @@ export function writePlaceCreateToBatch(batch: WriteBatch, input: WritePlaceCrea
 }
 
 export async function writePlaceCreate(input: WritePlaceCreateInput): Promise<void> {
-  const now = input.timestamps ?? { addedAt: new Date(), updatedAt: new Date() };
-  const googlePlace = buildGooglePlacePayload(input.place, input.googlePlaceId, {
-    createdAt: now.addedAt,
-    updatedAt: now.updatedAt,
-  });
-  const membership = buildMembershipPayload(
-    input.place,
-    input.listId,
-    input.googlePlaceId,
-    input.membershipId,
-    now
-  );
+  const batch = writeBatch(db);
+  writePlaceCreateToBatch(batch, input);
+  await batch.commit();
+}
 
-  await setDoc(googlePlaceDocRef(input.googlePlaceId), googlePlace, { merge: true });
-  await setDoc(listPlaceMembershipDocRef(input.membershipId), membership, { merge: true });
+/** Atomically creates googlePlaces + listPlaces docs and links the list. */
+export async function writePlaceCreateAndLinkToList(input: WritePlaceCreateInput): Promise<void> {
+  const batch = writeBatch(db);
+  writePlaceCreateToBatch(batch, input);
+  batch.update(doc(db, 'lists', input.listId), {
+    [LIST_PLACE_IDS_FIELD]: arrayUnion(input.googlePlaceId),
+    updatedAt: new Date(),
+  });
+  await batch.commit();
 }
 
 export async function addGooglePlaceIdToList(listId: string, googlePlaceId: string): Promise<void> {
