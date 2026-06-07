@@ -73,3 +73,13 @@ export function shouldCommitSavedListFetch(
 ): boolean {
   return resolved || (!hadSavedLists && fetchedCount > 0);
 }
+
+/** Profile saved-list ids shrank; reconcile must run even when refresh fetch is unresolved. */
+export function hasRemovedSavedListIds(
+  profileIds: string[],
+  previousSavedLists: PlaceList[],
+  ownedIds: Set<string>
+): boolean {
+  const profileIdSet = new Set(profileIds);
+  return previousSavedLists.some((list) => !profileIdSet.has(list.id) && !ownedIds.has(list.id));
+}

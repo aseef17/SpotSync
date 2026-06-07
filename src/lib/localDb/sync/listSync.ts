@@ -8,6 +8,7 @@ import { removeCachedUserList, upsertCachedUserLists } from '@/lib/localDb/userL
 import { listConverter } from '@/features/lists/api/listFirestore';
 import {
   fetchSavedListsByIds,
+  hasRemovedSavedListIds,
   shouldCommitSavedListFetch,
 } from '@/features/lists/api/savedListsFetch';
 import { reconcileSavedLists } from '@/features/lists/api/reconcileSavedLists';
@@ -106,7 +107,11 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
     const { lists: fetched, resolved } = await fetchSavedListsByIds(idsToFetch, listConverter);
 
     if (seq === state.fetchSavedListsSeq) {
-      if (shouldCommitSavedListFetch(hadSavedLists, fetched.length, resolved)) {
+      const removedFromProfile = hasRemovedSavedListIds(ids, state.savedLists, existingIds);
+      if (
+        shouldCommitSavedListFetch(hadSavedLists, fetched.length, resolved) ||
+        removedFromProfile
+      ) {
         state.savedLists = reconcileSavedLists({
           profileIds: ids,
           ownedIds: existingIds,
