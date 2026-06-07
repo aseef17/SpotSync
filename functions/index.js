@@ -557,6 +557,7 @@ exports.onListUpdated = onDocumentUpdated(
       (after.lastImportCount || 0) > 0;
 
     const accessChanged =
+      before.ownerId !== after.ownerId ||
       before.isPublic !== after.isPublic ||
       JSON.stringify(before.collaboratorIds || []) !== JSON.stringify(after.collaboratorIds || []);
 

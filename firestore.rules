@@ -27,23 +27,26 @@ service cloud.firestore {
         (isAuthenticated() && listData.editorIds != null && request.auth.uid in listData.editorIds);
     }
 
-    function canReadPlaceFromDenorm() {
-      return resource.data.listIsPublic == true ||
-        (isAuthenticated() && resource.data.listOwnerId == request.auth.uid) ||
-        (isAuthenticated() &&
-          resource.data.listCollaboratorIds != null &&
-          request.auth.uid in resource.data.listCollaboratorIds);
-    }
-
     function canReadList(listId) {
       let data = listData(listId);
       return data.isPublic == true || isOwner(data) || isCollaborator(data);
     }
 
+    // Denorm fields optimize owner reads on private lists, but public/collaborator
+    // access must always be checked against the parent list to avoid stale denorm
+    // leaking data after access is revoked (e.g. public -> private).
     function canReadPlace() {
-      return resource.data.listOwnerId is string
-        ? canReadPlaceFromDenorm()
-        : canReadList(resource.data.listId);
+      if (!(resource.data.listOwnerId is string)) {
+        return canReadList(resource.data.listId);
+      }
+
+      if (resource.data.listIsPublic != true &&
+          isAuthenticated() &&
+          resource.data.listOwnerId == request.auth.uid) {
+        return true;
+      }
+
+      return canReadList(resource.data.listId);
     }
 
     function canWriteList(listId) {
