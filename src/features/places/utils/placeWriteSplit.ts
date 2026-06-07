@@ -1,4 +1,7 @@
-import { listPlaceMembershipDocId } from '@/features/places/constants/firestorePaths';
+import {
+  listPlaceMembershipDocId,
+  normalizeGooglePlaceId,
+} from '@/features/places/constants/firestorePaths';
 import type { GooglePlace } from '@/features/places/types/googlePlace';
 import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
 import type { Place } from '@/features/places/types/place';
@@ -51,7 +54,7 @@ export function resolveCanonicalGooglePlaceId(
   placeData: Pick<Place, 'googlePlaceId' | 'plusCode'>
 ): string {
   if (placeData.googlePlaceId) {
-    return placeData.googlePlaceId;
+    return normalizeGooglePlaceId(placeData.googlePlaceId);
   }
   if (placeData.plusCode) {
     return `plus_${placeData.plusCode}`;
