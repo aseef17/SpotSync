@@ -31,6 +31,7 @@ import {
   isCurrentAuthStateHandler,
   shouldRetainUserOnAuthChange,
 } from '@/features/auth/lib/authStateHandlerGuard';
+import { isAccountDeletionInProgress } from '@/features/auth/lib/accountDeletionGuard';
 import {
   REGISTRATION_HEARTBEAT_MS,
   beginRegistrationSession,
@@ -288,6 +289,11 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
                 if (profile) {
                   setUser(profile);
                 }
+              } else if (await isAccountDeletionInProgress(fbUser.uid)) {
+                if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                  return;
+                }
+                setUser(buildFallbackUserFromAuth(fbUser));
               } else {
                 // Profile never appeared and register() is not running on this page — clear any
                 // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
@@ -308,6 +314,11 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
               }
             }
           } else if (!isBrowserOnline()) {
+            setUser(buildFallbackUserFromAuth(fbUser));
+          } else if (await isAccountDeletionInProgress(fbUser.uid)) {
+            if (!isCurrentAuthStateHandler(handlerGeneration)) {
+              return;
+            }
             setUser(buildFallbackUserFromAuth(fbUser));
           } else {
             await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
