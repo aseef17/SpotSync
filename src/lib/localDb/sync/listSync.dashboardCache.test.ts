@@ -69,11 +69,12 @@ vi.mock('@/lib/localDb/userListsCache', () => ({
 }));
 
 vi.mock('@/lib/localDb/listCache', () => ({
+  getCachedList: vi.fn(),
   upsertCachedList: vi.fn(),
   removeCachedList: vi.fn(),
 }));
 
-import { upsertCachedList } from '@/lib/localDb/listCache';
+import { getCachedList, upsertCachedList } from '@/lib/localDb/listCache';
 
 vi.mock('@/lib/localDb/changeBus', () => ({
   changeTopics: {
@@ -109,7 +110,14 @@ import {
 } from '@/lib/localDb/sync/listSync';
 
 const getCachedUserMock = vi.mocked(getCachedUser);
+const getCachedListMock = vi.mocked(getCachedList);
 const upsertCachedListMock = vi.mocked(upsertCachedList);
+
+async function flushAsyncWork(): Promise<void> {
+  for (let i = 0; i < 8; i += 1) {
+    await Promise.resolve();
+  }
+}
 
 const ownedList = {
   id: 'owned-1',
@@ -146,6 +154,8 @@ describe('dashboard cache publish gating', () => {
     getCachedUserListsMock.mockResolvedValue(null);
     fetchSavedListsByIdsMock.mockReset();
     getCachedUserMock.mockReset();
+    getCachedListMock.mockReset();
+    getCachedListMock.mockResolvedValue(null);
     upsertCachedListMock.mockReset();
     ownedListsSnapshotHandler = undefined;
     ownedListsSyncCreateCount = 0;
@@ -446,8 +456,7 @@ describe('dashboard cache publish gating', () => {
 
     acquireUserOwnedListsSync('user-1');
     setUserSavedListIds('user-1', []);
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAsyncWork();
 
     expect(syncCachedUserListsMock).toHaveBeenCalledWith('user-1', [ownedList]);
   });
@@ -477,6 +486,135 @@ describe('dashboard cache publish gating', () => {
     expect(upsertCachedListMock).toHaveBeenCalledWith(updatedOwnedList);
   });
 
+  it('does not let orphaned saved-list fetch mark a new sync session hydrated after reset', async () => {
+    let resolveFetch: (value: { lists: PlaceList[]; resolved: boolean }) => void = () => {};
+    const fetchDeferred = new Promise<{ lists: PlaceList[]; resolved: boolean }>((resolve) => {
+      resolveFetch = resolve;
+    });
+    fetchSavedListsByIdsMock.mockReturnValueOnce(fetchDeferred);
+
+    setUserSavedListIds('user-1', ['stale-1']);
+    acquireUserOwnedListsSync('user-1');
+    clearUserListsSyncState('user-1');
+    syncCachedUserListsMock.mockClear();
+    upsertCachedUserListsMock.mockClear();
+
+    acquireUserOwnedListsSync('user-1');
+    ownedListsSnapshotHandler?.(makeOwnedListsSnapshot());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    resolveFetch({ lists: [], resolved: true });
+    await fetchDeferred;
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(syncCachedUserListsMock).not.toHaveBeenCalled();
+  });
+
+  it('does not let orphaned profile cache reseed apply to a later sync session', async () => {
+    fetchSavedListsByIdsMock.mockResolvedValue({ lists: [], resolved: true });
+
+    acquireUserOwnedListsSync('user-1');
+    releaseOwnedListsSync?.();
+    clearUserListsSyncState('user-1');
+    fetchSavedListsByIdsMock.mockClear();
+
+    let resolveCachedUserLists: (value: PlaceList[] | null) => void = () => {};
+    const cachedUserListsDeferred = new Promise<PlaceList[] | null>((resolve) => {
+      resolveCachedUserLists = resolve;
+    });
+
+    let resolveCachedUser: (value: User) => void = () => {};
+    const cachedUserDeferred = new Promise<User>((resolve) => {
+      resolveCachedUser = resolve;
+    });
+
+    let deferNextProfileCacheRead = true;
+    getCachedUserListsMock.mockImplementation(() =>
+      deferNextProfileCacheRead ? cachedUserListsDeferred : Promise.resolve(null)
+    );
+    getCachedUserMock.mockImplementation(() =>
+      deferNextProfileCacheRead ? cachedUserDeferred : Promise.resolve(null)
+    );
+
+    acquireUserOwnedListsSync('user-1');
+    clearUserListsSyncState('user-1');
+    deferNextProfileCacheRead = false;
+
+    acquireUserOwnedListsSync('user-1');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    resolveCachedUserLists([]);
+    await cachedUserListsDeferred;
+    resolveCachedUser({
+      id: 'user-1',
+      email: 'user@example.com',
+      displayName: 'User',
+      username: 'user',
+      savedLists: ['stale-1', 'stale-2'],
+      fcmTokens: [],
+      notificationsDisabled: false,
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date('2024-01-01'),
+    });
+    await cachedUserDeferred;
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchSavedListsByIdsMock).not.toHaveBeenCalledWith(
+      ['stale-1', 'stale-2'],
+      expect.anything()
+    );
+  });
+
+  it('does not let orphaned profile cache reseed apply after sync state reset without profile sync', async () => {
+    fetchSavedListsByIdsMock.mockResolvedValue({ lists: [], resolved: true });
+
+    acquireUserOwnedListsSync('user-1');
+    releaseOwnedListsSync?.();
+    clearUserListsSyncState('user-1');
+    fetchSavedListsByIdsMock.mockClear();
+
+    let resolveCachedUserLists: (value: PlaceList[] | null) => void = () => {};
+    const cachedUserListsDeferred = new Promise<PlaceList[] | null>((resolve) => {
+      resolveCachedUserLists = resolve;
+    });
+    getCachedUserListsMock.mockReturnValueOnce(cachedUserListsDeferred);
+
+    let resolveCachedUser: (value: User) => void = () => {};
+    const cachedUserDeferred = new Promise<User>((resolve) => {
+      resolveCachedUser = resolve;
+    });
+    getCachedUserMock.mockReturnValueOnce(cachedUserDeferred);
+
+    acquireUserOwnedListsSync('user-1');
+    clearUserListsSyncState('user-1');
+
+    resolveCachedUserLists([]);
+    await cachedUserListsDeferred;
+    resolveCachedUser({
+      id: 'user-1',
+      email: 'user@example.com',
+      displayName: 'User',
+      username: 'user',
+      savedLists: ['stale-1', 'stale-2'],
+      fcmTokens: [],
+      notificationsDisabled: false,
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date('2024-01-01'),
+    });
+    await cachedUserDeferred;
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchSavedListsByIdsMock).not.toHaveBeenCalledWith(
+      ['stale-1', 'stale-2'],
+      expect.anything()
+    );
+  });
+
   it('does not let orphaned owned-list cache hydrate apply after sync state reset without snapshot', async () => {
     const staleOwnedList = ownedList;
 
@@ -504,6 +642,48 @@ describe('dashboard cache publish gating', () => {
     await Promise.resolve();
 
     expect(upsertCachedUserListsMock).not.toHaveBeenCalledWith('user-1', [staleOwnedList]);
+  });
+
+  it('prefers fresher list cache over stale user_lists when hydrating during grace resubscribe', async () => {
+    const updatedOwnedList = {
+      ...ownedList,
+      name: 'Updated during grace',
+      updatedAt: new Date('2024-06-01'),
+    } as PlaceList;
+    const staleOwnedList = {
+      ...ownedList,
+      updatedAt: new Date('2024-01-01'),
+    } as PlaceList;
+
+    acquireUserOwnedListsSync('user-1');
+    clearUserListsSyncState('user-1');
+
+    ownedListsSnapshotHandler?.({
+      docs: [{ data: () => updatedOwnedList }],
+      docChanges: () => [
+        {
+          type: 'modified',
+          doc: { id: updatedOwnedList.id, data: () => updatedOwnedList, ref: {} },
+        },
+      ],
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(upsertCachedListMock).toHaveBeenCalledWith(updatedOwnedList);
+
+    releaseOwnedListsSync?.();
+    upsertCachedUserListsMock.mockClear();
+    getCachedUserListsMock.mockResolvedValue([staleOwnedList]);
+    getCachedListMock.mockImplementation(async (listId: string) =>
+      listId === ownedList.id ? updatedOwnedList : null
+    );
+
+    acquireUserOwnedListsSync('user-1');
+    await flushAsyncWork();
+
+    const lastUpsertCall = upsertCachedUserListsMock.mock.calls.at(-1);
+    expect(lastUpsertCall?.[1]).toEqual([updatedOwnedList]);
   });
 
   it('does not let stale owned-list cache hydrate overwrite fresher snapshot during grace resubscribe', async () => {
