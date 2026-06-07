@@ -39,6 +39,23 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const isEmailPasswordUser = (fbUser: FirebaseUser): boolean =>
   fbUser.providerData.some((provider) => provider.providerId === 'password');
 
+const isFreshAuthSession = (fbUser: FirebaseUser): boolean => {
+  const { creationTime, lastSignInTime } = fbUser.metadata;
+  if (!creationTime || !lastSignInTime) {
+    return true;
+  }
+  const createdAt = Date.parse(creationTime);
+  const lastSignInAt = Date.parse(lastSignInTime);
+  if (!Number.isFinite(createdAt) || !Number.isFinite(lastSignInAt)) {
+    return true;
+  }
+  // On first signup Firebase sets both timestamps together; returning logins advance lastSignInAt.
+  return lastSignInAt - createdAt < 5000;
+};
+
+const shouldAutoProvisionProfile = (fbUser: FirebaseUser): boolean =>
+  !isEmailPasswordUser(fbUser) || !isFreshAuthSession(fbUser);
+
 const buildDefaultUsername = (fbUser: FirebaseUser): string => {
   const emailPrefix = (fbUser.email || '').split('@')[0].toLowerCase().trim();
   return emailPrefix || `user_${fbUser.uid.slice(0, 8)}`;
@@ -110,26 +127,31 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        setFirebaseUser(fbUser);
-        // Fetch or create user document in Firestore
-        const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
-        if (userDoc.exists()) {
-          setUser(userDoc.data() as User);
-        } else if (!isEmailPasswordUser(fbUser)) {
-          // Email/password registration creates the Firestore profile in register().
-          // Auto-provisioning here races with that flow and can overwrite the chosen username.
-          await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
-          const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
-          if (provisionedUserDoc.exists()) {
-            setUser(provisionedUserDoc.data() as User);
+      try {
+        if (fbUser) {
+          setFirebaseUser(fbUser);
+          // Fetch or create user document in Firestore
+          const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
+          if (userDoc.exists()) {
+            setUser(userDoc.data() as User);
+          } else if (shouldAutoProvisionProfile(fbUser)) {
+            // Fresh email/password signups create the Firestore profile in register().
+            // Auto-provisioning during that window races and can overwrite the chosen username.
+            await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
+            const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
+            if (provisionedUserDoc.exists()) {
+              setUser(provisionedUserDoc.data() as User);
+            }
           }
+        } else {
+          setFirebaseUser(null);
+          setUser(null);
         }
-      } else {
-        setFirebaseUser(null);
-        setUser(null);
+      } catch (error) {
+        logger.error('Failed to initialize auth profile:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return unsubscribe;
@@ -175,10 +197,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
         throw error;
       }
 
-      const createdUserDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-      if (createdUserDoc.exists()) {
-        setUser(createdUserDoc.data() as User);
-      }
+      setUser(newUser);
 
       await sendEmailVerification(userCredential.user);
     },
