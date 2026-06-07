@@ -7,6 +7,7 @@ import {
 } from '@/features/places/api/placeService';
 import { useListsContext } from '@/features/lists/context/useListsContext';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
+import { shouldApplyCachedListDetails } from '@/features/lists/lib/listDetailAccessGuard';
 import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
@@ -105,7 +106,6 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
-    listAccessibleRef.current = true;
     loadTrackingRef.current.listLoaded = !!listFromContext;
     loadTrackingRef.current.hasCachedData = !!listFromContext;
     let listLoaded = loadTrackingRef.current.listLoaded;
@@ -130,7 +130,10 @@ export const useListDetails = (listId: string | undefined) => {
 
     const hydrateFromCache = async () => {
       const contextList = listsRef.current.find((entry) => entry.id === listId) ?? null;
-      if (contextList) {
+      if (
+        contextList &&
+        shouldApplyCachedListDetails(listAccessibleRef.current, cancelled)
+      ) {
         setList(contextList);
         setError(null);
         listLoaded = true;
@@ -143,7 +146,9 @@ export const useListDetails = (listId: string | undefined) => {
         PlaceService.getListPlacesFromCache(listId),
       ]);
 
-      if (cancelled) return;
+      if (!shouldApplyCachedListDetails(listAccessibleRef.current, cancelled)) {
+        return;
+      }
 
       if (!contextList && cachedList) {
         setList(cachedList);
