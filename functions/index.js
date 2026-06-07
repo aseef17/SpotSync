@@ -373,11 +373,6 @@ exports.onPlaceAdded = onDocumentCreated(
     const place = snap.data();
     const { listId, addedBy, name, notes } = place;
 
-    if (place.suppressNotifications) {
-      console.log(`Skipping notification for "${name}" — suppressNotifications flag set`);
-      return;
-    }
-
     const listDoc = await getFirestore().collection('lists').doc(listId).get();
     if (!listDoc.exists) {
       console.log('No tokens result returned (list might not exist or no recipients).');
