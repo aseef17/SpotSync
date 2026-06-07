@@ -23,6 +23,7 @@ import {
 import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
+  shouldApplyServerConfirmedPrivateAccess,
   shouldClearAccessRevokedOnContextReturn,
   shouldConfirmPrivateAccessFromTrustedContext,
   shouldHydrateCachedListSnapshot,
@@ -103,6 +104,8 @@ export const useListDetails = (listId: string | undefined) => {
   const applyPendingPlacesRef = useRef<((placesData: Place[]) => void) | null>(null);
   const hadListFromContextRef = useRef(!!listFromContext);
   const privateAccessConfirmKeyRef = useRef<string | null>(null);
+  const listIdRef = useRef(listId);
+  listIdRef.current = listId;
 
   const clearPendingPlacesSnapshot = useCallback(() => {
     pendingPlacesSnapshotRef.current = undefined;
@@ -126,7 +129,14 @@ export const useListDetails = (listId: string | undefined) => {
     (targetListId: string, userId: string) => {
       void ListService.getListFromServer(targetListId)
         .then((confirmedList) => {
-          if (!confirmedList || !userCanReadList(confirmedList, userId)) {
+          if (
+            !shouldApplyServerConfirmedPrivateAccess({
+              targetListId,
+              currentListId: listIdRef.current,
+              confirmedList,
+              userId,
+            })
+          ) {
             return;
           }
           privateListServerVerifiedRef.current = true;

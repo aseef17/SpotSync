@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
+  shouldApplyServerConfirmedPrivateAccess,
   shouldClearAccessRevokedOnContextReturn,
   shouldConfirmPrivateAccessFromTrustedContext,
   shouldHydrateCachedListSnapshot,
@@ -153,6 +154,52 @@ describe('resolveListFromContextAccess', () => {
         accessRevoked: true,
       })
     ).toBe('deny-revoked');
+  });
+});
+
+describe('shouldApplyServerConfirmedPrivateAccess', () => {
+  it('applies server confirmation for the currently mounted list', () => {
+    expect(
+      shouldApplyServerConfirmedPrivateAccess({
+        targetListId: 'list-1',
+        currentListId: 'list-1',
+        confirmedList: list(),
+        userId: 'collab-b',
+      })
+    ).toBe(true);
+  });
+
+  it('ignores late confirmations after navigation to another list', () => {
+    expect(
+      shouldApplyServerConfirmedPrivateAccess({
+        targetListId: 'list-1',
+        currentListId: 'list-2',
+        confirmedList: list(),
+        userId: 'collab-b',
+      })
+    ).toBe(false);
+  });
+
+  it('rejects mismatched server payloads', () => {
+    expect(
+      shouldApplyServerConfirmedPrivateAccess({
+        targetListId: 'list-1',
+        currentListId: 'list-1',
+        confirmedList: list({ id: 'list-2' }),
+        userId: 'collab-b',
+      })
+    ).toBe(false);
+  });
+
+  it('rejects confirmations when the user no longer has access', () => {
+    expect(
+      shouldApplyServerConfirmedPrivateAccess({
+        targetListId: 'list-1',
+        currentListId: 'list-1',
+        confirmedList: list({ collaboratorIds: ['someone-else'] }),
+        userId: 'collab-b',
+      })
+    ).toBe(false);
   });
 });
 
