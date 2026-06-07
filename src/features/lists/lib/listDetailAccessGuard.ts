@@ -31,6 +31,11 @@ export function resolveListFromContextAccess(options: {
   if (!userCanReadList(options.list, options.userId)) {
     return 'deny-no-access';
   }
+  // Saved private rows come from saved-list fetches and may retain stale collaboratorIds
+  // after revocation; only owned/collaborator query rows (isSavedList unset) are trustworthy.
+  if (options.list.isSavedList && !options.list.isPublic) {
+    return options.accessRevoked ? 'deny-revoked' : 'deny-no-access';
+  }
   // Mirror shouldGrantListAccess: public lists stay readable after saved-list removal.
   if (options.accessRevoked && !options.list.isPublic) {
     return 'deny-revoked';
