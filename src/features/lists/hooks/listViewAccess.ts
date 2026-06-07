@@ -95,6 +95,22 @@ export function shouldTrustPrivateListSnapshot(options: {
   return options.serverVerified;
 }
 
+/** Gate persistent-cache list hydration after shouldGrantListAccess passes. */
+export function shouldHydrateListFromPersistentCache(options: {
+  grantFromAccessRules: boolean;
+  isPublic: boolean;
+  serverVerified: boolean;
+}): boolean {
+  if (!options.grantFromAccessRules) {
+    return false;
+  }
+  return shouldTrustPrivateListSnapshot({
+    fromCache: true,
+    isPublic: options.isPublic,
+    serverVerified: options.serverVerified,
+  });
+}
+
 export function isFirestorePermissionDenied(error: unknown): boolean {
   return (
     typeof error === 'object' &&

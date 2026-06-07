@@ -15,6 +15,7 @@ import {
   readPersistedListAccessRevoked,
   readPersistedListSavedPrivateDenied,
   shouldClearStaleListView,
+  shouldHydrateListFromPersistentCache,
   shouldTrustPrivateListSnapshot,
   writePersistedListAccessRevoked,
   writePersistedListSavedPrivateDenied,
@@ -72,22 +73,6 @@ export const useListDetails = (listId: string | undefined) => {
     },
     [listId, user?.id]
   );
-  const confirmPrivateAccessFromServer = useCallback(
-    (targetListId: string, userId: string) => {
-      void ListService.getListFromServer(targetListId)
-        .then((list) => {
-          if (!list || !userCanReadList(list, userId)) {
-            return;
-          }
-          privateListServerVerifiedRef.current = true;
-          setAccessRevoked(false);
-        })
-        .catch(() => {
-          // Permission denied or offline — keep sticky revocation.
-        });
-    },
-    [setAccessRevoked]
-  );
   const paginationCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const extraPlacesRef = useRef<Place[]>([]);
   const listsRef = useRef(lists);
@@ -136,6 +121,30 @@ export const useListDetails = (listId: string | undefined) => {
     listAccessibleRef.current = false;
     clearPendingPlacesSnapshot();
   }, [clearPendingPlacesSnapshot]);
+
+  const confirmPrivateAccessFromServer = useCallback(
+    (targetListId: string, userId: string) => {
+      void ListService.getListFromServer(targetListId)
+        .then((confirmedList) => {
+          if (!confirmedList || !userCanReadList(confirmedList, userId)) {
+            return;
+          }
+          privateListServerVerifiedRef.current = true;
+          setAccessRevoked(false);
+          listAccessibleRef.current = true;
+          flushPendingPlacesSnapshot();
+          setList(confirmedList);
+          setError(null);
+          loadTrackingRef.current.hasCachedData = true;
+          loadTrackingRef.current.listLoaded = true;
+          loadTrackingRef.current.onProgress?.();
+        })
+        .catch(() => {
+          // Permission denied or offline — keep sticky revocation.
+        });
+    },
+    [setAccessRevoked, flushPendingPlacesSnapshot]
+  );
 
   useEffect(() => {
     hadListFromContextRef.current = false;
@@ -410,12 +419,16 @@ export const useListDetails = (listId: string | undefined) => {
       if (
         !contextList &&
         cachedList &&
-        shouldGrantListAccess({
-          list: cachedList,
-          userId: user?.id,
-          fromCache: true,
-          accessRevoked: accessRevokedRef.current,
-          savedPrivateDenied: savedPrivateDeniedRef.current,
+        shouldHydrateListFromPersistentCache({
+          grantFromAccessRules: shouldGrantListAccess({
+            list: cachedList,
+            userId: user?.id,
+            fromCache: true,
+            accessRevoked: accessRevokedRef.current,
+            savedPrivateDenied: savedPrivateDeniedRef.current,
+          }),
+          isPublic: cachedList.isPublic,
+          serverVerified: privateListServerVerifiedRef.current,
         })
       ) {
         setList(cachedList);
