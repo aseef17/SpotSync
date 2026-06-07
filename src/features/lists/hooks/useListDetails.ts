@@ -157,6 +157,8 @@ export const useListDetails = (listId: string | undefined) => {
       });
 
       if (contextAccess !== 'grant') {
+        // Saved-private rows are untrusted, not proof of revocation; keep accessRevoked unset
+        // so owned/collaborator context can grant once the live query row arrives.
         if (contextAccess === 'deny-no-access') {
           setAccessRevoked(true);
         }

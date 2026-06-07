@@ -71,6 +71,16 @@ describe('shouldHydrateCachedListSnapshot', () => {
       })
     ).toBe(false);
   });
+
+  it('denies cached places for saved private rows even with stale collaboratorIds', () => {
+    expect(
+      shouldHydrateCachedListSnapshot({
+        list: list({ isSavedList: true }),
+        userId: 'collab-b',
+        accessRevoked: false,
+      })
+    ).toBe(false);
+  });
 });
 
 describe('resolveListFromContextAccess', () => {
@@ -121,7 +131,7 @@ describe('resolveListFromContextAccess', () => {
         userId: 'collab-b',
         accessRevoked: false,
       })
-    ).toBe('deny-no-access');
+    ).toBe('deny-saved-private');
   });
 
   it('denies revoked saved private context with deny-revoked', () => {

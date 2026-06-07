@@ -13,6 +13,9 @@ export function shouldHydrateCachedListSnapshot(options: {
   userId: string | undefined;
   accessRevoked: boolean;
 }): boolean {
+  if (options.list?.isSavedList && !options.list.isPublic) {
+    return false;
+  }
   return shouldGrantListAccess({
     list: options.list,
     userId: options.userId,
@@ -21,7 +24,11 @@ export function shouldHydrateCachedListSnapshot(options: {
   });
 }
 
-export type ListFromContextAccess = 'grant' | 'deny-revoked' | 'deny-no-access';
+export type ListFromContextAccess =
+  | 'grant'
+  | 'deny-revoked'
+  | 'deny-no-access'
+  | 'deny-saved-private';
 
 export function resolveListFromContextAccess(options: {
   list: PlaceList;
@@ -34,7 +41,7 @@ export function resolveListFromContextAccess(options: {
   // Saved private rows come from saved-list fetches and may retain stale collaboratorIds
   // after revocation; only owned/collaborator query rows (isSavedList unset) are trustworthy.
   if (options.list.isSavedList && !options.list.isPublic) {
-    return options.accessRevoked ? 'deny-revoked' : 'deny-no-access';
+    return options.accessRevoked ? 'deny-revoked' : 'deny-saved-private';
   }
   // Mirror shouldGrantListAccess: public lists stay readable after saved-list removal.
   if (options.accessRevoked && !options.list.isPublic) {
