@@ -371,8 +371,10 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
   const onPlaceClickRef = useRef(onPlaceClick);
   const lastLocationPushRef = useRef(0);
 
-  placesRef.current = places;
-  onPlaceClickRef.current = onPlaceClick;
+  useEffect(() => {
+    placesRef.current = places;
+    onPlaceClickRef.current = onPlaceClick;
+  }, [places, onPlaceClick]);
 
   // Throttled location tracking — avoids re-rendering the full tree on every GPS tick
   useEffect(() => {
@@ -408,9 +410,7 @@ const MapContent: React.FunctionComponent<MapViewProps> = ({
         const normalizeId = (id: string | undefined) => id?.replace(/^places\//, '') || '';
         const poiId = normalizeId(e.placeId as string);
 
-        const existingPlace = placesRef.current.find(
-          (p) => normalizeId(p.googlePlaceId) === poiId
-        );
+        const existingPlace = placesRef.current.find((p) => normalizeId(p.googlePlaceId) === poiId);
         if (existingPlace) {
           onPlaceClickRef.current(existingPlace);
           return;

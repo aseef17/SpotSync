@@ -43,6 +43,10 @@ import { useToast } from '@/hooks/useToast';
 
 export const ListView: React.FunctionComponent = () => {
   const { listId } = useParams<{ listId: string }>();
+  return <ListViewContent key={listId} listId={listId} />;
+};
+
+const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> = ({ listId }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -70,17 +74,17 @@ export const ListView: React.FunctionComponent = () => {
   useEffect(() => {
     if (isMobile || !navigator.geolocation) return;
     navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-        },
-        () => {
-          // Permission denied or error
-        },
-        { maximumAge: 60_000 }
-      );
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      () => {
+        // Permission denied or error
+      },
+      { maximumAge: 60_000 }
+    );
   }, [isMobile]);
 
   const displayedList = React.useMemo(() => {

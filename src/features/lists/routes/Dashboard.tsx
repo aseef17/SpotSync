@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo, useEffect } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Plus, Users, Settings, Eye, EyeOff, Edit, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -37,29 +37,26 @@ export const Dashboard: React.FunctionComponent = () => {
   const [optimisticLists, setOptimisticLists] = useState<PlaceList[]>([]);
   const { trigger: triggerAction } = useDeferredAction();
 
+  // Drop optimistic entries once the real list document arrives
+  const activeOptimisticLists = useMemo(() => {
+    if (lists.length === 0) return optimisticLists;
+    const realIds = new Set(lists.map((l) => l.id));
+    return optimisticLists.filter((l) => !realIds.has(l.id));
+  }, [lists, optimisticLists]);
+
   // Merge optimistic lists with real lists, apply updates, and filter hidden
   const displayedLists = useMemo(() => {
-    const combined = [...optimisticLists, ...lists];
+    const combined = [...activeOptimisticLists, ...lists];
     // Deduplicate by clientId if available, falling back to id
     // Since 'lists' (real data) comes last, it will overwrite optimistic versions with the same clientId
     const unique = Array.from(new Map(combined.map((l) => [l.clientId || l.id, l])).values());
     return unique
       .filter((l) => !hiddenListIds.has(l.id))
       .map((l) => (pendingUpdates[l.id] ? { ...l, ...pendingUpdates[l.id] } : l));
-  }, [lists, optimisticLists, hiddenListIds, pendingUpdates]);
+  }, [activeOptimisticLists, lists, hiddenListIds, pendingUpdates]);
 
   const myLists = useMemo(() => displayedLists.filter((l) => !l.isSavedList), [displayedLists]);
   const savedLists = useMemo(() => displayedLists.filter((l) => l.isSavedList), [displayedLists]);
-
-  // Sync optimistic lists with real lists when Firestore data arrives
-  useEffect(() => {
-    if (lists.length === 0) return;
-    const realIds = new Set(lists.map((l) => l.id));
-    setOptimisticLists((prev) => {
-      const stillOptimistic = prev.filter((l) => !realIds.has(l.id));
-      return stillOptimistic.length !== prev.length ? stillOptimistic : prev;
-    });
-  }, [lists]);
 
   const resetForm = () => {
     setEditingList(null);
