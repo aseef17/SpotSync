@@ -1055,11 +1055,13 @@ exports.deleteAccount = onCall(
       }
     }
 
-    console.log('[deleteAccount] Deleting Firebase Auth user');
-    await getAuth().deleteUser(uid);
-
+    // Delete the profile before Auth so a failed auth delete can be retried while the user
+    // is still signed in. The !userDoc.exists branch above handles the inverse partial run.
     console.log('[deleteAccount] Deleting users profile document');
     await userRef.delete();
+
+    console.log('[deleteAccount] Deleting Firebase Auth user');
+    await getAuth().deleteUser(uid);
 
     console.log(`[deleteAccount] Completed deletion for uid=${uid}`);
     return { success: true };
