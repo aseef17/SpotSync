@@ -13,6 +13,11 @@ import {
   shouldClearStaleListView,
 } from '@/features/lists/hooks/listViewAccess';
 import { shouldApplyCachedListDetails } from '@/features/lists/lib/listDetailAccessGuard';
+import {
+  mergeSubscribedPlaces,
+  resolvePlacesSnapshot,
+  type PendingPlacesSnapshot,
+} from '@/features/lists/lib/listPlacesSnapshot';
 import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
@@ -41,7 +46,18 @@ export const useListDetails = (listId: string | undefined) => {
     onProgress: null as (() => void) | null,
   });
   const listAccessibleRef = useRef(true);
+  const pendingPlacesSnapshotRef = useRef<PendingPlacesSnapshot>(undefined);
+  const applyPendingPlacesRef = useRef<((placesData: Place[]) => void) | null>(null);
   const hadListFromContextRef = useRef(!!listFromContext);
+
+  const flushPendingPlacesSnapshot = useCallback(() => {
+    const pending = pendingPlacesSnapshotRef.current;
+    if (pending === undefined) {
+      return;
+    }
+    pendingPlacesSnapshotRef.current = undefined;
+    applyPendingPlacesRef.current?.(pending);
+  }, []);
 
   useEffect(() => {
     hadListFromContextRef.current = false;
@@ -53,6 +69,7 @@ export const useListDetails = (listId: string | undefined) => {
 
     if (listFromContext) {
       listAccessibleRef.current = true;
+      flushPendingPlacesSnapshot();
       setList(listFromContext);
       setError(null);
       loadTrackingRef.current.listLoaded = true;
@@ -76,7 +93,7 @@ export const useListDetails = (listId: string | undefined) => {
       loadTrackingRef.current.hasCachedData = false;
       loadTrackingRef.current.onProgress?.();
     }
-  }, [listFromContext, listId]);
+  }, [listFromContext, listId, flushPendingPlacesSnapshot]);
 
   useEffect(() => {
     if (!listId || listFromContext) {
@@ -99,6 +116,7 @@ export const useListDetails = (listId: string | undefined) => {
           loadTrackingRef.current.hasCachedData = false;
         } else {
           listAccessibleRef.current = true;
+          flushPendingPlacesSnapshot();
           setList(listData);
           setError(null);
           loadTrackingRef.current.hasCachedData = true;
@@ -129,7 +147,7 @@ export const useListDetails = (listId: string | undefined) => {
       cancelled = true;
       unsubscribeList();
     };
-  }, [listId, listFromContext]);
+  }, [listId, listFromContext, flushPendingPlacesSnapshot]);
 
   useEffect(() => {
     if (!listId) {
@@ -137,6 +155,8 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
+    pendingPlacesSnapshotRef.current = undefined;
+    applyPendingPlacesRef.current = null;
     listAccessibleRef.current = !!listFromContext;
     loadTrackingRef.current.listLoaded = !!listFromContext;
     loadTrackingRef.current.hasCachedData = !!listFromContext;
@@ -212,24 +232,33 @@ export const useListDetails = (listId: string | undefined) => {
       isBrowserOnline() ? OFFLINE_LOAD_TIMEOUT_MS : 3000
     );
 
+    const applyPlacesSnapshot = (placesData: Place[]) => {
+      const deduped = mergeSubscribedPlaces(placesData, extraPlacesRef.current);
+      setPlaces(deduped);
+      setHasMorePlaces(
+        placesData.length >= PLACES_SUBSCRIPTION_LIMIT || paginationCursorRef.current !== null
+      );
+      placesLoaded = true;
+      hasCachedData = hasCachedData || deduped.length > 0;
+      finishLoading();
+    };
+
+    applyPendingPlacesRef.current = applyPlacesSnapshot;
+
     const unsubscribePlaces = PlaceService.subscribeToListPlaces(
       listId,
       (placesData) => {
-        if (cancelled || !listAccessibleRef.current) return;
-        const merged = [...placesData, ...extraPlacesRef.current];
-        const seen = new Set<string>();
-        const deduped = merged.filter((place) => {
-          if (seen.has(place.id)) return false;
-          seen.add(place.id);
-          return true;
+        const resolution = resolvePlacesSnapshot({
+          placesData,
+          listAccessible: listAccessibleRef.current,
+          cancelled,
+          pendingSnapshot: pendingPlacesSnapshotRef.current,
         });
-        setPlaces(deduped);
-        setHasMorePlaces(
-          placesData.length >= PLACES_SUBSCRIPTION_LIMIT || paginationCursorRef.current !== null
-        );
-        placesLoaded = true;
-        hasCachedData = hasCachedData || deduped.length > 0;
-        finishLoading();
+        pendingPlacesSnapshotRef.current = resolution.pendingSnapshot;
+        if (!resolution.shouldApply) {
+          return;
+        }
+        applyPlacesSnapshot(placesData);
       },
       (err) => {
         if (cancelled) return;
@@ -241,6 +270,7 @@ export const useListDetails = (listId: string | undefined) => {
 
     return () => {
       cancelled = true;
+      applyPendingPlacesRef.current = null;
       loadTrackingRef.current.onProgress = null;
       window.clearTimeout(timeoutId);
       unsubscribePlaces();
