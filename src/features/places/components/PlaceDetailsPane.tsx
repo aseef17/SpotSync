@@ -1,6 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { LoadingButton } from '@/components/Elements/Button/LoadingButton';
-import { Edit3, MapPin, Star, DollarSign, Globe, Calendar, Maximize2 } from 'lucide-react';
+import {
+  Edit3,
+  MapPin,
+  Star,
+  DollarSign,
+  Globe,
+  Calendar,
+  Maximize2,
+  ArrowLeft,
+} from 'lucide-react';
 import { PlaceService } from '@/features/places/api/placeService';
 import { logger } from '@/utils/logger';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
@@ -20,6 +29,7 @@ export interface PlaceDetailsPaneProps {
   className?: string;
   canDelete?: boolean;
   canEdit?: boolean;
+  hideHeaderBack?: boolean;
 }
 
 const formatDate = (date: unknown): string => {
@@ -59,6 +69,7 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
   className = '',
   canDelete = false,
   canEdit = true,
+  hideHeaderBack = false,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [editedNotes, setEditedNotes] = useState(place.notes || '');
@@ -126,8 +137,18 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
 
   return (
     <div className={`light-bg-card flex flex-col h-full ${className}`}>
-      <div className="flex items-center justify-between p-6 border-b light-border-default flex-shrink-0">
-        <h2 className="text-xl font-semibold light-text-primary truncate">{place.name}</h2>
+      <div className="flex items-center gap-3 p-6 border-b light-border-default flex-shrink-0">
+        {!hideHeaderBack && (
+          <button
+            type="button"
+            onClick={onClose}
+            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 light-text-secondary transition-colors shrink-0"
+            aria-label="Back to list"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
+        )}
+        <h2 className="text-xl font-semibold light-text-primary truncate flex-1">{place.name}</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-6 space-y-6">
@@ -409,21 +430,23 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
       </div>
 
       <div className="p-4 border-t light-border-default flex justify-between items-center gap-4 flex-shrink-0 bg-gray-50/50 dark:bg-gray-900/20">
-        {canDelete && (
-          <LoadingButton
+        {canDelete ? (
+          <button
+            type="button"
             onClick={() => setShowDeleteConfirm(true)}
-            loadingText="Deleting..."
-            variant="ghost"
-            className="px-3 sm:px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors font-medium whitespace-nowrap text-sm sm:text-base"
+            className="px-3 sm:px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors font-medium whitespace-nowrap text-sm sm:text-base"
           >
             Delete Place
-          </LoadingButton>
+          </button>
+        ) : (
+          <span />
         )}
         <button
+          type="button"
           onClick={onClose}
           className="ml-auto px-4 py-2 bg-white dark:bg-gray-800 border light-border-default hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm sm:text-base shadow-sm"
         >
-          Close
+          Back
         </button>
       </div>
 

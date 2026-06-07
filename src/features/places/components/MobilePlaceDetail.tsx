@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  X,
+  ArrowLeft,
   Star,
   MapPin,
   Phone,
@@ -196,10 +196,12 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
           </div>
         </div>
         <button
+          type="button"
           onClick={onClose}
-          className={`p-2 rounded-full bg-gray-100 dark:bg-gray-800 ${themeColors.text.secondary}`}
+          className={`p-2 rounded-lg bg-gray-100 dark:bg-gray-800 ${themeColors.text.secondary} hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors`}
+          aria-label="Back to list"
         >
-          <X className="h-5 w-5" />
+          <ArrowLeft className="h-5 w-5" />
         </button>
       </div>
 

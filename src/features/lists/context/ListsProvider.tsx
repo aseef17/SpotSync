@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ListService } from '@/features/lists/api/listService';
 import { logger } from '@/utils/logger';
+import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import type { PlaceList } from '@/features/lists/types/list';
 import { ListsContext, type ListsContextValue } from '@/features/lists/context/ListsContext';
 
@@ -42,6 +43,23 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
 
     return () => unsubscribe();
   }, [userId]);
+
+  useEffect(() => {
+    if (!loading || !userId) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setError(
+        (prev) =>
+          prev ??
+          (isBrowserOnline()
+            ? 'Loading is taking longer than expected. Please try again.'
+            : 'You appear to be offline. Reconnect to the internet to load your lists.')
+      );
+      setLoading(false);
+    }, 12000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loading, userId]);
 
   const createList = useCallback(
     async (data: {

@@ -1,28 +1,30 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { themeColors } from '@/styles/colors';
+import { VerifyEmail } from '@/features/auth/routes/VerifyEmail';
+import { AppLoadingScreen } from '@/components/Layout/AppLoadingScreen';
 
 interface PrivateRouteProps {
   children?: React.ReactNode;
 }
 
 export const PrivateRoute: React.FunctionComponent<PrivateRouteProps> = ({ children }) => {
-  const { firebaseUser, loading } = useAuth();
+  const { firebaseUser, loading, requiresEmailVerification } = useAuth();
 
   if (loading) {
     return (
-      <div
-        className={`min-h-screen ${themeColors.background.app} flex items-center justify-center`}
-      >
-        <div
-          className={`animate-spin rounded-full h-32 w-32 border-b-2 ${themeColors.text.primary}`}
-        ></div>
-      </div>
+      <AppLoadingScreen
+        title="Loading your account"
+        message="Restoring your session and profile..."
+      />
     );
   }
 
   if (!firebaseUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requiresEmailVerification) {
+    return <VerifyEmail />;
   }
 
   return children ? <>{children}</> : <Outlet />;

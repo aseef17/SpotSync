@@ -36,7 +36,8 @@ A real-time collaborative map app for organizing shared places. Import directly 
 
 ## Core Functionality
 
-- **Secure Authentication**: Integration with Google OAuth and standard email/password flows.
+- **Secure Authentication**: Google OAuth and email/password with required email verification, password reset, and account deletion (Settings → Danger Zone).
+- **Username Registry**: Dedicated `usernames` collection with server-side availability checks for signup and profile updates.
 - **Real-time Collaboration**: Share lists with specific collaborators and manage permissions.
 - **Public Lists & Dashboard**: Make lists public for view-only access, allowing others to "Save to Dashboard" without editing rights.
 - **Google Maps Synchronization**: Import existing saved lists from Google Maps directly into the app.
@@ -56,7 +57,7 @@ A real-time collaborative map app for organizing shared places. Import directly 
 
 ## Application Workflow
 
-1.  **Authentication**: Users sign up via Email/Password or Google OAuth. Profiles are created in Firestore.
+1.  **Authentication**: Users sign up via Email/Password or Google OAuth. Email/password accounts must verify their email before signing in. Profiles are created in Firestore with a synced username registry entry.
 2.  **Dashboard**: Users land on the dashboard to view their lists and syncing status.
 3.  **List Creation**:
     - **Manual**: Create a fresh empty list.
@@ -83,6 +84,10 @@ users (collection)
     ├── photoURL: string
     ├── fcmTokens: string[]  <-- For Push Notifications
     └── createdAt: timestamp
+
+usernames (collection)
+└── normalizedUsername (document)
+    └── uid: string            <-- Public lookup for signup availability
 
 lists (collection)
 └── listId (document)

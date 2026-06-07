@@ -5,6 +5,7 @@ import { NotificationProvider } from '@/features/notifications/context';
 import { ThemeProvider } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
 import { ThemeLoader } from '@/components/Elements/Theme/ThemeLoader';
+import { OfflineBanner } from '@/components/Layout/OfflineBanner';
 import { AppRoutes } from '@/routes';
 import { ListsProvider } from '@/features/lists/context/ListsProvider';
 
@@ -26,6 +27,7 @@ function App() {
             <ThemeProvider>
               <div className="min-h-screen light-bg-app transition-colors">
                 <ThemeLoader />
+                <OfflineBanner />
                 <Toaster
                   position="top-center"
                   richColors

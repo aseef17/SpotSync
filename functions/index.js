@@ -7,6 +7,7 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const { setGlobalOptions } = require('firebase-functions/v2');
 const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldPath, FieldValue } = require('firebase-admin/firestore');
+const { getAuth } = require('firebase-admin/auth');
 const { getMessaging } = require('firebase-admin/messaging');
 
 initializeApp();
@@ -843,6 +844,182 @@ exports.acceptInvitation = onCall({ region: 'us-east4' }, async (request) => {
 
   return { listId: invitation.listId };
 });
+
+async function batchDeleteDocRefs(db, docRefs) {
+  const BATCH_SIZE = 499;
+  for (let i = 0; i < docRefs.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    docRefs.slice(i, i + BATCH_SIZE).forEach((docRef) => batch.delete(docRef));
+    await batch.commit();
+  }
+}
+
+async function deleteListAndPlaces(db, listId) {
+  const placesSnapshot = await db.collection('places').where('listId', '==', listId).get();
+  const BATCH_SIZE = 499;
+  const placeDocs = placesSnapshot.docs;
+
+  if (placeDocs.length === 0) {
+    await db.collection('lists').doc(listId).delete();
+    return;
+  }
+
+  for (let i = 0; i < placeDocs.length; i += BATCH_SIZE) {
+    const batch = db.batch();
+    const chunk = placeDocs.slice(i, i + BATCH_SIZE);
+    chunk.forEach((placeDoc) => batch.delete(placeDoc.ref));
+    if (i + BATCH_SIZE >= placeDocs.length) {
+      batch.delete(db.collection('lists').doc(listId));
+    }
+    await batch.commit();
+  }
+}
+
+/**
+ * Public username availability check. Also backfills the usernames registry for legacy accounts.
+ */
+exports.checkUsernameExists = onCall({ region: 'us-east4' }, async (request) => {
+  const { username } = request.data || {};
+  if (!username || typeof username !== 'string') {
+    throw new HttpsError('invalid-argument', 'username is required.');
+  }
+
+  const normalized = username.toLowerCase().trim();
+  const db = getFirestore();
+  const usernameRef = db.collection('usernames').doc(normalized);
+  const usernameDoc = await usernameRef.get();
+
+  if (usernameDoc.exists()) {
+    return { exists: true };
+  }
+
+  const usersSnapshot = await db
+    .collection('users')
+    .where('username', '==', normalized)
+    .limit(1)
+    .get();
+
+  if (!usersSnapshot.empty) {
+    const uid = usersSnapshot.docs[0].id;
+    await usernameRef.set({ uid });
+    return { exists: true };
+  }
+
+  return { exists: false };
+});
+
+/**
+ * Permanently delete the authenticated user's account, owned lists, and auth record.
+ */
+exports.deleteAccount = onCall(
+  { region: 'us-east4', timeoutSeconds: 540, memory: '512MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'You must be signed in to delete your account.');
+    }
+
+    const uid = request.auth.uid;
+    const db = getFirestore();
+    const userRef = db.collection('users').doc(uid);
+    const userDoc = await userRef.get();
+
+    if (!userDoc.exists) {
+      throw new HttpsError('not-found', 'User profile not found.');
+    }
+
+    const userData = userDoc.data();
+    const normalizedUsername = userData.username
+      ? String(userData.username).toLowerCase().trim()
+      : null;
+    const normalizedEmail = userData.email ? String(userData.email).toLowerCase().trim() : null;
+
+    console.log(`[deleteAccount] Starting deletion for uid=${uid}`);
+
+    const ownedListsSnapshot = await db.collection('lists').where('ownerId', '==', uid).get();
+    console.log(`[deleteAccount] Deleting ${ownedListsSnapshot.size} owned lists`);
+    for (const listDoc of ownedListsSnapshot.docs) {
+      await deleteListAndPlaces(db, listDoc.id);
+    }
+
+    const collaboratorListsSnapshot = await db
+      .collection('lists')
+      .where('collaboratorIds', 'array-contains', uid)
+      .get();
+
+    console.log(
+      `[deleteAccount] Removing user from ${collaboratorListsSnapshot.size} collaborator lists`
+    );
+    for (const listDoc of collaboratorListsSnapshot.docs) {
+      const listData = listDoc.data();
+      if (listData.ownerId === uid) continue;
+
+      const updatedCollaborators = (listData.collaborators || []).filter((c) => c.userId !== uid);
+      const collaboratorIds = (listData.collaboratorIds || []).filter((id) => id !== uid);
+      const editorIds = (listData.editorIds || []).filter((id) => id !== uid);
+
+      await listDoc.ref.update({
+        collaborators: updatedCollaborators,
+        collaboratorIds,
+        editorIds,
+        updatedAt: new Date(),
+      });
+    }
+
+    const invitationDeletes = new Map();
+    const queueInvitationDelete = (doc) => invitationDeletes.set(doc.id, doc.ref);
+
+    const sentInvitationsSnapshot = await db
+      .collection('invitations')
+      .where('invitedBy', '==', uid)
+      .get();
+    sentInvitationsSnapshot.docs.forEach(queueInvitationDelete);
+
+    if (normalizedEmail) {
+      const receivedByEmailSnapshot = await db
+        .collection('invitations')
+        .where('invitedEmail', '==', normalizedEmail)
+        .get();
+      receivedByEmailSnapshot.docs.forEach(queueInvitationDelete);
+    }
+
+    if (normalizedUsername) {
+      const receivedByUsernameSnapshot = await db
+        .collection('invitations')
+        .where('invitedUsername', '==', normalizedUsername)
+        .get();
+      receivedByUsernameSnapshot.docs.forEach(queueInvitationDelete);
+    }
+
+    if (invitationDeletes.size > 0) {
+      console.log(`[deleteAccount] Deleting ${invitationDeletes.size} invitations`);
+      await batchDeleteDocRefs(db, Array.from(invitationDeletes.values()));
+    }
+
+    const usernameDeletes = new Map();
+    if (normalizedUsername) {
+      usernameDeletes.set(normalizedUsername, db.collection('usernames').doc(normalizedUsername));
+    }
+
+    const usernamesForUidSnapshot = await db.collection('usernames').where('uid', '==', uid).get();
+    usernamesForUidSnapshot.docs.forEach((doc) => usernameDeletes.set(doc.id, doc.ref));
+
+    for (const usernameRef of usernameDeletes.values()) {
+      const usernameDoc = await usernameRef.get();
+      if (usernameDoc.exists && usernameDoc.data()?.uid === uid) {
+        await usernameRef.delete();
+      }
+    }
+
+    console.log('[deleteAccount] Deleting users profile document');
+    await userRef.delete();
+
+    console.log('[deleteAccount] Deleting Firebase Auth user');
+    await getAuth().deleteUser(uid);
+
+    console.log(`[deleteAccount] Completed deletion for uid=${uid}`);
+    return { success: true };
+  }
+);
 
 exports.getGoogleMapsList = require('./getGoogleMapsList').getGoogleMapsList;
 exports.askList = require('./aiSearch').askList;

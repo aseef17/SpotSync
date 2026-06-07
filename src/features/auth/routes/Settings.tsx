@@ -1,7 +1,9 @@
 import React, { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ArrowLeft, User, Bell, LogOut, Save } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ArrowLeft, User, Bell, LogOut, Save, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { AccountService, getCallableErrorMessage } from '@/features/auth/api/accountService';
+import { logger } from '@/utils/logger';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
 import { ThemeToggle } from '@/components/Elements/Theme/ThemeToggle';
 import { AccountLinking } from '@/features/auth/components/AccountLinking';
@@ -22,6 +24,11 @@ export const Settings: React.FunctionComponent = () => {
   } = useNotifications();
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const navigate = useNavigate();
+
+  const DELETE_ACCOUNT_PHRASE = 'Delete my SpotSync account';
 
   const {
     displayName,
@@ -264,13 +271,39 @@ export const Settings: React.FunctionComponent = () => {
           </div>
         )}
 
+        {/* Danger Zone */}
+        <div className="light-bg-card rounded-lg shadow-sm border border-red-200 dark:border-red-900">
+          <div className="px-6 py-4 border-b border-red-200 dark:border-red-900">
+            <div className="flex items-center">
+              <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mr-3" />
+              <h2 className="text-lg font-semibold text-red-800 dark:text-red-400">Danger Zone</h2>
+            </div>
+            <p className="mt-1 text-sm text-red-700 dark:text-red-300">
+              Permanently delete your account and all lists you own
+            </p>
+          </div>
+          <div className="px-6 py-4">
+            <p className="text-sm light-text-secondary mb-4">
+              This will delete your profile, remove your Firebase account, and delete any lists you
+              own. Lists where you are only a collaborator, and public lists you saved, will not be
+              deleted.
+            </p>
+            <button
+              onClick={() => setShowDeleteAccountConfirm(true)}
+              className="w-full flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 transition-colors"
+            >
+              Delete Account
+            </button>
+          </div>
+        </div>
+
         {/* Account Actions */}
         <div className={`light-bg-card rounded-lg shadow-sm border light-border-default`}>
           <div className="px-6 py-4">
             <h2 className={`text-lg font-semibold light-text-primary mb-4`}>Account Actions</h2>
             <button
               onClick={() => setShowSignOutConfirm(true)}
-              className="w-full flex items-center justify-center space-x-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 transition-colors"
+              className="w-full flex items-center justify-center space-x-2 px-4 py-2 border light-border-default light-text-primary rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors"
             >
               <LogOut className="h-4 w-4 mr-2" />
               Sign Out
@@ -294,6 +327,36 @@ export const Settings: React.FunctionComponent = () => {
         confirmText="Sign Out"
         variant="danger"
         isLoading={signingOut}
+      />
+
+      <ConfirmDialog
+        isOpen={showDeleteAccountConfirm}
+        title="Delete your account?"
+        message="This action is permanent and cannot be undone. Your owned lists and account data will be deleted."
+        requiredPhrase={DELETE_ACCOUNT_PHRASE}
+        onConfirm={async () => {
+          setDeletingAccount(true);
+          try {
+            await AccountService.deleteAccount();
+            setShowDeleteAccountConfirm(false);
+            await logout();
+            navigate('/login', { replace: true });
+          } catch (error) {
+            logger.error('Account deletion failed:', error);
+            toast.error(
+              getCallableErrorMessage(error, 'Failed to delete account. Please try again.')
+            );
+          } finally {
+            setDeletingAccount(false);
+          }
+        }}
+        onCancel={() => {
+          if (deletingAccount) return;
+          setShowDeleteAccountConfirm(false);
+        }}
+        confirmText="Delete Account"
+        variant="danger"
+        isLoading={deletingAccount}
       />
     </div>
   );

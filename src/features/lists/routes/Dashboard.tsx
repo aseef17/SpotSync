@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { Plus, Users, Settings, Eye, EyeOff, Edit, AlertCircle } from 'lucide-react';
+import { Plus, Users, Settings, Eye, EyeOff, Edit } from 'lucide-react';
+import { ConnectionIssueCard } from '@/components/Layout/ConnectionIssueCard';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeToggle } from '@/components/Elements/Theme/ThemeToggle';
@@ -16,6 +17,7 @@ import { ListIcon } from '@/features/lists/components/ListIcon';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
 import { logger } from '@/utils/logger';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
+import { CollaborationService } from '@/features/lists/api/collaborationService';
 
 const isPendingOptimisticList = (
   list: PlaceList,
@@ -43,6 +45,7 @@ export const Dashboard: React.FunctionComponent = () => {
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
   const [showInvitations, setShowInvitations] = useState(false);
+  const [pendingInvitationCount, setPendingInvitationCount] = useState(0);
   const [editingList, setEditingList] = useState<PlaceList | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
@@ -116,6 +119,21 @@ export const Dashboard: React.FunctionComponent = () => {
 
   const myLists = useMemo(() => displayedLists.filter((l) => !l.isSavedList), [displayedLists]);
   const savedLists = useMemo(() => displayedLists.filter((l) => l.isSavedList), [displayedLists]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const loadPendingCount = async () => {
+      try {
+        const invitations = await CollaborationService.getPendingInvitations(user.id);
+        setPendingInvitationCount(invitations.length);
+      } catch (err) {
+        logger.error('Failed to load pending invitations count', err);
+      }
+    };
+
+    void loadPendingCount();
+  }, [user?.id]);
 
   const resetForm = () => {
     setEditingList(null);
@@ -392,7 +410,7 @@ export const Dashboard: React.FunctionComponent = () => {
             onClick={() => setShowInvitations(!showInvitations)}
             className={`${themeColors.background.card} rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow w-full text-left`}
           >
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between w-full">
               <div className="flex items-center">
                 <div className="bg-purple-600 p-3 rounded-full shadow-sm">
                   <Users className="h-6 w-6 text-white" />
@@ -404,6 +422,11 @@ export const Dashboard: React.FunctionComponent = () => {
                   </p>
                 </div>
               </div>
+              {pendingInvitationCount > 0 && (
+                <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-red-500 px-2 text-xs font-bold text-white">
+                  {pendingInvitationCount}
+                </span>
+              )}
             </div>
           </motion.button>
         </motion.div>
@@ -440,19 +463,11 @@ export const Dashboard: React.FunctionComponent = () => {
           </div>
           <div className="p-6">
             {error ? (
-              <div className="text-center py-12">
-                <AlertCircle className={`mx-auto h-12 w-12 text-red-500`} />
-                <h3 className={`mt-2 text-lg font-medium ${themeColors.text.primary}`}>
-                  Error loading lists
-                </h3>
-                <p className={`mt-1 text-sm ${themeColors.text.secondary}`}>{error}</p>
-                <button
-                  onClick={() => window.location.reload()}
-                  className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.secondary} transition-colors`}
-                >
-                  Retry
-                </button>
-              </div>
+              <ConnectionIssueCard
+                title="Unable to load lists"
+                message={error}
+                onRetry={() => window.location.reload()}
+              />
             ) : loading ? (
               <div className="text-center py-12">
                 <div

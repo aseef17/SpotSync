@@ -123,6 +123,12 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
     filters.priceLevel
   );
 
+  const hasCategoryFilter = Array.isArray(filters.category)
+    ? filters.category.length > 0
+    : !!filters.category;
+  const isDefaultSort =
+    `${filters.sortBy || 'date'}-${filters.sortDirection || 'desc'}` === 'date-desc';
+
   const allStatuses: { value: PlaceStatus | 'all'; label: string }[] = [
     { value: 'all', label: 'All Statuses' },
     { value: 'not_visited', label: 'Not Visited' },
@@ -137,7 +143,7 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
         isInSidebar ? 'px-2 py-3' : 'px-3 py-1'
       }`}
     >
-      <div className="lg:hidden mb-2 space-y-2">
+      <div className="md:hidden mb-2 space-y-2">
         <div className="relative flex gap-2">
           <div className="relative w-full group">
             <Search
@@ -313,12 +319,8 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
         </AnimatePresence>
       </div>
 
-      <div
-        className={`hidden lg:flex ${
-          isInSidebar ? 'flex-col gap-4' : 'flex-row items-center justify-between gap-6'
-        }`}
-      >
-        <div className={`flex gap-2 ${isInSidebar ? 'w-full' : 'flex-1 max-w-xl'}`}>
+      <div className={`hidden md:flex flex-col gap-3 w-full ${isInSidebar ? 'gap-4' : ''}`}>
+        <div className={`flex gap-2 ${isInSidebar ? 'w-full' : 'w-full'}`}>
           <div className="relative flex-1 group">
             <Search
               className={`absolute left-3 top-1/2 transform -translate-y-1/2 h-5 w-5 z-10 ${
@@ -440,14 +442,14 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
           className={
             isInSidebar
               ? 'flex flex-col gap-2'
-              : 'flex flex-row items-center justify-end gap-4 flex-1 min-w-0'
+              : 'flex flex-row flex-wrap items-center justify-between gap-x-3 gap-y-2 w-full'
           }
         >
           <div
             className={
               isInSidebar
                 ? 'grid grid-cols-2 gap-2 w-full'
-                : 'flex flex-wrap items-center justify-end gap-2 w-auto'
+                : 'flex flex-wrap items-stretch gap-2 flex-1 min-w-0'
             }
           >
             <CustomDropdown
@@ -458,6 +460,7 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
               }
               placeholder="All Statuses"
               className={isInSidebar ? 'w-full' : ''}
+              isActive={!!filters.status}
             />
 
             <MultiSelectDropdown
@@ -474,6 +477,7 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
               }
               placeholder="All Categories"
               className={isInSidebar ? 'w-full' : 'w-48'}
+              isActive={hasCategoryFilter}
             />
 
             <CustomDropdown
@@ -506,6 +510,7 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
               }}
               placeholder="Sort By"
               className={isInSidebar ? 'w-full' : 'w-40'}
+              isActive={!isDefaultSort}
             />
 
             {((Array.isArray(filters.category) &&
@@ -522,19 +527,23 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
                   onChange={(value: string) => updateFilter('cuisine', value || undefined)}
                   placeholder="Any Cuisine"
                   className={isInSidebar ? 'w-full' : ''}
+                  isActive={!!filters.cuisine}
                 />
               )}
 
-            <button
-              onClick={() => updateFilter('openNow', !filters.openNow)}
-              className={`px-3 py-2 rounded-md border text-sm font-medium whitespace-nowrap transition-colors ${isInSidebar ? 'w-full flex items-center justify-center' : ''} ${
-                filters.openNow
-                  ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
-                  : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary} hover:bg-gray-50 dark:hover:bg-gray-800/50`
-              }`}
-            >
-              Open Now
-            </button>
+            <div className={isInSidebar ? 'w-full' : ''}>
+              <button
+                type="button"
+                onClick={() => updateFilter('openNow', !filters.openNow ? true : undefined)}
+                className={`w-full h-10 px-3 border rounded-lg flex items-center justify-center whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  filters.openNow
+                    ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 font-medium'
+                    : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary} hover:bg-gray-50 dark:hover:bg-gray-800/50`
+                }`}
+              >
+                Open Now
+              </button>
+            </div>
 
             <CustomDropdown
               value={filters.minRating?.toString() || ''}
@@ -551,6 +560,7 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
               }
               placeholder="Min Rating"
               className={isInSidebar ? 'w-full' : ''}
+              isActive={!!filters.minRating}
             />
 
             <MultiSelectDropdown
@@ -567,6 +577,7 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
               }
               placeholder="Any Price"
               className={isInSidebar ? 'w-full' : 'w-32'}
+              isActive={!!filters.priceLevel?.length}
             />
           </div>
 

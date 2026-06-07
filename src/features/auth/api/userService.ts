@@ -18,6 +18,7 @@ import { logger } from '@/utils/logger';
 import { db } from '@/lib/firebase';
 import type { User } from '@/features/auth/types/user';
 import { omit } from '@/utils/objectUtils';
+import { checkUsernameExistsRemote } from '@/features/auth/api/accountService';
 
 const userConverter: FirestoreDataConverter<User> = {
   toFirestore(user: User): DocumentData {
@@ -121,35 +122,11 @@ export class UserService {
     try {
       const normalizedUsername = username.toLowerCase().trim();
 
-      // Check usernames collection
       const usernameDoc = await getDoc(doc(db, 'usernames', normalizedUsername));
       if (usernameDoc.exists()) return true;
 
-      // Fallback: Check users collection directly for older accounts
-      try {
-        const q = query(
-          collection(db, 'users'),
-          where('username', '==', normalizedUsername) // Note: might not be case-insensitive in Firestore, but works for exact matches
-        );
-        const querySnapshot = await getDocs(q);
-
-        // Also try case-sensitive check on actual username if different
-        if (querySnapshot.empty && username !== normalizedUsername) {
-          const qOriginal = query(collection(db, 'users'), where('username', '==', username));
-          const qOriginalSnap = await getDocs(qOriginal);
-          if (!qOriginalSnap.empty) return true;
-        }
-
-        return !querySnapshot.empty;
-      } catch (fallbackError) {
-        // If the user isn't authenticated, reading the 'users' collection will throw a permission error.
-        // In that case, we rely purely on the 'usernames' collection (which we checked above) being accurate.
-        const error = fallbackError as { code?: string };
-        if (error?.code === 'permission-denied') {
-          return false;
-        }
-        throw fallbackError;
-      }
+      // Server-side check covers legacy users missing from the usernames registry
+      return await checkUsernameExistsRemote(normalizedUsername);
     } catch (error) {
       logger.error('Error checking username:', error);
       throw error;

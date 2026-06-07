@@ -2,6 +2,8 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Place } from '@/features/places/types/place';
 import { PlaceDetailsPane } from './PlaceDetailsPane';
+import { useScrollLock } from '@/hooks/useScrollLock';
+import { themeColors } from '@/styles/colors';
 
 interface PlaceDetailsModalProps {
   place: Place;
@@ -24,6 +26,8 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
   canDelete,
   canEdit,
 }) => {
+  useScrollLock(isOpen);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -36,7 +40,7 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={onClose}
-            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            className={`absolute inset-0 ${themeColors.background.modalOverlay}`}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.9, y: 20 }}

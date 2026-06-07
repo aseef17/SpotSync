@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 import { themeColors } from '@/styles/colors';
 
@@ -19,6 +19,7 @@ export const ImageGalleryModal: React.FunctionComponent<ImageGalleryModalProps> 
 }) => {
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [prevInitialIndex, setPrevInitialIndex] = useState(initialIndex);
+  const thumbnailRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
   // Adjust state if initialIndex changes from parent
   if (initialIndex !== prevInitialIndex) {
@@ -45,6 +46,14 @@ export const ImageGalleryModal: React.FunctionComponent<ImageGalleryModalProps> 
   const handleNext = useCallback(() => {
     setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
   }, [images.length]);
+
+  useEffect(() => {
+    thumbnailRefs.current[currentIndex]?.scrollIntoView({
+      behavior: 'smooth',
+      block: 'nearest',
+      inline: 'center',
+    });
+  }, [currentIndex, isOpen]);
 
   // Handle keyboard navigation
   useEffect(() => {
@@ -124,6 +133,9 @@ export const ImageGalleryModal: React.FunctionComponent<ImageGalleryModalProps> 
           {images.map((img, idx) => (
             <button
               key={idx}
+              ref={(el) => {
+                thumbnailRefs.current[idx] = el;
+              }}
               onClick={() => setCurrentIndex(idx)}
               className={`relative flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 transition-all ${
                 idx === currentIndex

@@ -4,6 +4,7 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { Login } from '@/features/auth/routes/Login';
 import { Register } from '@/features/auth/routes/Register';
 import { PrivateRoute } from '@/features/auth/components/PrivateRoute';
+import { AppLoadingScreen } from '@/components/Layout/AppLoadingScreen';
 
 const Dashboard = lazy(() =>
   import('@/features/lists/routes/Dashboard').then((m) => ({ default: m.Dashboard }))
@@ -16,19 +17,21 @@ const Settings = lazy(() =>
 );
 
 const RouteFallback = () => (
-  <div className="min-h-screen flex items-center justify-center light-bg-app">
-    <div className="h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-  </div>
+  <AppLoadingScreen title="Loading page" message="Fetching the latest view..." showRetry={false} />
 );
 
 export const AppRoutes = () => {
-  const { user } = useAuth();
+  const { user, requiresEmailVerification } = useAuth();
+  const canAccessApp = user && !requiresEmailVerification;
 
   return (
     <Suspense fallback={<RouteFallback />}>
       <Routes>
-        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
-        <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
+        <Route path="/login" element={canAccessApp ? <Navigate to="/dashboard" /> : <Login />} />
+        <Route
+          path="/register"
+          element={canAccessApp ? <Navigate to="/dashboard" /> : <Register />}
+        />
 
         <Route element={<PrivateRoute />}>
           <Route path="/dashboard" element={<Dashboard />} />
@@ -36,7 +39,7 @@ export const AppRoutes = () => {
           <Route path="/settings" element={<Settings />} />
         </Route>
 
-        <Route path="/" element={<Navigate to={user ? '/dashboard' : '/login'} />} />
+        <Route path="/" element={<Navigate to={canAccessApp ? '/dashboard' : '/login'} />} />
       </Routes>
     </Suspense>
   );
