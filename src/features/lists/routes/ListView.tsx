@@ -518,23 +518,25 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
           {/* Shared modals for mobile */}
           {showCollaborators && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="light-bg-card rounded-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto border light-border-default">
-                <div className="sticky top-0 light-bg-card border-b light-border-default p-4 flex items-center justify-between z-10">
-                  <h2 className="text-lg font-semibold light-text-primary">Manage Team</h2>
+              <div className="light-bg-card rounded-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto border light-border-default flex flex-col">
+                <div className="sticky top-0 light-bg-card border-b light-border-default px-6 py-5 flex items-center justify-between z-10">
+                  <h2 className="text-xl font-semibold light-text-primary">Manage Team</h2>
                   <button
                     onClick={() => setShowCollaborators(false)}
-                    className="light-text-secondary hover:light-text-primary"
+                    className="p-2 rounded-full light-text-secondary hover:light-text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
-                <CollaboratorManager
-                  list={list}
-                  currentUserId={user?.id || ''}
-                  onUpdate={() => {
-                    setShowCollaborators(false);
-                  }}
-                />
+                <div className="px-6 sm:px-8 py-6 pb-8">
+                  <CollaboratorManager
+                    list={list}
+                    currentUserId={user?.id || ''}
+                    onUpdate={() => {
+                      setShowCollaborators(false);
+                    }}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -803,7 +805,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                 }}
                 onPlaceRestored={handlePlaceRestored}
                 canDelete={getCanDelete(selectedPlace)}
-                hideHeaderBack
+                layout="panel"
                 className="border-none shadow-none"
               />
             </div>
@@ -1037,10 +1039,10 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
             initial={isMobile ? { y: '100%' } : { opacity: 0, scale: 0.95 }}
             animate={isMobile ? { y: 0 } : { opacity: 1, scale: 1 }}
             className={`light-bg-card ${
-              isMobile ? 'rounded-t-3xl h-[92vh]' : 'rounded-xl max-w-2xl max-h-[85vh]'
+              isMobile ? 'rounded-t-3xl h-[92vh]' : 'rounded-xl max-w-3xl max-h-[85vh]'
             } w-full overflow-y-auto border light-border-default shadow-2xl flex flex-col`}
           >
-            <div className="sticky top-0 light-bg-card border-b light-border-default p-5 flex items-center justify-between z-10">
+            <div className="sticky top-0 light-bg-card border-b light-border-default px-6 py-5 flex items-center justify-between z-10">
               <h2 className="text-xl font-bold light-text-primary">Manage Team</h2>
               <button
                 onClick={() => setShowCollaborators(false)}
@@ -1049,7 +1051,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                 <X className="h-6 w-6" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 pb-8">
               <CollaboratorManager list={list} currentUserId={user?.id || ''} onUpdate={() => {}} />
             </div>
           </motion.div>

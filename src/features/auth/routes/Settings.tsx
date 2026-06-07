@@ -8,13 +8,17 @@ import { useNotifications } from '@/features/notifications/hooks/useNotification
 import { ThemeToggle } from '@/components/Elements/Theme/ThemeToggle';
 import { AccountLinking } from '@/features/auth/components/AccountLinking';
 import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
+import { LoadingButton } from '@/components/Elements/Button/LoadingButton';
 import { useProfile } from '@/features/auth/hooks/useProfile';
 import { useToast } from '@/hooks/useToast';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
 
+const DELETE_ACCOUNT_PHRASE = 'Delete my SpotSync account';
+
 export const Settings: React.FunctionComponent = () => {
   const { user, firebaseUser, logout } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
   const {
     permissionGranted,
     tokenSynced,
@@ -24,11 +28,9 @@ export const Settings: React.FunctionComponent = () => {
   } = useNotifications();
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
-  const navigate = useNavigate();
-
-  const DELETE_ACCOUNT_PHRASE = 'Delete my SpotSync account';
 
   const {
     displayName,
@@ -43,7 +45,6 @@ export const Settings: React.FunctionComponent = () => {
   const { trigger: triggerAction } = useDeferredAction();
 
   const handleSaveProfile = async () => {
-    // Check if values actually changed
     if (user && displayName === user.displayName && username === user.username) {
       toast.info('No changes to save');
       return;
@@ -88,10 +89,26 @@ export const Settings: React.FunctionComponent = () => {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    setDeletingAccount(true);
+    try {
+      await AccountService.deleteAccount();
+      setShowDeleteAccountConfirm(false);
+      setDeleteConfirmText('');
+      await logout();
+      navigate('/login', { replace: true });
+    } catch (error) {
+      logger.error('Account deletion failed:', error);
+      toast.error(getCallableErrorMessage(error, 'Failed to delete account. Please try again.'));
+    } finally {
+      setDeletingAccount(false);
+    }
+  };
+
   return (
     <div className={`min-h-screen light-bg-app transition-colors`}>
       <header className={`light-bg-card shadow-sm border light-border-default`}>
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="w-full px-4">
           <div className="flex items-center justify-between h-16">
             <div className="flex items-center">
               <Link
@@ -107,8 +124,7 @@ export const Settings: React.FunctionComponent = () => {
         </div>
       </header>
 
-      <main className="max-w-3xl mx-auto py-6 px-4 sm:px-6 lg:px-8 space-y-6">
-        {/* Profile Settings Section */}
+      <main className="w-full py-6 px-4 space-y-6">
         <div className={`light-bg-card rounded-lg shadow-sm border light-border-default`}>
           <div className="px-6 py-4 border-b light-border-default">
             <div className="flex items-center">
@@ -183,7 +199,6 @@ export const Settings: React.FunctionComponent = () => {
           </div>
         </div>
 
-        {/* Notifications Section */}
         <div className={`light-bg-card rounded-lg shadow-sm border light-border-default`}>
           <div className="px-6 py-4 border-b light-border-default">
             <div className="flex items-center">
@@ -230,7 +245,6 @@ export const Settings: React.FunctionComponent = () => {
                 </div>
               </div>
 
-              {/* Status indicator - only show when permission granted and not disabled */}
               {permissionGranted && !notificationsDisabled && (
                 <div className="mt-3 flex items-center gap-2">
                   <div
@@ -246,7 +260,6 @@ export const Settings: React.FunctionComponent = () => {
                 </div>
               )}
 
-              {/* Show disabled message when user explicitly disabled notifications */}
               {notificationsDisabled && (
                 <div className="mt-3 flex items-center gap-2">
                   <div className="h-2.5 w-2.5 rounded-full bg-gray-400" />
@@ -259,19 +272,15 @@ export const Settings: React.FunctionComponent = () => {
           </div>
         </div>
 
-        {/* Account Linking Section */}
         {firebaseUser && (
-          <div className="space-y-6">
-            <AccountLinking
-              user={firebaseUser}
-              onAccountLinked={() => {
-                // Refresh will happen automatically when the modal re-renders
-              }}
-            />
-          </div>
+          <AccountLinking
+            user={firebaseUser}
+            onAccountLinked={() => {
+              // Refresh will happen automatically when the modal re-renders
+            }}
+          />
         )}
 
-        {/* Danger Zone */}
         <div className="light-bg-card rounded-lg shadow-sm border border-red-200 dark:border-red-900">
           <div className="px-6 py-4 border-b border-red-200 dark:border-red-900">
             <div className="flex items-center">
@@ -283,21 +292,38 @@ export const Settings: React.FunctionComponent = () => {
             </p>
           </div>
           <div className="px-6 py-4">
-            <p className="text-sm light-text-secondary mb-4">
-              This will delete your profile, remove your Firebase account, and delete any lists you
-              own. Lists where you are only a collaborator, and public lists you saved, will not be
-              deleted.
-            </p>
-            <button
-              onClick={() => setShowDeleteAccountConfirm(true)}
-              className="w-full flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 transition-colors"
-            >
-              Delete Account
-            </button>
+            <div className="p-4 border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 rounded-md">
+              <h4 className="text-sm font-medium text-red-800 dark:text-red-400 mb-2">
+                Delete your SpotSync account
+              </h4>
+              <p className="text-sm text-red-700 dark:text-red-300 mb-4">
+                This will delete your profile, remove your Firebase account, and delete any lists you
+                own. Lists where you are only a collaborator will not be deleted.
+              </p>
+              <label className="block text-sm font-medium text-red-800 dark:text-red-400 mb-1">
+                To confirm, type &quot;<b>{DELETE_ACCOUNT_PHRASE}</b>&quot; in the box below
+              </label>
+              <input
+                type="text"
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                className="w-full px-3 py-2 border border-red-300 dark:border-red-800 bg-white dark:bg-gray-800 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+                placeholder={DELETE_ACCOUNT_PHRASE}
+              />
+              <div className="mt-4 flex justify-end">
+                <LoadingButton
+                  type="button"
+                  variant="danger"
+                  disabled={deleteConfirmText !== DELETE_ACCOUNT_PHRASE || deletingAccount}
+                  onClick={() => setShowDeleteAccountConfirm(true)}
+                >
+                  Delete Account
+                </LoadingButton>
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* Account Actions */}
         <div className={`light-bg-card rounded-lg shadow-sm border light-border-default`}>
           <div className="px-6 py-4">
             <h2 className={`text-lg font-semibold light-text-primary mb-4`}>Account Actions</h2>
@@ -312,7 +338,6 @@ export const Settings: React.FunctionComponent = () => {
         </div>
       </main>
 
-      {/* Sign Out Confirmation */}
       <ConfirmDialog
         isOpen={showSignOutConfirm}
         title="Sign Out?"
@@ -333,23 +358,7 @@ export const Settings: React.FunctionComponent = () => {
         isOpen={showDeleteAccountConfirm}
         title="Delete your account?"
         message="This action is permanent and cannot be undone. Your owned lists and account data will be deleted."
-        requiredPhrase={DELETE_ACCOUNT_PHRASE}
-        onConfirm={async () => {
-          setDeletingAccount(true);
-          try {
-            await AccountService.deleteAccount();
-            setShowDeleteAccountConfirm(false);
-            await logout();
-            navigate('/login', { replace: true });
-          } catch (error) {
-            logger.error('Account deletion failed:', error);
-            toast.error(
-              getCallableErrorMessage(error, 'Failed to delete account. Please try again.')
-            );
-          } finally {
-            setDeletingAccount(false);
-          }
-        }}
+        onConfirm={handleDeleteAccount}
         onCancel={() => {
           if (deletingAccount) return;
           setShowDeleteAccountConfirm(false);

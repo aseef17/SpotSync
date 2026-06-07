@@ -125,31 +125,33 @@ export const ImageGalleryModal: React.FunctionComponent<ImageGalleryModalProps> 
         </div>
       </div>
 
-      {/* Footer / Contact Sheet */}
+      {/* Footer — thumbnails scroll; counter stays viewport-centered */}
       <div
-        className={`w-full ${themeColors.background.card} border-t ${themeColors.border.default} p-4 backdrop-blur-sm overflow-x-auto`}
+        className={`w-full shrink-0 ${themeColors.background.card} border-t ${themeColors.border.default} py-4 backdrop-blur-sm`}
       >
-        <div className="flex justify-center gap-2 min-w-min mx-auto">
-          {images.map((img, idx) => (
-            <button
-              key={idx}
-              ref={(el) => {
-                thumbnailRefs.current[idx] = el;
-              }}
-              onClick={() => setCurrentIndex(idx)}
-              className={`relative flex-shrink-0 w-16 h-16 rounded-md overflow-hidden border-2 transition-all ${
-                idx === currentIndex
-                  ? 'border-blue-500 scale-110 z-10'
-                  : 'border-transparent opacity-60 hover:opacity-100'
-              }`}
-            >
-              <img src={img} alt="" className="w-full h-full object-cover" />
-            </button>
-          ))}
+        <div className="w-full overflow-x-auto scrollbar-hide">
+          <div className="mx-auto flex w-max min-w-full justify-center gap-2 px-4">
+            {images.map((img, idx) => (
+              <button
+                key={idx}
+                ref={(el) => {
+                  thumbnailRefs.current[idx] = el;
+                }}
+                onClick={() => setCurrentIndex(idx)}
+                className={`relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border-2 transition-all ${
+                  idx === currentIndex
+                    ? 'z-10 scale-105 border-blue-500'
+                    : 'border-transparent opacity-60 hover:opacity-100'
+                }`}
+              >
+                <img src={img} alt="" className="h-full w-full object-cover" />
+              </button>
+            ))}
+          </div>
         </div>
-        <div className={`text-center text-sm mt-2 ${themeColors.text.secondary}`}>
+        <p className={`mt-3 text-center text-sm tabular-nums ${themeColors.text.secondary}`}>
           {currentIndex + 1} / {images.length}
-        </div>
+        </p>
       </div>
     </div>
   );
