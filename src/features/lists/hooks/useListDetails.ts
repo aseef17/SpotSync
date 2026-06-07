@@ -6,10 +6,13 @@ import {
   PLACES_SUBSCRIPTION_LIMIT,
 } from '@/features/places/api/placeService';
 import { useListsContext } from '@/features/lists/context/useListsContext';
+import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+
+const OFFLINE_LOAD_TIMEOUT_MS = 8000;
 
 export const useListDetails = (listId: string | undefined) => {
   const { lists } = useListsContext();
@@ -39,8 +42,10 @@ export const useListDetails = (listId: string | undefined) => {
     let cancelled = false;
     let listLoaded = !!listFromContext;
     let placesLoaded = false;
+    let hasCachedData = !!listFromContext;
     paginationCursorRef.current = null;
     extraPlacesRef.current = [];
+    setPlaces([]);
     setLoading(true);
 
     const finishLoading = () => {
@@ -48,6 +53,56 @@ export const useListDetails = (listId: string | undefined) => {
         setLoading(false);
       }
     };
+
+    const hydrateFromCache = async () => {
+      const contextList = lists.find((entry) => entry.id === listId) ?? null;
+      if (contextList) {
+        setList(contextList);
+        setError(null);
+        listLoaded = true;
+        hasCachedData = true;
+        finishLoading();
+      }
+
+      const [cachedList, cachedPlaces] = await Promise.all([
+        contextList ? Promise.resolve(null) : ListService.getListFromCache(listId),
+        PlaceService.getListPlacesFromCache(listId),
+      ]);
+
+      if (cancelled) return;
+
+      if (!contextList && cachedList) {
+        setList(cachedList);
+        setError(null);
+        listLoaded = true;
+        hasCachedData = true;
+        finishLoading();
+      }
+
+      if (cachedPlaces && cachedPlaces.length > 0) {
+        setPlaces(cachedPlaces);
+        setHasMorePlaces(cachedPlaces.length >= PLACES_SUBSCRIPTION_LIMIT);
+        placesLoaded = true;
+        hasCachedData = true;
+        finishLoading();
+      }
+    };
+
+    void hydrateFromCache();
+
+    const timeoutId = window.setTimeout(
+      () => {
+        if (!cancelled && !hasCachedData) {
+          setLoading(false);
+          if (!isBrowserOnline()) {
+            setError('You appear to be offline and no cached data was found for this list.');
+          } else {
+            setError('Loading is taking longer than expected. Please check your connection.');
+          }
+        }
+      },
+      isBrowserOnline() ? OFFLINE_LOAD_TIMEOUT_MS : 3000
+    );
 
     let unsubscribeList: (() => void) | undefined;
 
@@ -57,10 +112,13 @@ export const useListDetails = (listId: string | undefined) => {
         (listData) => {
           if (cancelled) return;
           if (!listData) {
-            setError('List not found');
+            if (!hasCachedData) {
+              setError('List not found');
+            }
           } else {
             setList(listData);
             setError(null);
+            hasCachedData = true;
           }
           listLoaded = true;
           finishLoading();
@@ -68,13 +126,18 @@ export const useListDetails = (listId: string | undefined) => {
         (err) => {
           if (cancelled) return;
           logger.error('Error listening to list:', err);
-          setError(
-            `Failed to load list data: ${err instanceof Error ? err.message : 'Unknown error'}`
-          );
+          if (!hasCachedData) {
+            setError(
+              `Failed to load list data: ${err instanceof Error ? err.message : 'Unknown error'}`
+            );
+          }
           listLoaded = true;
           finishLoading();
         }
       );
+    } else {
+      listLoaded = true;
+      finishLoading();
     }
 
     const unsubscribePlaces = PlaceService.subscribeToListPlaces(
@@ -93,6 +156,7 @@ export const useListDetails = (listId: string | undefined) => {
           placesData.length >= PLACES_SUBSCRIPTION_LIMIT || paginationCursorRef.current !== null
         );
         placesLoaded = true;
+        hasCachedData = hasCachedData || deduped.length > 0;
         finishLoading();
       },
       (err) => {
@@ -105,10 +169,11 @@ export const useListDetails = (listId: string | undefined) => {
 
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
       unsubscribeList?.();
       unsubscribePlaces();
     };
-  }, [listId, listFromContext]);
+  }, [listId, listFromContext, lists]);
 
   const loadMorePlaces = useCallback(async () => {
     if (!listId || loadingMore) return;

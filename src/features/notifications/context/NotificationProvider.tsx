@@ -3,6 +3,7 @@ import { logger } from '@/utils/logger';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { NotificationService } from '@/features/notifications/api/notificationService';
 import { subscribeToUserProfile } from '@/features/auth/api/userProfileStore';
+import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { useToastContext } from '@/hooks/useToastContext';
 import { NotificationContext } from './NotificationContext';
 
@@ -56,6 +57,8 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
 
     setPreferencesLoaded(false);
 
+    let cancelled = false;
+
     const unsubscribe = subscribeToUserProfile(user.id, (profile) => {
       if (profile) {
         setTokenSynced(profile.fcmTokens.length > 0);
@@ -67,7 +70,20 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
       setPreferencesLoaded(true);
     });
 
-    return () => unsubscribe();
+    const timeoutId = window.setTimeout(
+      () => {
+        if (!cancelled) {
+          setPreferencesLoaded(true);
+        }
+      },
+      isBrowserOnline() ? 12000 : 3000
+    );
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      unsubscribe();
+    };
   }, [user?.id]);
 
   const requestPermission = useCallback(async () => {

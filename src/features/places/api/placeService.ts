@@ -6,6 +6,7 @@ import {
   limit,
   startAfter,
   getDocs,
+  getDocsFromCache,
   doc,
   getDoc,
   setDoc,
@@ -25,6 +26,7 @@ import type {
 import { db } from '@/lib/firebase';
 import type { Place, PlaceStatus } from '@/features/places/types/place';
 import { logger } from '@/utils/logger';
+import { toMilliseconds } from '@/utils/date';
 import { omit } from '@/utils/objectUtils';
 import {
   getPlaceListAccessFields,
@@ -36,6 +38,8 @@ import imageCompression from 'browser-image-compression';
 
 export const PLACES_PAGE_SIZE = 100;
 export const PLACES_SUBSCRIPTION_LIMIT = 500;
+/** Firestore allows 500 ops per batch; bulk create also updates the parent list doc. */
+export const BULK_CREATE_BATCH_SIZE = 499;
 
 export const placeConverter: FirestoreDataConverter<Place> = {
   toFirestore(place: Place): DocumentData {
@@ -145,7 +149,7 @@ export class PlaceService {
     failedCount: number;
     errors: Array<{ index: number; error: string }>;
   }> {
-    const BATCH_SIZE = 500;
+    const BATCH_SIZE = BULK_CREATE_BATCH_SIZE;
     let successCount = 0;
     let failedCount = 0;
     const errors: Array<{ index: number; error: string }> = [];
@@ -818,6 +822,20 @@ export class PlaceService {
     } catch (error) {
       logger.error('Error syncing list photos:', error);
       throw error;
+    }
+  }
+
+  static async getListPlacesFromCache(listId: string): Promise<Place[] | null> {
+    try {
+      const q = query(
+        collection(db, 'places').withConverter(placeConverter),
+        where('listId', '==', listId)
+      );
+      const querySnapshot = await getDocsFromCache(q);
+      const places = querySnapshot.docs.map((docSnap) => docSnap.data());
+      return places.sort((a, b) => toMilliseconds(b.addedAt) - toMilliseconds(a.addedAt));
+    } catch {
+      return null;
     }
   }
 

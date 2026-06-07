@@ -13,8 +13,16 @@ import {
   type User as FirebaseUser,
   type UserCredential,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, getDocFromServer, runTransaction } from 'firebase/firestore';
+import {
+  doc,
+  setDoc,
+  getDoc,
+  getDocFromCache,
+  getDocFromServer,
+  runTransaction,
+} from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
+import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import type { User } from '@/features/auth/types/user';
 import {
   REGISTRATION_HEARTBEAT_MS,
@@ -55,12 +63,42 @@ const isRegistrationInFlight = (): boolean => registrationInFlightCount > 0;
 const isEmailPasswordUser = (fbUser: FirebaseUser): boolean =>
   fbUser.providerData.some((provider) => provider.providerId === 'password');
 
+const loadUserProfile = async (uid: string): Promise<User | null> => {
+  try {
+    const cached = await getDocFromCache(doc(db, 'users', uid));
+    if (cached.exists()) {
+      return cached.data() as User;
+    }
+  } catch {
+    // Not in local cache yet.
+  }
+
+  if (!isBrowserOnline()) {
+    return null;
+  }
+
+  try {
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (userDoc.exists()) {
+      return userDoc.data() as User;
+    }
+  } catch (error) {
+    logger.error('Failed to load user profile:', error);
+  }
+
+  return null;
+};
+
 const waitForUserProfile = async (
   uid: string,
   maxAttempts = 8,
   delayMs = 250
 ): Promise<User | null> => {
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    if (!isBrowserOnline()) {
+      return loadUserProfile(uid);
+    }
+
     const userDoc = await getDoc(doc(db, 'users', uid));
     if (userDoc.exists()) {
       return userDoc.data() as User;
@@ -93,6 +131,15 @@ const buildDefaultUsername = (fbUser: FirebaseUser): string => {
   const emailPrefix = (fbUser.email || '').split('@')[0].toLowerCase().trim();
   return emailPrefix || `user_${fbUser.uid.slice(0, 8)}`;
 };
+
+const buildFallbackUserFromAuth = (fbUser: FirebaseUser): User => ({
+  id: fbUser.uid,
+  username: buildDefaultUsername(fbUser),
+  email: fbUser.email || '',
+  displayName: fbUser.displayName || '',
+  createdAt: new Date(),
+  updatedAt: new Date(),
+});
 
 const claimUsernameForUser = async (
   fbUser: FirebaseUser,
@@ -169,15 +216,15 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
       try {
         if (fbUser) {
           setFirebaseUser(fbUser);
-          // Fetch or create user document in Firestore
-          const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
-          if (userDoc.exists()) {
-            setUser(userDoc.data() as User);
+
+          let profile = await loadUserProfile(fbUser.uid);
+          if (profile) {
+            setUser(profile);
           } else if (isEmailPasswordUser(fbUser)) {
             // Email/password registration creates the Firestore profile in register().
             // Wait for that transaction before recovering orphaned auth-only accounts.
             const registrationInProgress = isRegistrationInProgress(fbUser.uid);
-            let profile = await waitForUserProfile(
+            profile = await waitForUserProfile(
               fbUser.uid,
               registrationInProgress ? 12 : 2,
               registrationInProgress ? 250 : 0
@@ -189,6 +236,8 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
             if (profile) {
               setUser(profile);
+            } else if (!isBrowserOnline()) {
+              setUser(buildFallbackUserFromAuth(fbUser));
             } else if (!isRegistrationInFlight()) {
               // Heartbeat in another tab can refresh the flag after a stale read — re-check before
               // orphan recovery so we do not race register() and roll back a newly created account.
@@ -203,17 +252,23 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
                 // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
                 clearRegistrationProgress(fbUser.uid);
                 await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
-                const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
-                if (provisionedUserDoc.exists()) {
-                  setUser(provisionedUserDoc.data() as User);
+                const provisionedUser = await loadUserProfile(fbUser.uid);
+                if (provisionedUser) {
+                  setUser(provisionedUser);
+                } else {
+                  setUser(buildFallbackUserFromAuth(fbUser));
                 }
               }
             }
+          } else if (!isBrowserOnline()) {
+            setUser(buildFallbackUserFromAuth(fbUser));
           } else {
             await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
-            const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
-            if (provisionedUserDoc.exists()) {
-              setUser(provisionedUserDoc.data() as User);
+            const provisionedUser = await loadUserProfile(fbUser.uid);
+            if (provisionedUser) {
+              setUser(provisionedUser);
+            } else {
+              setUser(buildFallbackUserFromAuth(fbUser));
             }
           }
         } else {
@@ -222,6 +277,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
         }
       } catch (error) {
         logger.error('Auth state handler failed:', error);
+        if (fbUser) {
+          setUser(buildFallbackUserFromAuth(fbUser));
+        }
       } finally {
         setLoading(false);
       }
