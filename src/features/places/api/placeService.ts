@@ -167,6 +167,7 @@ export class PlaceService {
           );
           const newPlace: Omit<Place, 'id'> = {
             ...enriched,
+            suppressNotifications: true,
             addedAt: now,
             updatedAt: now,
           };

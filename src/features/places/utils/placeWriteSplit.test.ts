@@ -67,4 +67,27 @@ describe('placeWriteSplit', () => {
     expect(membership.notes).toBe('Try the latte');
     expect(membership.status).toBe('not_visited');
   });
+
+  it('passes suppressNotifications through to membership payload', () => {
+    const now = new Date('2026-01-01T00:00:00.000Z');
+    const place = {
+      listId: 'list1',
+      googlePlaceId: 'ChIJabc',
+      name: 'Test Cafe',
+      address: '123 Main St',
+      location: { lat: 40.7, lng: -74.0 },
+      status: 'not_visited' as const,
+      addedBy: 'user1',
+      suppressNotifications: true,
+      addedAt: now,
+      updatedAt: now,
+    };
+
+    const membership = buildMembershipPayload(place, 'list1', 'ChIJabc', 'list1_ChIJabc', {
+      addedAt: now,
+      updatedAt: now,
+    });
+
+    expect(membership.suppressNotifications).toBe(true);
+  });
 });

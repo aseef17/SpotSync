@@ -16,4 +16,6 @@ export interface ListPlaceMembership {
   addedAt: Date;
   updatedAt: Date;
   updatedBy?: string;
+  /** Suppresses per-place Cloud Function notifications (bulk import). */
+  suppressNotifications?: boolean;
 }
