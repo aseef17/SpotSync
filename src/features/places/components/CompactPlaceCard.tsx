@@ -41,6 +41,8 @@ export const CompactPlaceCard = React.memo<CompactPlaceCardProps>(
               src={GoogleMapsService.getPhotoUrl(place.photoUrls[0], 200, 200)}
               alt={place.name}
               className="w-full h-full object-cover"
+              loading="lazy"
+              decoding="async"
               onError={(e) => {
                 e.currentTarget.style.display = 'none';
               }}

@@ -43,6 +43,10 @@ import { useToast } from '@/hooks/useToast';
 
 export const ListView: React.FunctionComponent = () => {
   const { listId } = useParams<{ listId: string }>();
+  return <ListViewContent key={listId} listId={listId} />;
+};
+
+const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> = ({ listId }) => {
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -68,20 +72,20 @@ export const ListView: React.FunctionComponent = () => {
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
-    if (navigator.geolocation) {
-      navigator.geolocation.getCurrentPosition(
-        (position) => {
-          setUserLocation({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
-        },
-        () => {
-          // Permission denied or error
-        }
-      );
-    }
-  }, []);
+    if (isMobile || !navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      () => {
+        // Permission denied or error
+      },
+      { maximumAge: 60_000 }
+    );
+  }, [isMobile]);
 
   const displayedList = React.useMemo(() => {
     if (!list) return null;
@@ -340,6 +344,14 @@ export const ListView: React.FunctionComponent = () => {
     setSelectedPlace(null);
   }, []);
 
+  const handleMobilePlaceClick = useCallback((place: Place) => {
+    setSelectedPlace(place);
+  }, []);
+
+  const handleClearSelection = useCallback(() => setSelectedPlace(null), []);
+  const handleEditListOpen = useCallback(() => setShowEditList(true), []);
+  const noopStatusChange = useCallback(() => {}, []);
+
   if (loading) {
     return (
       <div className={`min-h-screen ${themeColors.background.app}`}>
@@ -436,13 +448,11 @@ export const ListView: React.FunctionComponent = () => {
             filteredPlaces={filteredPlaces}
             filters={filters}
             onFiltersChange={setFilters}
-            onPlaceClick={(place) => {
-              setSelectedPlace(place);
-            }}
+            onPlaceClick={handleMobilePlaceClick}
             selectedPlace={selectedPlace}
-            onClearSelection={() => setSelectedPlace(null)}
+            onClearSelection={handleClearSelection}
             onPlaceUpdated={handlePlaceUpdated}
-            onEditList={() => setShowEditList(true)}
+            onEditList={handleEditListOpen}
             onAddExternalPlace={handleAddExternalPlace}
             onPlaceHidden={handlePlaceHidden}
             onPlaceRestored={handlePlaceRestored}
@@ -822,7 +832,7 @@ export const ListView: React.FunctionComponent = () => {
                                     place={place}
                                     list={list}
                                     onClick={handlePlaceClick}
-                                    onStatusChange={() => {}}
+                                    onStatusChange={noopStatusChange}
                                     layout
                                   />
                                 </motion.div>
@@ -839,7 +849,7 @@ export const ListView: React.FunctionComponent = () => {
                                     place={place}
                                     list={list}
                                     onClick={handlePlaceClick}
-                                    onStatusChange={() => {}}
+                                    onStatusChange={noopStatusChange}
                                     layout
                                     density={density}
                                   />
