@@ -2,11 +2,14 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   isFirestorePermissionDenied,
   listAccessRevokedStorageKey,
+  listSavedPrivateDeniedStorageKey,
   listViewRemountKey,
   readPersistedListAccessRevoked,
+  readPersistedListSavedPrivateDenied,
   shouldClearStaleListView,
   shouldTrustPrivateListSnapshot,
   writePersistedListAccessRevoked,
+  writePersistedListSavedPrivateDenied,
 } from '@/features/lists/hooks/listViewAccess';
 
 describe('shouldClearStaleListView', () => {
@@ -149,5 +152,43 @@ describe('list access revocation persistence', () => {
     writePersistedListAccessRevoked('user-a', 'list-1', true);
     writePersistedListAccessRevoked('user-a', 'list-1', false);
     expect(readPersistedListAccessRevoked('user-a', 'list-1')).toBe(false);
+  });
+});
+
+describe('saved private denial persistence', () => {
+  const storage = new Map<string, string>();
+
+  beforeEach(() => {
+    storage.clear();
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      },
+      clear: () => {
+        storage.clear();
+      },
+    });
+  });
+
+  it('builds stable storage keys per user and list', () => {
+    expect(listSavedPrivateDeniedStorageKey('user-a', 'list-1')).toBe(
+      'listSavedPrivateDenied:user-a:list-1'
+    );
+  });
+
+  it('persists saved-private denial across reloads without setting accessRevoked', () => {
+    writePersistedListSavedPrivateDenied('user-a', 'list-1', true);
+    expect(readPersistedListSavedPrivateDenied('user-a', 'list-1')).toBe(true);
+    expect(readPersistedListAccessRevoked('user-a', 'list-1')).toBe(false);
+  });
+
+  it('clears persisted saved-private denial when trusted context grants', () => {
+    writePersistedListSavedPrivateDenied('user-a', 'list-1', true);
+    writePersistedListSavedPrivateDenied('user-a', 'list-1', false);
+    expect(readPersistedListSavedPrivateDenied('user-a', 'list-1')).toBe(false);
   });
 });

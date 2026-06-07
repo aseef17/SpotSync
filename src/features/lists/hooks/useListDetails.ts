@@ -13,9 +13,11 @@ import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import {
   isFirestorePermissionDenied,
   readPersistedListAccessRevoked,
+  readPersistedListSavedPrivateDenied,
   shouldClearStaleListView,
   shouldTrustPrivateListSnapshot,
   writePersistedListAccessRevoked,
+  writePersistedListSavedPrivateDenied,
 } from '@/features/lists/hooks/listViewAccess';
 import {
   resolveListFromContextAccess,
@@ -63,6 +65,13 @@ export const useListDetails = (listId: string | undefined) => {
     },
     [listId, user?.id]
   );
+  const setSavedPrivateDenied = useCallback(
+    (denied: boolean) => {
+      savedPrivateDeniedRef.current = denied;
+      writePersistedListSavedPrivateDenied(user?.id, listId, denied);
+    },
+    [listId, user?.id]
+  );
   const confirmPrivateAccessFromServer = useCallback(
     (targetListId: string, userId: string) => {
       void ListService.getListFromServer(targetListId)
@@ -104,6 +113,7 @@ export const useListDetails = (listId: string | undefined) => {
   const listAccessibleRef = useRef(true);
   const accessRevokedRef = useRef(false);
   const privateListServerVerifiedRef = useRef(false);
+  const savedPrivateDeniedRef = useRef(false);
   const pendingPlacesSnapshotRef = useRef<PendingPlacesSnapshot>(undefined);
   const applyPendingPlacesRef = useRef<((placesData: Place[]) => void) | null>(null);
   const hadListFromContextRef = useRef(!!listFromContext);
@@ -132,6 +142,7 @@ export const useListDetails = (listId: string | undefined) => {
     privateAccessConfirmKeyRef.current = null;
     accessRevokedRef.current = readPersistedListAccessRevoked(user?.id, listId);
     privateListServerVerifiedRef.current = false;
+    savedPrivateDeniedRef.current = readPersistedListSavedPrivateDenied(user?.id, listId);
   }, [listId, user?.id]);
 
   useEffect(() => {
@@ -173,7 +184,9 @@ export const useListDetails = (listId: string | undefined) => {
       if (contextAccess !== 'grant') {
         // Saved-private rows are untrusted, not proof of revocation; keep accessRevoked unset
         // so owned/collaborator context can grant once the live query row arrives.
-        if (contextAccess === 'deny-no-access') {
+        if (contextAccess === 'deny-saved-private') {
+          setSavedPrivateDenied(true);
+        } else if (contextAccess === 'deny-no-access') {
           setAccessRevoked(true);
         }
         denyListAccess();
@@ -186,6 +199,7 @@ export const useListDetails = (listId: string | undefined) => {
         return;
       }
 
+      setSavedPrivateDenied(false);
       listAccessibleRef.current = true;
       flushPendingPlacesSnapshot();
       setList(listFromContext);
@@ -223,6 +237,7 @@ export const useListDetails = (listId: string | undefined) => {
     confirmPrivateAccessFromServer,
     setAccessRevoked,
     listsLoading,
+    setSavedPrivateDenied,
   ]);
 
   useEffect(() => {
@@ -269,6 +284,7 @@ export const useListDetails = (listId: string | undefined) => {
             userId: user?.id,
             fromCache: meta.fromCache,
             accessRevoked: accessRevokedRef.current,
+            savedPrivateDenied: savedPrivateDeniedRef.current,
           })
         ) {
           denyListAccess();
@@ -338,6 +354,7 @@ export const useListDetails = (listId: string | undefined) => {
         list: contextList,
         userId: user?.id,
         accessRevoked: accessRevokedRef.current,
+        savedPrivateDenied: savedPrivateDeniedRef.current,
       })
     ) {
       listAccessibleRef.current = true;
@@ -371,6 +388,7 @@ export const useListDetails = (listId: string | undefined) => {
           list: contextList,
           userId: user?.id,
           accessRevoked: accessRevokedRef.current,
+          savedPrivateDenied: savedPrivateDeniedRef.current,
         })
       ) {
         setList(contextList);
@@ -397,6 +415,7 @@ export const useListDetails = (listId: string | undefined) => {
           userId: user?.id,
           fromCache: true,
           accessRevoked: accessRevokedRef.current,
+          savedPrivateDenied: savedPrivateDeniedRef.current,
         })
       ) {
         setList(cachedList);
@@ -413,6 +432,7 @@ export const useListDetails = (listId: string | undefined) => {
           list: listForPlacesAccess,
           userId: user?.id,
           accessRevoked: accessRevokedRef.current,
+          savedPrivateDenied: savedPrivateDeniedRef.current,
         })
       ) {
         setPlaces(cachedPlaces);

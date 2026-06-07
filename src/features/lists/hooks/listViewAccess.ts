@@ -38,6 +38,38 @@ export function writePersistedListAccessRevoked(
   }
 }
 
+const SAVED_PRIVATE_DENIED_STORAGE_PREFIX = 'listSavedPrivateDenied:';
+
+export function listSavedPrivateDeniedStorageKey(userId: string, listId: string): string {
+  return `${SAVED_PRIVATE_DENIED_STORAGE_PREFIX}${userId}:${listId}`;
+}
+
+export function readPersistedListSavedPrivateDenied(
+  userId: string | undefined,
+  listId: string | undefined
+): boolean {
+  if (!userId || !listId || typeof sessionStorage === 'undefined') {
+    return false;
+  }
+  return sessionStorage.getItem(listSavedPrivateDeniedStorageKey(userId, listId)) === '1';
+}
+
+export function writePersistedListSavedPrivateDenied(
+  userId: string | undefined,
+  listId: string | undefined,
+  denied: boolean
+): void {
+  if (!userId || !listId || typeof sessionStorage === 'undefined') {
+    return;
+  }
+  const key = listSavedPrivateDeniedStorageKey(userId, listId);
+  if (denied) {
+    sessionStorage.setItem(key, '1');
+  } else {
+    sessionStorage.removeItem(key);
+  }
+}
+
 export function shouldClearStaleListView(options: {
   listId: string | undefined;
   hadListFromContext: boolean;
