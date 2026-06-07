@@ -419,8 +419,6 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       );
     } catch (error) {
       logger.error('Import process failed:', error);
-      setProgress(100);
-      setImportComplete(true);
       toast.error(error instanceof Error ? error.message : 'Import failed. Please try again.');
     } finally {
       setResolving(false);
