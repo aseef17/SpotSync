@@ -24,6 +24,8 @@ import {
   type PlaceListAccessFields,
 } from '@/features/places/utils/placeAccess';
 import {
+  coalesceDurablePhotoUrls,
+  hasNewFirebasePhotoUpload,
   isFirebaseStoragePhotoUrl,
   partitionGoogleSyncUpdates,
 } from '@/features/places/utils/placeGoogleSync';
@@ -48,7 +50,8 @@ export class PlaceService {
 
   private static enrichPlaceWrite(
     placeData: Omit<Place, 'id' | 'addedAt' | 'updatedAt'>,
-    accessFields: PlaceListAccessFields
+    accessFields: PlaceListAccessFields,
+    options?: { suppressNotifications?: boolean }
   ): Omit<Place, 'id' | 'addedAt' | 'updatedAt'> {
     const trimmedPhotos = trimPhotoUrlsForStorage(placeData.photoUrls);
     const thumbnailUrl = placeData.thumbnailUrl ?? getPrimaryPhotoUrl(trimmedPhotos);
@@ -60,6 +63,7 @@ export class PlaceService {
       ...(trimmedPhotos ? { photoUrls: trimmedPhotos } : {}),
       ...(thumbnailUrl ? { thumbnailUrl } : {}),
       ...(photoCount !== undefined ? { photoCount } : {}),
+      ...(options?.suppressNotifications ? { suppressNotifications: true } : {}),
     };
   }
 
@@ -122,7 +126,8 @@ export class PlaceService {
    */
   static async bulkCreatePlaces(
     listId: string,
-    placesData: Array<Omit<Place, 'id' | 'addedAt' | 'updatedAt'>>
+    placesData: Array<Omit<Place, 'id' | 'addedAt' | 'updatedAt'>>,
+    options?: { suppressNotifications?: boolean }
   ): Promise<{
     successCount: number;
     failedCount: number;
@@ -135,6 +140,7 @@ export class PlaceService {
 
     try {
       const accessFields = await this.fetchListAccessFields(listId);
+      const suppressNotifications = options?.suppressNotifications ?? false;
 
       // Process in chunks of 500
       for (let i = 0; i < placesData.length; i += BATCH_SIZE) {
@@ -145,7 +151,9 @@ export class PlaceService {
         for (let j = 0; j < chunk.length; j++) {
           const placeData = chunk[j];
           const placeRef = doc(collection(db, 'places'));
-          const enriched = this.enrichPlaceWrite({ ...placeData, listId }, accessFields);
+          const enriched = this.enrichPlaceWrite({ ...placeData, listId }, accessFields, {
+            suppressNotifications,
+          });
           const newPlace: Omit<Place, 'id'> = {
             ...enriched,
             addedAt: new Date(),
@@ -653,7 +661,8 @@ export class PlaceService {
 
       const existingFirebaseUrl = await PhotoService.getSharedPlacePhotoUrl(
         googlePlaceId,
-        photoHash
+        photoHash,
+        photoIndex === 0
       );
       if (existingFirebaseUrl && (await PhotoService.storageUrlExists(existingFirebaseUrl))) {
         updatedPhotoUrls[photoIndex] = existingFirebaseUrl;
@@ -786,10 +795,15 @@ export class PlaceService {
     // Persist Google metadata first; photo URLs are written only after upload succeeds.
     await this.updatePlace(placeId, metadataUpdates, userId);
 
+    const photoUrlsForSync =
+      photoUpdates.photoUrls && photoUpdates.photoUrls.length > 0
+        ? photoUpdates.photoUrls
+        : place.photoUrls;
+
     const mergedPlace: Place = {
       ...place,
       ...metadataUpdates,
-      ...photoUpdates,
+      photoUrls: photoUrlsForSync,
       id: placeId,
     };
     const photoCache = await this.openPhotoCache();
@@ -799,7 +813,10 @@ export class PlaceService {
     );
 
     if (syncedPhotoUrls) {
-      await this.persistPhotoSyncMetadata(placeId, syncedPhotoUrls);
+      const durableUrls = coalesceDurablePhotoUrls(syncedPhotoUrls, place.photoUrls);
+      if (hasNewFirebasePhotoUpload(durableUrls, place.photoUrls)) {
+        await this.persistPhotoSyncMetadata(placeId, durableUrls);
+      }
     }
 
     const updatedPlace = await placeRepository.getById(placeId);

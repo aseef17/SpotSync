@@ -29,3 +29,31 @@ export function partitionGoogleSyncUpdates(updates: Partial<Place>): {
 export function isFirebaseStoragePhotoUrl(url: string | undefined): boolean {
   return !!url?.includes('firebasestorage.googleapis.com');
 }
+
+/** Preserve existing Firebase URLs when a slot's upload failed and still has an ephemeral ref. */
+export function coalesceDurablePhotoUrls(
+  syncedUrls: string[],
+  originalUrls: string[] | undefined
+): string[] {
+  return syncedUrls.map((synced, index) => {
+    if (isFirebaseStoragePhotoUrl(synced)) {
+      return synced;
+    }
+
+    const original = originalUrls?.[index];
+    if (original && isFirebaseStoragePhotoUrl(original)) {
+      return original;
+    }
+
+    return synced;
+  });
+}
+
+export function hasNewFirebasePhotoUpload(
+  persistedUrls: string[],
+  originalUrls: string[] | undefined
+): boolean {
+  return persistedUrls.some(
+    (url, index) => isFirebaseStoragePhotoUrl(url) && url !== originalUrls?.[index]
+  );
+}
