@@ -21,6 +21,7 @@ import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
   shouldClearAccessRevokedOnContextReturn,
+  shouldConfirmPrivateAccessFromTrustedContext,
   shouldHydrateCachedListSnapshot,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import {
@@ -56,6 +57,7 @@ export const useListDetails = (listId: string | undefined) => {
       accessRevokedRef.current = revoked;
       writePersistedListAccessRevoked(user?.id, listId, revoked);
       if (!revoked) {
+        privateAccessConfirmKeyRef.current = null;
         setAccessRevokedRevision((revision) => revision + 1);
       }
     },
@@ -105,6 +107,7 @@ export const useListDetails = (listId: string | undefined) => {
   const pendingPlacesSnapshotRef = useRef<PendingPlacesSnapshot>(undefined);
   const applyPendingPlacesRef = useRef<((placesData: Place[]) => void) | null>(null);
   const hadListFromContextRef = useRef(!!listFromContext);
+  const privateAccessConfirmKeyRef = useRef<string | null>(null);
 
   const clearPendingPlacesSnapshot = useCallback(() => {
     pendingPlacesSnapshotRef.current = undefined;
@@ -126,6 +129,7 @@ export const useListDetails = (listId: string | undefined) => {
 
   useEffect(() => {
     hadListFromContextRef.current = false;
+    privateAccessConfirmKeyRef.current = null;
     accessRevokedRef.current = readPersistedListAccessRevoked(user?.id, listId);
     privateListServerVerifiedRef.current = false;
   }, [listId, user?.id]);
@@ -144,14 +148,20 @@ export const useListDetails = (listId: string | undefined) => {
       ) {
         setAccessRevoked(false);
       } else if (
-        !hadListFromContext &&
-        accessRevokedRef.current &&
-        (listFromContext.isSavedList || !listFromContext.isPublic) &&
         listId &&
         user?.id &&
-        isBrowserOnline()
+        shouldConfirmPrivateAccessFromTrustedContext({
+          list: listFromContext,
+          userId: user.id,
+          accessRevoked: accessRevokedRef.current,
+          isOnline: isBrowserOnline(),
+        })
       ) {
-        confirmPrivateAccessFromServer(listId, user.id);
+        const confirmKey = `${user.id}:${listId}`;
+        if (privateAccessConfirmKeyRef.current !== confirmKey) {
+          privateAccessConfirmKeyRef.current = confirmKey;
+          confirmPrivateAccessFromServer(listId, user.id);
+        }
       }
 
       const contextAccess = resolveListFromContextAccess({
