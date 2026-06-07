@@ -57,10 +57,15 @@ const isEmailPasswordUser = (fbUser: FirebaseUser): boolean =>
 const waitForUserProfile = async (
   uid: string,
   maxAttempts = 8,
-  delayMs = 250
+  delayMs = 250,
+  options?: { fromServer?: boolean }
 ): Promise<User | null> => {
+  const readUserDoc = options?.fromServer
+    ? (userRef: ReturnType<typeof doc>) => getDocFromServer(userRef)
+    : (userRef: ReturnType<typeof doc>) => getDoc(userRef);
+
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const userDoc = await getDoc(doc(db, 'users', uid));
+    const userDoc = await readUserDoc(doc(db, 'users', uid));
     if (userDoc.exists()) {
       return userDoc.data() as User;
     }
@@ -77,13 +82,13 @@ const waitForUserProfile = async (
 // so an active signup can outlive any fixed wait and orphan recovery would race it.
 const waitForCrossTabRegistration = async (uid: string): Promise<User | null> => {
   while (isRegistrationInProgress(uid)) {
-    const profile = await waitForUserProfile(uid, 1, 0);
+    const profile = await waitForUserProfile(uid, 1, 0, { fromServer: true });
     if (profile) {
       return profile;
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
   }
-  return waitForUserProfile(uid, 4, 250);
+  return waitForUserProfile(uid, 4, 250, { fromServer: true });
 };
 
 const buildDefaultUsername = (fbUser: FirebaseUser): string => {
@@ -196,13 +201,17 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
               if (profile) {
                 setUser(profile);
               } else if (isRegistrationInProgress(fbUser.uid)) {
-                // Another tab is still heartbeating register(); defer orphan recovery.
+                // Another tab is still heartbeating register(); keep waiting instead of racing recovery.
+                profile = await waitForCrossTabRegistration(fbUser.uid);
+                if (profile) {
+                  setUser(profile);
+                }
               } else {
                 // Profile never appeared and register() is not running on this page — clear any
                 // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
                 clearRegistrationProgress(fbUser.uid);
                 await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
-                const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
+                const provisionedUserDoc = await getDocFromServer(doc(db, 'users', fbUser.uid));
                 if (provisionedUserDoc.exists()) {
                   setUser(provisionedUserDoc.data() as User);
                 }
@@ -210,7 +219,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             }
           } else {
             await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
-            const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
+            const provisionedUserDoc = await getDocFromServer(doc(db, 'users', fbUser.uid));
             if (provisionedUserDoc.exists()) {
               setUser(provisionedUserDoc.data() as User);
             }
