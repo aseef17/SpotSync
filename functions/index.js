@@ -1055,11 +1055,14 @@ exports.deleteAccount = onCall(
       }
     }
 
-    console.log('[deleteAccount] Deleting Firebase Auth user');
-    await getAuth().deleteUser(uid);
-
+    // Delete profile before Auth so a failed profile delete leaves the user signed in and able
+    // to retry. Auth is deleted last; if the profile was already removed on a prior partial run,
+    // the early return above finishes by deleting any leftover Auth record.
     console.log('[deleteAccount] Deleting users profile document');
     await userRef.delete();
+
+    console.log('[deleteAccount] Deleting Firebase Auth user');
+    await getAuth().deleteUser(uid);
 
     console.log(`[deleteAccount] Completed deletion for uid=${uid}`);
     return { success: true };
