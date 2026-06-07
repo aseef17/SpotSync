@@ -116,30 +116,27 @@ describe('resolveListFromContextAccess', () => {
 });
 
 describe('shouldClearAccessRevokedOnContextReturn', () => {
-  it('clears sticky revocation when a list reappears in live context', () => {
+  it('clears sticky revocation for a trustworthy owned/collaborator context row', () => {
     expect(
       shouldClearAccessRevokedOnContextReturn({
-        hadListFromContext: false,
         list: list(),
         userId: 'collab-b',
       })
     ).toBe(true);
   });
 
-  it('does not clear revocation while the list stayed in context', () => {
+  it('clears revocation when a saved public list regains access after going private', () => {
     expect(
       shouldClearAccessRevokedOnContextReturn({
-        hadListFromContext: true,
-        list: list(),
+        list: list({ isPublic: true, isSavedList: true, collaboratorIds: ['collab-b'] }),
         userId: 'collab-b',
       })
-    ).toBe(false);
+    ).toBe(true);
   });
 
-  it('does not clear revocation when a saved private list re-enters from stale cache', () => {
+  it('does not clear revocation when only a saved private row shows stale collaborator access', () => {
     expect(
       shouldClearAccessRevokedOnContextReturn({
-        hadListFromContext: false,
         list: list({ isSavedList: true }),
         userId: 'collab-b',
       })
@@ -149,10 +146,18 @@ describe('shouldClearAccessRevokedOnContextReturn', () => {
   it('still clears revocation when a public saved list re-enters context', () => {
     expect(
       shouldClearAccessRevokedOnContextReturn({
-        hadListFromContext: false,
         list: list({ isPublic: true, isSavedList: true, collaboratorIds: [] }),
         userId: 'user-c',
       })
     ).toBe(true);
+  });
+
+  it('does not clear revocation when the user still lacks list access', () => {
+    expect(
+      shouldClearAccessRevokedOnContextReturn({
+        list: list({ collaboratorIds: ['someone-else'] }),
+        userId: 'collab-b',
+      })
+    ).toBe(false);
   });
 });

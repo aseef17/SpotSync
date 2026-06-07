@@ -101,8 +101,8 @@ export const useListDetails = (listId: string | undefined) => {
 
     if (listFromContext) {
       if (
+        accessRevokedRef.current &&
         shouldClearAccessRevokedOnContextReturn({
-          hadListFromContext,
           list: listFromContext,
           userId: user?.id,
         })
