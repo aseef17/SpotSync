@@ -9,6 +9,13 @@ export function isCurrentAuthStateHandler(generation: number): boolean {
   return generation === authStateGeneration;
 }
 
+export function shouldRetainUserOnAuthChange(
+  previousUserId: string | undefined,
+  nextFirebaseUid: string
+): boolean {
+  return previousUserId === nextFirebaseUid;
+}
+
 export function resetAuthStateHandlerGuardForTests(): void {
   authStateGeneration = 0;
 }
