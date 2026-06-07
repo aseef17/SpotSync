@@ -35,6 +35,7 @@ import {
   partitionGoogleSyncUpdates,
 } from '@/features/places/utils/placeGoogleSync';
 import {
+  findDuplicateMembershipIndexes,
   resolveCanonicalGooglePlaceId,
   resolveMembershipId,
   splitPlaceUpdates,
@@ -154,6 +155,7 @@ export class PlaceService {
     try {
       const accessFields = await this.fetchListAccessFields(listId);
       const suppressNotifications = options?.suppressNotifications ?? false;
+      const duplicateIndexes = new Set(findDuplicateMembershipIndexes(listId, placesData));
 
       for (let i = 0; i < placesData.length; i += BATCH_SIZE) {
         const chunk = placesData.slice(i, Math.min(i + BATCH_SIZE, placesData.length));
@@ -161,7 +163,14 @@ export class PlaceService {
         const googlePlaceIds: string[] = [];
         const now = new Date();
 
+        let batchWriteCount = 0;
+
         for (let j = 0; j < chunk.length; j++) {
+          const placeIndex = i + j;
+          if (duplicateIndexes.has(placeIndex)) {
+            continue;
+          }
+
           const placeData = chunk[j];
           const googlePlaceId = resolveCanonicalGooglePlaceId(placeData);
           const membershipId = resolveMembershipId(listId, googlePlaceId);
@@ -184,6 +193,11 @@ export class PlaceService {
             timestamps: { addedAt: now, updatedAt: now },
           });
           googlePlaceIds.push(googlePlaceId);
+          batchWriteCount += 1;
+        }
+
+        if (batchWriteCount === 0) {
+          continue;
         }
 
         const listRef = doc(db, 'lists', listId);
@@ -194,7 +208,7 @@ export class PlaceService {
 
         try {
           await batch.commit();
-          successCount += chunk.length;
+          successCount += batchWriteCount;
           logger.info(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: Added ${chunk.length} places`);
         } catch (batchError) {
           logger.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed:`, batchError);

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildGooglePlacePayload,
   buildMembershipPayload,
+  findDuplicateMembershipIndexes,
   resolveCanonicalGooglePlaceId,
   resolveMembershipId,
   splitPlaceUpdates,
@@ -89,5 +90,23 @@ describe('placeWriteSplit', () => {
     });
 
     expect(membership.suppressNotifications).toBe(true);
+  });
+
+  it('finds duplicate membership indexes for bulk import rows', () => {
+    const places = [
+      { googlePlaceId: 'ChIJabc' },
+      { googlePlaceId: 'ChIJxyz' },
+      { googlePlaceId: 'ChIJabc' },
+      { plusCode: '87G8P2V6+XX' },
+      { plusCode: '87G8P2V6+XX' },
+    ];
+
+    expect(findDuplicateMembershipIndexes('list1', places)).toEqual([2, 4]);
+  });
+
+  it('returns no duplicate membership indexes when imports are unique', () => {
+    const places = [{ googlePlaceId: 'ChIJabc' }, { googlePlaceId: 'ChIJxyz' }];
+
+    expect(findDuplicateMembershipIndexes('list1', places)).toEqual([]);
   });
 });
