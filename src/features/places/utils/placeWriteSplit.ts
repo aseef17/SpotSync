@@ -144,5 +144,6 @@ export function buildMembershipPayload(
     addedAt: timestamps.addedAt,
     updatedAt: timestamps.updatedAt,
     updatedBy: place.updatedBy,
+    ...(place.suppressNotifications ? { suppressNotifications: true } : {}),
   };
 }
