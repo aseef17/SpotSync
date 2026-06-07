@@ -11,6 +11,7 @@ import {
   sendEmailVerification,
   updateProfile,
   type User as FirebaseUser,
+  type UserCredential,
 } from 'firebase/auth';
 import { doc, setDoc, getDoc, runTransaction } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
@@ -36,8 +37,32 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const REGISTRATION_IN_PROGRESS_KEY = 'spotsync_registration_in_progress';
+
 const isEmailPasswordUser = (fbUser: FirebaseUser): boolean =>
   fbUser.providerData.some((provider) => provider.providerId === 'password');
+
+const isRegistrationInProgress = (uid: string): boolean => {
+  const value = sessionStorage.getItem(REGISTRATION_IN_PROGRESS_KEY);
+  return value === uid || value === 'pending';
+};
+
+const waitForUserProfile = async (
+  uid: string,
+  maxAttempts = 8,
+  delayMs = 250
+): Promise<User | null> => {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const userDoc = await getDoc(doc(db, 'users', uid));
+    if (userDoc.exists()) {
+      return userDoc.data() as User;
+    }
+    if (attempt < maxAttempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+  return null;
+};
 
 const buildDefaultUsername = (fbUser: FirebaseUser): string => {
   const emailPrefix = (fbUser.email || '').split('@')[0].toLowerCase().trim();
@@ -116,9 +141,26 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
         const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
         if (userDoc.exists()) {
           setUser(userDoc.data() as User);
-        } else if (!isEmailPasswordUser(fbUser)) {
+        } else if (isEmailPasswordUser(fbUser)) {
           // Email/password registration creates the Firestore profile in register().
-          // Auto-provisioning here races with that flow and can overwrite the chosen username.
+          // Wait for that transaction before recovering orphaned auth-only accounts.
+          const registrationInProgress = isRegistrationInProgress(fbUser.uid);
+          const profile = await waitForUserProfile(
+            fbUser.uid,
+            registrationInProgress ? 12 : 2,
+            registrationInProgress ? 250 : 0
+          );
+
+          if (profile) {
+            setUser(profile);
+          } else if (!registrationInProgress) {
+            await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
+            const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
+            if (provisionedUserDoc.exists()) {
+              setUser(provisionedUserDoc.data() as User);
+            }
+          }
+        } else {
           await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
           const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
           if (provisionedUserDoc.exists()) {
@@ -141,46 +183,55 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
   const register = useCallback(
     async (email: string, password: string, username: string, displayName: string) => {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCredential.user, { displayName });
+      sessionStorage.setItem(REGISTRATION_IN_PROGRESS_KEY, 'pending');
 
-      const normalizedUsername = username.toLowerCase().trim();
-      const newUser: User = {
-        id: userCredential.user.uid,
-        username: normalizedUsername,
-        email,
-        displayName,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-
+      let userCredential: UserCredential;
       try {
-        await runTransaction(db, async (transaction) => {
-          const usernameRef = doc(db, 'usernames', normalizedUsername);
-          const usernameDoc = await transaction.get(usernameRef);
+        userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        sessionStorage.setItem(REGISTRATION_IN_PROGRESS_KEY, userCredential.user.uid);
+        await updateProfile(userCredential.user, { displayName });
 
-          if (usernameDoc.exists()) {
-            throw new Error('Username is not available');
-          }
+        const normalizedUsername = username.toLowerCase().trim();
+        const newUser: User = {
+          id: userCredential.user.uid,
+          username: normalizedUsername,
+          email,
+          displayName,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
 
-          transaction.set(doc(db, 'users', userCredential.user.uid), newUser);
-          transaction.set(usernameRef, { uid: userCredential.user.uid });
-        });
-      } catch (error) {
         try {
-          await deleteUser(userCredential.user);
-        } catch (deleteError) {
-          logger.error('Failed to roll back auth user after registration failure:', deleteError);
+          await runTransaction(db, async (transaction) => {
+            const usernameRef = doc(db, 'usernames', normalizedUsername);
+            const usernameDoc = await transaction.get(usernameRef);
+
+            if (usernameDoc.exists()) {
+              throw new Error('Username is not available');
+            }
+
+            transaction.set(doc(db, 'users', userCredential.user.uid), newUser);
+            transaction.set(usernameRef, { uid: userCredential.user.uid });
+          });
+        } catch (error) {
+          try {
+            await deleteUser(userCredential.user);
+          } catch (deleteError) {
+            logger.error('Failed to roll back auth user after registration failure:', deleteError);
+            await signOut(auth);
+          }
+          throw error;
         }
-        throw error;
-      }
 
-      const createdUserDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
-      if (createdUserDoc.exists()) {
-        setUser(createdUserDoc.data() as User);
-      }
+        const createdUserDoc = await getDoc(doc(db, 'users', userCredential.user.uid));
+        if (createdUserDoc.exists()) {
+          setUser(createdUserDoc.data() as User);
+        }
 
-      await sendEmailVerification(userCredential.user);
+        await sendEmailVerification(userCredential.user);
+      } finally {
+        sessionStorage.removeItem(REGISTRATION_IN_PROGRESS_KEY);
+      }
     },
     []
   );
