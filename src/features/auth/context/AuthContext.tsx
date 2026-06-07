@@ -39,7 +39,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const REGISTRATION_IN_PROGRESS_KEY = 'spotsync_registration_in_progress';
 const REGISTRATION_STALE_MS = 60_000;
-let registrationInFlight = false;
+let registrationInFlightCount = 0;
+
+const isRegistrationInFlight = (): boolean => registrationInFlightCount > 0;
 
 interface RegistrationProgress {
   uid: string;
@@ -51,15 +53,16 @@ const isEmailPasswordUser = (fbUser: FirebaseUser): boolean =>
 
 const setRegistrationInProgress = (uid: string): void => {
   const payload: RegistrationProgress = { uid, startedAt: Date.now() };
-  sessionStorage.setItem(REGISTRATION_IN_PROGRESS_KEY, JSON.stringify(payload));
+  // localStorage is shared across tabs so other tabs defer orphan recovery during registration.
+  localStorage.setItem(REGISTRATION_IN_PROGRESS_KEY, JSON.stringify(payload));
 };
 
 const clearRegistrationInProgress = (): void => {
-  sessionStorage.removeItem(REGISTRATION_IN_PROGRESS_KEY);
+  localStorage.removeItem(REGISTRATION_IN_PROGRESS_KEY);
 };
 
 const isRegistrationInProgress = (uid: string): boolean => {
-  const raw = sessionStorage.getItem(REGISTRATION_IN_PROGRESS_KEY);
+  const raw = localStorage.getItem(REGISTRATION_IN_PROGRESS_KEY);
   if (!raw) return false;
 
   try {
@@ -87,6 +90,19 @@ const waitForUserProfile = async (
     }
   }
   return null;
+};
+
+// registrationInFlightCount is per-tab; localStorage is shared. Poll until the other
+// tab clears its flag or it goes stale before running orphan recovery.
+const waitForCrossTabRegistration = async (uid: string): Promise<User | null> => {
+  while (isRegistrationInProgress(uid)) {
+    const profile = await waitForUserProfile(uid, 1, 0);
+    if (profile) {
+      return profile;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return waitForUserProfile(uid, 4, 250);
 };
 
 const buildDefaultUsername = (fbUser: FirebaseUser): string => {
@@ -170,17 +186,21 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           // Email/password registration creates the Firestore profile in register().
           // Wait for that transaction before recovering orphaned auth-only accounts.
           const registrationInProgress = isRegistrationInProgress(fbUser.uid);
-          const profile = await waitForUserProfile(
+          let profile = await waitForUserProfile(
             fbUser.uid,
             registrationInProgress ? 12 : 2,
             registrationInProgress ? 250 : 0
           );
 
+          if (!profile && !isRegistrationInFlight() && registrationInProgress) {
+            profile = await waitForCrossTabRegistration(fbUser.uid);
+          }
+
           if (profile) {
             setUser(profile);
-          } else if (!registrationInFlight) {
+          } else if (!isRegistrationInFlight()) {
             // Profile never appeared and register() is not running on this page — clear any
-            // stale session flag and recover orphaned auth-only accounts (e.g. tab crash).
+            // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
             clearRegistrationInProgress();
             await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
             const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
@@ -211,7 +231,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
   const register = useCallback(
     async (email: string, password: string, username: string, displayName: string) => {
-      registrationInFlight = true;
+      registrationInFlightCount++;
       setRegistrationInProgress('pending');
 
       let userCredential: UserCredential;
@@ -259,8 +279,10 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
         await sendEmailVerification(userCredential.user);
       } finally {
-        registrationInFlight = false;
-        clearRegistrationInProgress();
+        registrationInFlightCount--;
+        if (registrationInFlightCount === 0) {
+          clearRegistrationInProgress();
+        }
       }
     },
     []
