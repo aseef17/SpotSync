@@ -15,6 +15,7 @@ import {
   shouldClearStaleListView,
 } from '@/features/lists/hooks/listViewAccess';
 import { shouldApplyCachedListDetails } from '@/features/lists/lib/listDetailAccessGuard';
+import { shouldGrantListAccess } from '@/features/lists/lib/listAccessFromSnapshot';
 import {
   mergeSubscribedPlaces,
   resolvePlacesSnapshot,
@@ -54,9 +55,14 @@ export const useListDetails = (listId: string | undefined) => {
     onProgress: null as (() => void) | null,
   });
   const listAccessibleRef = useRef(true);
+  const accessRevokedRef = useRef(false);
   const pendingPlacesSnapshotRef = useRef<PendingPlacesSnapshot>(undefined);
   const applyPendingPlacesRef = useRef<((placesData: Place[]) => void) | null>(null);
   const hadListFromContextRef = useRef(!!listFromContext);
+
+  const clearPendingPlacesSnapshot = useCallback(() => {
+    pendingPlacesSnapshotRef.current = undefined;
+  }, []);
 
   const flushPendingPlacesSnapshot = useCallback(() => {
     const pending = pendingPlacesSnapshotRef.current;
@@ -67,15 +73,22 @@ export const useListDetails = (listId: string | undefined) => {
     applyPendingPlacesRef.current?.(pending);
   }, []);
 
+  const denyListAccess = useCallback(() => {
+    listAccessibleRef.current = false;
+    clearPendingPlacesSnapshot();
+  }, [clearPendingPlacesSnapshot]);
+
   useEffect(() => {
     hadListFromContextRef.current = false;
-  }, [listId]);
+    accessRevokedRef.current = false;
+  }, [listId, user?.id]);
 
   useEffect(() => {
     const hadListFromContext = hadListFromContextRef.current;
     hadListFromContextRef.current = !!listFromContext;
 
     if (listFromContext) {
+      accessRevokedRef.current = false;
       listAccessibleRef.current = true;
       flushPendingPlacesSnapshot();
       setList(listFromContext);
@@ -93,7 +106,8 @@ export const useListDetails = (listId: string | undefined) => {
         hasListFromContext: false,
       })
     ) {
-      listAccessibleRef.current = false;
+      accessRevokedRef.current = true;
+      denyListAccess();
       setList(null);
       setPlaces([]);
       setError('List not found');
@@ -101,7 +115,7 @@ export const useListDetails = (listId: string | undefined) => {
       loadTrackingRef.current.hasCachedData = false;
       loadTrackingRef.current.onProgress?.();
     }
-  }, [listFromContext, listId, flushPendingPlacesSnapshot]);
+  }, [listFromContext, listId, flushPendingPlacesSnapshot, denyListAccess]);
 
   useEffect(() => {
     if (!listId || listFromContext) {
@@ -109,33 +123,46 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
+    listAccessibleRef.current = false;
     loadTrackingRef.current.listLoaded = false;
+    loadTrackingRef.current.hasCachedData = false;
     loadTrackingRef.current.onProgress?.();
 
     const unsubscribeList = ListService.subscribeToList(
       listId,
-      (listData) => {
+      (listData, meta) => {
         if (cancelled) return;
-        if (!listData) {
-          listAccessibleRef.current = false;
+        if (
+          !shouldGrantListAccess({
+            list: listData,
+            userId: user?.id,
+            fromCache: meta.fromCache,
+            accessRevoked: accessRevokedRef.current,
+          })
+        ) {
+          denyListAccess();
           setList(null);
           setPlaces([]);
           setError('List not found');
           loadTrackingRef.current.hasCachedData = false;
-        } else {
-          listAccessibleRef.current = true;
-          flushPendingPlacesSnapshot();
-          setList(listData);
-          setError(null);
-          loadTrackingRef.current.hasCachedData = true;
+          loadTrackingRef.current.listLoaded = true;
+          loadTrackingRef.current.onProgress?.();
+          return;
         }
+
+        listAccessibleRef.current = true;
+        flushPendingPlacesSnapshot();
+        setList(listData);
+        setError(listData ? null : 'List not found');
+        loadTrackingRef.current.hasCachedData = !!listData;
         loadTrackingRef.current.listLoaded = true;
         loadTrackingRef.current.onProgress?.();
       },
       (err) => {
         if (cancelled) return;
         logger.error('Error listening to list:', err);
-        listAccessibleRef.current = false;
+        accessRevokedRef.current = true;
+        denyListAccess();
         if (isFirestorePermissionDenied(err)) {
           setList(null);
           setPlaces([]);
@@ -155,7 +182,7 @@ export const useListDetails = (listId: string | undefined) => {
       cancelled = true;
       unsubscribeList();
     };
-  }, [listId, listFromContext, flushPendingPlacesSnapshot]);
+  }, [listId, listFromContext, user?.id, flushPendingPlacesSnapshot, denyListAccess]);
 
   useEffect(() => {
     if (!listId || !placeAccessQuery) {
@@ -165,9 +192,11 @@ export const useListDetails = (listId: string | undefined) => {
     let cancelled = false;
     pendingPlacesSnapshotRef.current = undefined;
     applyPendingPlacesRef.current = null;
-    listAccessibleRef.current = !!listFromContext || !!list;
-    loadTrackingRef.current.listLoaded = !!listFromContext || !!list;
-    loadTrackingRef.current.hasCachedData = !!listFromContext || !!list;
+    if (listFromContext) {
+      listAccessibleRef.current = true;
+      loadTrackingRef.current.listLoaded = true;
+      loadTrackingRef.current.hasCachedData = true;
+    }
     let listLoaded = loadTrackingRef.current.listLoaded;
     let placesLoaded = false;
     let hasCachedData = loadTrackingRef.current.hasCachedData;
@@ -205,7 +234,16 @@ export const useListDetails = (listId: string | undefined) => {
         return;
       }
 
-      if (!contextList && cachedList) {
+      if (
+        !contextList &&
+        cachedList &&
+        shouldGrantListAccess({
+          list: cachedList,
+          userId: user?.id,
+          fromCache: true,
+          accessRevoked: accessRevokedRef.current,
+        })
+      ) {
         setList(cachedList);
         setError(null);
         listLoaded = true;
@@ -274,7 +312,8 @@ export const useListDetails = (listId: string | undefined) => {
       (err) => {
         if (cancelled) return;
         if (isFirestorePermissionDenied(err)) {
-          listAccessibleRef.current = false;
+          accessRevokedRef.current = true;
+          denyListAccess();
           setPlaces([]);
           setError('List not found');
         } else {
@@ -285,6 +324,10 @@ export const useListDetails = (listId: string | undefined) => {
       }
     );
 
+    if (loadTrackingRef.current.listLoaded) {
+      flushPendingPlacesSnapshot();
+    }
+
     return () => {
       cancelled = true;
       applyPendingPlacesRef.current = null;
@@ -292,7 +335,15 @@ export const useListDetails = (listId: string | undefined) => {
       window.clearTimeout(timeoutId);
       unsubscribePlaces();
     };
-  }, [listId, placeAccessQuery, listFromContext, list]);
+  }, [
+    listId,
+    placeAccessQuery,
+    listFromContext,
+    list,
+    user?.id,
+    flushPendingPlacesSnapshot,
+    denyListAccess,
+  ]);
 
   const loadMorePlaces = useCallback(async () => {
     if (!listId || loadingMore || !listAccessibleRef.current) return;

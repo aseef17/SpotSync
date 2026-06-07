@@ -627,17 +627,18 @@ export class ListService {
 
   static subscribeToList(
     listId: string,
-    onUpdate: (list: PlaceList | null) => void,
+    onUpdate: (list: PlaceList | null, meta: { fromCache: boolean }) => void,
     onError: (error: Error) => void
   ): () => void {
     const listRef = doc(db, 'lists', listId).withConverter(listConverter);
     return onSnapshot(
       listRef,
       (docSnap) => {
+        const meta = { fromCache: docSnap.metadata.fromCache };
         if (docSnap.exists()) {
-          onUpdate(docSnap.data());
+          onUpdate(docSnap.data(), meta);
         } else {
-          onUpdate(null);
+          onUpdate(null, meta);
         }
       },
       (err) => {
