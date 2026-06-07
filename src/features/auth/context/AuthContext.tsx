@@ -13,7 +13,7 @@ import {
   type User as FirebaseUser,
   type UserCredential,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, runTransaction } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocFromServer, runTransaction } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/features/auth/types/user';
 import {
@@ -23,6 +23,7 @@ import {
   clearRegistrationProgress,
   endRegistrationSession,
   isRegistrationInProgress,
+  isUsernameOwnedByUid,
   shouldDeleteAuthUserOnRegistrationFailure,
   writeRegistrationProgress,
 } from '@/features/auth/lib/registrationGuard';
@@ -117,6 +118,12 @@ const claimUsernameForUser = async (
       if (!usernameDoc.exists()) {
         claimedUsername = candidate;
         transaction.set(usernameRef, { uid: fbUser.uid });
+        break;
+      }
+
+      const ownerUid = usernameDoc.data()?.uid as string | undefined;
+      if (ownerUid === fbUser.uid) {
+        claimedUsername = candidate;
         break;
       }
     }
@@ -276,6 +283,10 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
                   });
                   return;
                 }
+
+                // Username already reserved for this uid; complete the missing profile.
+                transaction.set(userRef, newUser);
+                return;
               }
               throw new Error('Username is not available');
             }
@@ -286,11 +297,16 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
         } catch (error) {
           const userRef = doc(db, 'users', userCredential.user.uid);
           const usernameRef = doc(db, 'usernames', normalizedUsername);
-          const [userDoc, usernameDoc] = await Promise.all([getDoc(userRef), getDoc(usernameRef)]);
+          // Persistent cache may still show "no profile" after cross-tab orphan recovery.
+          const [userDoc, usernameDoc] = await Promise.all([
+            getDocFromServer(userRef),
+            getDocFromServer(usernameRef),
+          ]);
+          const usernameOwnerUid = usernameDoc.data()?.uid as string | undefined;
           const rollbackOptions = {
             userProfileExists: userDoc.exists(),
             usernameExists: usernameDoc.exists(),
-            usernameOwnerUid: usernameDoc.data()?.uid as string | undefined,
+            usernameOwnerUid,
             registeringUid: userCredential.user.uid,
           };
 
@@ -299,6 +315,19 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
               setUser(userDoc.data() as User);
               await sendEmailVerification(userCredential.user);
               return;
+            }
+
+            if (
+              usernameDoc.exists() &&
+              isUsernameOwnedByUid(usernameOwnerUid, userCredential.user.uid)
+            ) {
+              await claimUsernameForUser(userCredential.user, normalizedUsername);
+              const provisionedUserDoc = await getDocFromServer(userRef);
+              if (provisionedUserDoc.exists()) {
+                setUser(provisionedUserDoc.data() as User);
+                await sendEmailVerification(userCredential.user);
+                return;
+              }
             }
           }
 
