@@ -272,7 +272,14 @@ export const useListDetails = (listId: string | undefined) => {
       cancelled = true;
       unsubscribeList();
     };
-  }, [listId, listFromContext, user?.id, flushPendingPlacesSnapshot, denyListAccess, setAccessRevoked]);
+  }, [
+    listId,
+    listFromContext,
+    user?.id,
+    flushPendingPlacesSnapshot,
+    denyListAccess,
+    setAccessRevoked,
+  ]);
 
   useEffect(() => {
     if (!listId || !listAccessKey || !placeAccessQuery) {
