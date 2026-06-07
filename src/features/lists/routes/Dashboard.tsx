@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Plus, Users, Settings, Eye, EyeOff, Edit, AlertCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
@@ -16,6 +16,23 @@ import { ListIcon } from '@/features/lists/components/ListIcon';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
 import { logger } from '@/utils/logger';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
+
+const isPendingOptimisticList = (
+  list: PlaceList,
+  realIds: Set<string>,
+  realClientIds: Set<string>
+): boolean => {
+  if (list.id.startsWith('temp-')) {
+    return !realClientIds.has(list.clientId || list.id);
+  }
+  if (realIds.has(list.id)) {
+    return false;
+  }
+  if (list.clientId && realClientIds.has(list.clientId)) {
+    return false;
+  }
+  return true;
+};
 
 export const Dashboard: React.FunctionComponent = () => {
   const { user, logout } = useAuth();
@@ -36,15 +53,55 @@ export const Dashboard: React.FunctionComponent = () => {
   const [hiddenListIds, setHiddenListIds] = useState<Set<string>>(new Set());
   const [optimisticLists, setOptimisticLists] = useState<PlaceList[]>([]);
   const { trigger: triggerAction } = useDeferredAction();
+  const [removedListIds, setRemovedListIds] = useState<Set<string>>(() => new Set());
+  const prevListIdsRef = useRef<Set<string>>(new Set());
 
-  // Drop optimistic entries once Firestore confirms the list via clientId
+  // Drop optimistic entries once Firestore confirms the list by id or clientId
   const activeOptimisticLists = useMemo(() => {
+    const realIds = new Set(lists.map((l) => l.id));
     const realClientIds = new Set(
       lists.map((l) => l.clientId).filter((id): id is string => Boolean(id))
     );
 
-    return optimisticLists.filter((l) => !realClientIds.has(l.clientId || l.id));
-  }, [lists, optimisticLists]);
+    return optimisticLists.filter((l) => {
+      if (removedListIds.has(l.id)) {
+        return false;
+      }
+      return isPendingOptimisticList(l, realIds, realClientIds);
+    });
+  }, [lists, optimisticLists, removedListIds]);
+
+  // Prune stale optimistic entries when the Firestore subscription changes
+  useEffect(() => {
+    const realIds = new Set(lists.map((l) => l.id));
+    const realClientIds = new Set(
+      lists.map((l) => l.clientId).filter((id): id is string => Boolean(id))
+    );
+    const disappeared = [...prevListIdsRef.current].filter((id) => !realIds.has(id));
+
+    if (disappeared.length > 0) {
+      setRemovedListIds((prev) => {
+        const next = new Set(prev);
+        let changed = false;
+        for (const id of disappeared) {
+          if (!next.has(id)) {
+            next.add(id);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    }
+
+    setOptimisticLists((prev) => {
+      const pruned = prev.filter(
+        (l) => !disappeared.includes(l.id) && isPendingOptimisticList(l, realIds, realClientIds)
+      );
+      return pruned.length !== prev.length ? pruned : prev;
+    });
+
+    prevListIdsRef.current = realIds;
+  }, [lists]);
 
   // Merge optimistic lists with real lists, apply updates, and filter hidden
   const displayedLists = useMemo(() => {
@@ -228,15 +285,13 @@ export const Dashboard: React.FunctionComponent = () => {
             </div>
             <div className="flex items-center space-x-4">
               <ThemeToggle />
-              <div className="relative">
-                <Link
-                  to="/settings"
-                  className={`p-2 rounded-full ${themeColors.text.secondary} ${themeColors.button.icon}`}
-                  title="Settings"
-                >
-                  <Settings className="h-5 w-5" />
-                </Link>
-              </div>
+              <Link
+                to="/settings"
+                className={`inline-flex items-center justify-center p-2 rounded-lg ${themeColors.text.secondary} hover:bg-blue-50 hover:text-blue-700 dark:hover:bg-blue-900/30 dark:hover:text-blue-200 transition-colors`}
+                title="Settings"
+              >
+                <Settings className="h-5 w-5" />
+              </Link>
               <button
                 onClick={() => setShowSignOutConfirm(true)}
                 className={`px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.secondary} transition-colors`}
