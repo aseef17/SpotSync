@@ -57,4 +57,16 @@ describe('isPlaceOpen', () => {
 
     expect(isPlaceOpen(place)).toBe(true);
   });
+
+  it('does not trust stale openNow when split hours show the place is closed', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-07T05:13:00'));
+
+    const place = buildPlace({
+      openNow: true,
+      openingHours: ['Sunday: 11:30 AM – 4:00 PM, 5:00 PM – 10:00 PM'],
+    });
+
+    expect(isPlaceOpen(place)).toBe(false);
+  });
 });

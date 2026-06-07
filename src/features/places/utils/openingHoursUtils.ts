@@ -1,41 +1,34 @@
+import { getZonedMinutesFromMidnight } from '@/features/places/utils/placeTimeUtils';
+
 const MERIDIEM_PATTERN = /\b(am|pm)\b/i;
 const TIME_PATTERN = /(\d{1,2}):(\d{2})\s*(am|pm)?/i;
 
-/**
- * When Google returns "3:00 - 10:00 PM", infer PM on the ambiguous start time.
- * Avoid corrupting standard business hours like "9:00 - 5:00 PM" into "9:00 PM - 5:00 PM".
- */
-export function inferAmbiguousStartMeridiem(
-  startText: string,
-  endText: string
-): 'am' | 'pm' | undefined {
-  const endMeridiem = endText.match(MERIDIEM_PATTERN)?.[1]?.toLowerCase();
-  if (endMeridiem !== 'pm' || MERIDIEM_PATTERN.test(startText)) {
-    return undefined;
+function parseHourFromTimeFragment(fragment: string): number | null {
+  const match = fragment.trim().match(/^(\d{1,2}):(\d{2})/);
+  if (!match) {
+    return null;
   }
 
-  const startMinutesAm = parseOpeningHoursTimeToMinutes(startText, { inheritMeridiem: 'am' });
-  const startMinutesPm = parseOpeningHoursTimeToMinutes(startText, { inheritMeridiem: 'pm' });
-  const endMinutes = parseOpeningHoursTimeToMinutes(endText);
-  if (startMinutesAm === null || startMinutesPm === null || endMinutes === null) {
-    return undefined;
+  return Number.parseInt(match[1], 10);
+}
+
+/** Infer PM on ambiguous starts like "3:00 - 10:00 PM", not lunch ranges like "11:00 - 2:00 PM". */
+function shouldInferPmOnAmbiguousStart(start: string, end: string): boolean {
+  const endMeridiem = end.match(MERIDIEM_PATTERN)?.[1]?.toLowerCase();
+  const startHasMeridiem = MERIDIEM_PATTERN.test(start);
+
+  if (startHasMeridiem || endMeridiem !== 'pm') {
+    return false;
   }
 
-  const validAmRange = startMinutesAm < endMinutes;
-  const validPmRange = startMinutesPm < endMinutes;
+  const startHour = parseHourFromTimeFragment(start);
+  const endHour = parseHourFromTimeFragment(end);
 
-  if (validPmRange && !validAmRange) {
-    return 'pm';
-  }
-  if (validAmRange && !validPmRange) {
-    return 'am';
-  }
-  if (validAmRange && validPmRange) {
-    const startHour = parseInt(startText.match(/(\d{1,2})/)?.[1] ?? '0', 10);
-    return startHour <= 6 ? 'pm' : 'am';
+  if (startHour === null || endHour === null) {
+    return false;
   }
 
-  return undefined;
+  return startHour < endHour;
 }
 
 export function normalizeOpeningHoursTimeRange(rangeText: string): string {
@@ -46,10 +39,8 @@ export function normalizeOpeningHoursTimeRange(rangeText: string): string {
 
   const start = rangeParts[0].trim();
   const end = rangeParts[1].trim();
-  const inferredMeridiem = inferAmbiguousStartMeridiem(start, end);
-
-  if (inferredMeridiem) {
-    return `${start} ${inferredMeridiem.toUpperCase()} - ${end}`;
+  if (shouldInferPmOnAmbiguousStart(start, end)) {
+    return `${start} PM - ${end}`;
   }
 
   return rangeText;
@@ -114,30 +105,22 @@ export function parseOpeningHoursTimeToMinutes(
   return hours * 60 + minutes;
 }
 
-export function isOpenAtTimeFromHoursText(
-  todayText: string,
-  date: Date = new Date()
-): boolean | null {
-  const textLower = todayText.toLowerCase();
+function splitHoursRangeSegments(todayText: string): string[] {
+  return todayText
+    .split(',')
+    .map((segment) => segment.trim())
+    .filter(Boolean);
+}
 
-  if (textLower.includes('closed')) {
-    return false;
-  }
-  if (textLower.includes('open 24 hours')) {
-    return true;
-  }
-  if (!todayText.match(/\d+:\d+/)) {
-    return null;
-  }
-
-  const currentMinutes = date.getHours() * 60 + date.getMinutes();
-  const rangeParts = todayText.split(/[–—-]/);
+function isOpenInSingleRange(rangeText: string, currentMinutes: number): boolean | null {
+  const rangeParts = rangeText.split(/[–—-]/);
   if (rangeParts.length !== 2) {
     return null;
   }
 
-  const startInherit = inferAmbiguousStartMeridiem(rangeParts[0].trim(), rangeParts[1].trim());
-
+  const startInherit = shouldInferPmOnAmbiguousStart(rangeParts[0].trim(), rangeParts[1].trim())
+    ? ('pm' as const)
+    : undefined;
   const startMinutes = parseOpeningHoursTimeToMinutes(rangeParts[0].trim(), {
     inheritMeridiem: startInherit,
   });
@@ -152,4 +135,44 @@ export function isOpenAtTimeFromHoursText(
   }
 
   return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
+}
+
+export function isOpenAtTimeFromHoursText(
+  todayText: string,
+  date: Date = new Date(),
+  options?: { timeZone?: string; currentMinutes?: number }
+): boolean | null {
+  const textLower = todayText.toLowerCase();
+
+  if (textLower.includes('closed')) {
+    return false;
+  }
+  if (textLower.includes('open 24 hours')) {
+    return true;
+  }
+  if (!todayText.match(/\d+:\d+/)) {
+    return null;
+  }
+
+  const currentMinutes =
+    options?.currentMinutes ??
+    (options?.timeZone
+      ? getZonedMinutesFromMidnight(options.timeZone, date)
+      : date.getHours() * 60 + date.getMinutes());
+
+  const segments = splitHoursRangeSegments(todayText);
+  let parsedAnyRange = false;
+
+  for (const segment of segments) {
+    const result = isOpenInSingleRange(segment, currentMinutes);
+    if (result === null) {
+      continue;
+    }
+    parsedAnyRange = true;
+    if (result) {
+      return true;
+    }
+  }
+
+  return parsedAnyRange ? false : null;
 }

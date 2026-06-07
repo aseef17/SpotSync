@@ -108,6 +108,7 @@ export const createPlaceFromGoogleDetails = (
     phoneNumber: googlePlace.formatted_phone_number,
     website: googlePlace.website,
     openingHours: normalizeOpeningHours(googlePlace.opening_hours?.weekday_text),
+    timeZone: googlePlace.time_zone,
     priceLevel: googlePlace.price_level,
 
     ...overrides,
