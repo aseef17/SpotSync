@@ -152,6 +152,8 @@ async function applyUpdateList(payload: UpdateListPayload): Promise<void> {
   await updateDoc(doc(db, 'lists', payload.listId), payload.updates);
 }
 
+const FIRESTORE_BATCH_DELETE_LIMIT = 499;
+
 async function applyDeleteList(payload: DeleteListPayload): Promise<void> {
   const membershipsQuery = query(
     collection(db, LIST_PLACES_COLLECTION),
@@ -165,10 +167,15 @@ async function applyDeleteList(payload: DeleteListPayload): Promise<void> {
     return;
   }
 
-  const batch = writeBatch(db);
-  memberships.forEach((membershipDoc) => batch.delete(membershipDoc.ref));
-  batch.delete(doc(db, 'lists', payload.listId));
-  await batch.commit();
+  for (let i = 0; i < memberships.length; i += FIRESTORE_BATCH_DELETE_LIMIT) {
+    const batch = writeBatch(db);
+    const chunk = memberships.slice(i, i + FIRESTORE_BATCH_DELETE_LIMIT);
+    chunk.forEach((membershipDoc) => batch.delete(membershipDoc.ref));
+    if (i + FIRESTORE_BATCH_DELETE_LIMIT >= memberships.length) {
+      batch.delete(doc(db, 'lists', payload.listId));
+    }
+    await batch.commit();
+  }
 }
 
 async function applyUpdateUser(payload: UpdateUserPayload): Promise<void> {
