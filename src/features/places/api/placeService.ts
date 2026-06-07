@@ -24,6 +24,8 @@ import {
   type PlaceListAccessFields,
 } from '@/features/places/utils/placeAccess';
 import {
+  coalesceDurablePhotoUrls,
+  hasNewFirebasePhotoUpload,
   isFirebaseStoragePhotoUrl,
   partitionGoogleSyncUpdates,
 } from '@/features/places/utils/placeGoogleSync';
@@ -805,7 +807,10 @@ export class PlaceService {
     );
 
     if (syncedPhotoUrls) {
-      await this.persistPhotoSyncMetadata(placeId, syncedPhotoUrls);
+      const durableUrls = coalesceDurablePhotoUrls(syncedPhotoUrls, place.photoUrls);
+      if (hasNewFirebasePhotoUpload(durableUrls, place.photoUrls)) {
+        await this.persistPhotoSyncMetadata(placeId, durableUrls);
+      }
     }
 
     const updatedPlace = await placeRepository.getById(placeId);
