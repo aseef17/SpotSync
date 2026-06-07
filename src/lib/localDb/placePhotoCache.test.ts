@@ -35,7 +35,11 @@ vi.mock('@/features/places/api/googleMapsService', () => ({
   },
 }));
 
-import { invalidatePlacePhotos, loadPlacePhotoBlob } from '@/lib/localDb/placePhotoCache';
+import {
+  getPhotoWarmInFlightForList,
+  invalidatePlacePhotos,
+  loadPlacePhotoBlob,
+} from '@/lib/localDb/placePhotoCache';
 
 describe('loadPlacePhotoBlob invalidation race', () => {
   beforeEach(() => {
@@ -66,5 +70,66 @@ describe('loadPlacePhotoBlob invalidation race', () => {
 
     expect(deletePlacePhotoBlobsMock).toHaveBeenCalledWith('place-1');
     expect(writePlacePhotoBlobMock).not.toHaveBeenCalled();
+  });
+});
+
+describe('loadPlacePhotoBlob hydration tracking', () => {
+  beforeEach(() => {
+    readPlacePhotoBlobMock.mockReset();
+    writePlacePhotoBlobMock.mockReset();
+    fetchPhotoBlobMock.mockReset();
+
+    readPlacePhotoBlobMock.mockResolvedValue(null);
+    writePlacePhotoBlobMock.mockResolvedValue(undefined);
+  });
+
+  it('tracks in-flight warms per list, not globally across lists', async () => {
+    let resolveListAFetch: ((blob: Blob) => void) | undefined;
+    const listAFetch = new Promise<Blob>((resolve) => {
+      resolveListAFetch = resolve;
+    });
+
+    fetchPhotoBlobMock.mockReturnValueOnce(listAFetch);
+
+    const listAPromise = loadPlacePhotoBlob('place-a', 'google-photo-ref-a', 0, 400, 400, 'list-a');
+    await Promise.resolve();
+
+    expect(getPhotoWarmInFlightForList('list-a')).toBe(1);
+    expect(getPhotoWarmInFlightForList('list-b')).toBe(0);
+
+    fetchPhotoBlobMock.mockResolvedValueOnce(new Blob(['b'], { type: 'image/jpeg' }));
+    const listBPromise = loadPlacePhotoBlob('place-b', 'google-photo-ref-b', 0, 400, 400, 'list-b');
+    await listBPromise;
+
+    expect(getPhotoWarmInFlightForList('list-b')).toBe(0);
+    expect(getPhotoWarmInFlightForList('list-a')).toBe(1);
+
+    resolveListAFetch?.(new Blob(['a'], { type: 'image/jpeg' }));
+    await listAPromise;
+
+    expect(getPhotoWarmInFlightForList('list-a')).toBe(0);
+  });
+
+  it('releases list warm counter when fetch times out', async () => {
+    vi.useFakeTimers();
+
+    let resolveFetch: ((blob: Blob) => void) | undefined;
+    const fetchPromise = new Promise<Blob>((resolve) => {
+      resolveFetch = resolve;
+    });
+    fetchPhotoBlobMock.mockReturnValue(fetchPromise);
+
+    const loadPromise = loadPlacePhotoBlob('place-1', 'google-photo-ref-a', 0, 400, 400, 'list-a');
+    await Promise.resolve();
+
+    expect(getPhotoWarmInFlightForList('list-a')).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(30_000);
+    await loadPromise;
+
+    expect(getPhotoWarmInFlightForList('list-a')).toBe(0);
+
+    resolveFetch?.(new Blob(['late'], { type: 'image/jpeg' }));
+    vi.useRealTimers();
   });
 });

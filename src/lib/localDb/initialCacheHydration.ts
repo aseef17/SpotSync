@@ -4,6 +4,8 @@ export const INITIAL_CACHE_HYDRATION_COPY = {
     'Saving your data for faster loads. We keep it synced in the background — this only happens once.',
 } as const;
 
+export const INITIAL_CACHE_HYDRATION_MAX_MS = 45_000;
+
 export function resolveHydrationScopeKey(pathname: string): string | null {
   if (pathname === '/dashboard' || pathname === '/') {
     return 'dashboard';
@@ -27,8 +29,23 @@ export function isInitialCacheHydrating(options: {
   hasContent: boolean;
   waitForPhotoWarm: boolean;
   photoWarmInFlight: number;
+  forcedComplete?: boolean;
 }): boolean {
-  if (options.hadCacheInitially !== false) {
+  if (options.forcedComplete) {
+    return false;
+  }
+
+  if (options.hadCacheInitially === true) {
+    return false;
+  }
+
+  if (options.hadCacheInitially === null) {
+    if (options.isLoading) {
+      return true;
+    }
+    if (options.hasContent) {
+      return true;
+    }
     return false;
   }
 

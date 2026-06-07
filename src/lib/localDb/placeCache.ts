@@ -117,7 +117,7 @@ export async function upsertCachedPlace(place: Place): Promise<void> {
     await invalidatePlacePhotos(place.id);
   }
 
-  warmPlaceThumbnailCache(place.id, getPlaceThumbnail(place));
+  warmPlaceThumbnailCache(place.listId, place.id, getPlaceThumbnail(place));
 }
 
 export async function upsertCachedPlaces(places: Place[]): Promise<void> {
@@ -150,7 +150,7 @@ export async function upsertCachedPlaces(places: Place[]): Promise<void> {
     if (didPlacePhotoFieldsChange(existingById.get(place.id) ?? null, place)) {
       await invalidatePlacePhotos(place.id);
     }
-    warmPlaceThumbnailCache(place.id, getPlaceThumbnail(place));
+    warmPlaceThumbnailCache(place.listId, place.id, getPlaceThumbnail(place));
   }
 }
 
@@ -234,7 +234,7 @@ export async function patchCachedPlace(
   emitChange(changeTopics.place(placeId));
   emitChange(changeTopics.placesForList(updated.listId));
 
-  warmPlaceThumbnailCache(updated.id, getPlaceThumbnail(updated));
+  warmPlaceThumbnailCache(updated.listId, updated.id, getPlaceThumbnail(updated));
 
   return updated;
 }
