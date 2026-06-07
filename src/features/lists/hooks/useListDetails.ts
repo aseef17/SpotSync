@@ -26,6 +26,8 @@ export const useListDetails = (listId: string | undefined) => {
   const [error, setError] = useState<string | null>(listId ? null : 'No list ID provided');
   const paginationCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const extraPlacesRef = useRef<Place[]>([]);
+  const listsRef = useRef(lists);
+  listsRef.current = lists;
 
   useEffect(() => {
     if (listFromContext) {
@@ -55,7 +57,7 @@ export const useListDetails = (listId: string | undefined) => {
     };
 
     const hydrateFromCache = async () => {
-      const contextList = lists.find((entry) => entry.id === listId) ?? null;
+      const contextList = listsRef.current.find((entry) => entry.id === listId) ?? null;
       if (contextList) {
         setList(contextList);
         setError(null);
@@ -173,7 +175,8 @@ export const useListDetails = (listId: string | undefined) => {
       unsubscribeList?.();
       unsubscribePlaces();
     };
-  }, [listId, listFromContext, lists]);
+    // Only re-subscribe when the viewed list changes. List metadata syncs via the effect above.
+  }, [listId]);
 
   const loadMorePlaces = useCallback(async () => {
     if (!listId || loadingMore) return;
