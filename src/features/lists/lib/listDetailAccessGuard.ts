@@ -66,5 +66,9 @@ export function shouldClearAccessRevokedOnContextReturn(options: {
   if (!options.list.isPublic) {
     return false;
   }
+  // Saved-list rows may carry stale isPublic after visibility changes; require server confirmation.
+  if (options.list.isSavedList) {
+    return false;
+  }
   return !options.hadListFromContext && userCanReadList(options.list, options.userId);
 }

@@ -196,13 +196,13 @@ describe('shouldClearAccessRevokedOnContextReturn', () => {
     ).toBe(false);
   });
 
-  it('still clears revocation when a public saved list re-enters context', () => {
+  it('does not clear revocation when a saved list re-enters with stale isPublic', () => {
     expect(
       shouldClearAccessRevokedOnContextReturn({
         hadListFromContext: false,
         list: list({ isPublic: true, isSavedList: true, collaboratorIds: [] }),
         userId: 'user-c',
       })
-    ).toBe(true);
+    ).toBe(false);
   });
 });

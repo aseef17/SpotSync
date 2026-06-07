@@ -146,7 +146,7 @@ export const useListDetails = (listId: string | undefined) => {
       } else if (
         !hadListFromContext &&
         accessRevokedRef.current &&
-        !listFromContext.isPublic &&
+        (listFromContext.isSavedList || !listFromContext.isPublic) &&
         listId &&
         user?.id &&
         isBrowserOnline()
