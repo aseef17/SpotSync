@@ -1,4 +1,15 @@
-import { doc, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, writeBatch } from 'firebase/firestore';
+import {
+  doc,
+  updateDoc,
+  collection,
+  query,
+  where,
+  getDocs,
+  getDocFromServer,
+  arrayUnion,
+  arrayRemove,
+  writeBatch,
+} from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
   queueOfflineMutation,
@@ -12,6 +23,7 @@ import { listRepository } from '@/lib/localDb/repositories/listRepository';
 import type { PlaceList, Collaborator, Permission } from '@/features/lists/types/list';
 import { logger } from '@/utils/logger';
 import { getPlaceListAccessFields } from '@/features/places/utils/placeAccess';
+import { listConverter } from '@/features/lists/api/listFirestore';
 
 function getExpectedEditorIds(list: PlaceList): string[] {
   return Array.from(
@@ -23,7 +35,7 @@ function getExpectedEditorIds(list: PlaceList): string[] {
   );
 }
 
-export { listConverter } from '@/features/lists/api/listFirestore';
+export { listConverter };
 
 export class ListService {
   static async createList(
@@ -90,6 +102,19 @@ export class ListService {
       return listId;
     } catch (error) {
       logger.error('Error creating list:', error);
+      throw error;
+    }
+  }
+
+  static async getListFromServer(listId: string): Promise<PlaceList | null> {
+    try {
+      const listDoc = await getDocFromServer(doc(db, 'lists', listId).withConverter(listConverter));
+      if (listDoc.exists()) {
+        return listDoc.data();
+      }
+      return null;
+    } catch (error) {
+      logger.error('Error getting list from server:', error);
       throw error;
     }
   }

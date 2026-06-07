@@ -1,8 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   isFirestorePermissionDenied,
+  listAccessRevokedStorageKey,
+  listSavedPrivateDeniedStorageKey,
   listViewRemountKey,
+  readPersistedListAccessRevoked,
+  readPersistedListSavedPrivateDenied,
   shouldClearStaleListView,
+  shouldHydrateListFromPersistentCache,
+  shouldTrustPrivateListSnapshot,
+  writePersistedListAccessRevoked,
+  writePersistedListSavedPrivateDenied,
 } from '@/features/lists/hooks/listViewAccess';
 
 describe('shouldClearStaleListView', () => {
@@ -35,6 +43,17 @@ describe('shouldClearStaleListView', () => {
       })
     ).toBe(false);
   });
+
+  it('does not clear while lists are reloading after a provider remount', () => {
+    expect(
+      shouldClearStaleListView({
+        listId: 'list-1',
+        hadListFromContext: true,
+        hasListFromContext: false,
+        listsLoading: true,
+      })
+    ).toBe(false);
+  });
 });
 
 describe('listViewRemountKey', () => {
@@ -56,5 +75,153 @@ describe('isFirestorePermissionDenied', () => {
   it('detects Firestore permission errors', () => {
     expect(isFirestorePermissionDenied({ code: 'permission-denied' })).toBe(true);
     expect(isFirestorePermissionDenied(new Error('offline'))).toBe(false);
+  });
+});
+
+describe('shouldTrustPrivateListSnapshot', () => {
+  it('allows server snapshots for private lists', () => {
+    expect(
+      shouldTrustPrivateListSnapshot({
+        fromCache: false,
+        isPublic: false,
+        serverVerified: false,
+      })
+    ).toBe(true);
+  });
+
+  it('allows cached public list snapshots', () => {
+    expect(
+      shouldTrustPrivateListSnapshot({
+        fromCache: true,
+        isPublic: true,
+        serverVerified: false,
+      })
+    ).toBe(true);
+  });
+
+  it('blocks cached private snapshots until server access is confirmed', () => {
+    expect(
+      shouldTrustPrivateListSnapshot({
+        fromCache: true,
+        isPublic: false,
+        serverVerified: false,
+      })
+    ).toBe(false);
+  });
+
+  it('allows cached private snapshots after server access is confirmed', () => {
+    expect(
+      shouldTrustPrivateListSnapshot({
+        fromCache: true,
+        isPublic: false,
+        serverVerified: true,
+      })
+    ).toBe(true);
+  });
+});
+
+describe('shouldHydrateListFromPersistentCache', () => {
+  it('blocks cached private lists until server access is confirmed', () => {
+    expect(
+      shouldHydrateListFromPersistentCache({
+        grantFromAccessRules: true,
+        isPublic: false,
+        serverVerified: false,
+      })
+    ).toBe(false);
+  });
+
+  it('allows cached private lists after server access is confirmed', () => {
+    expect(
+      shouldHydrateListFromPersistentCache({
+        grantFromAccessRules: true,
+        isPublic: false,
+        serverVerified: true,
+      })
+    ).toBe(true);
+  });
+
+  it('does not hydrate when access rules deny the cached list', () => {
+    expect(
+      shouldHydrateListFromPersistentCache({
+        grantFromAccessRules: false,
+        isPublic: false,
+        serverVerified: true,
+      })
+    ).toBe(false);
+  });
+});
+
+describe('list access revocation persistence', () => {
+  const storage = new Map<string, string>();
+
+  beforeEach(() => {
+    storage.clear();
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      },
+      clear: () => {
+        storage.clear();
+      },
+    });
+  });
+
+  it('builds stable storage keys per user and list', () => {
+    expect(listAccessRevokedStorageKey('user-a', 'list-1')).toBe('listAccessRevoked:user-a:list-1');
+  });
+
+  it('persists and restores sticky revocation across remounts', () => {
+    writePersistedListAccessRevoked('user-a', 'list-1', true);
+    expect(readPersistedListAccessRevoked('user-a', 'list-1')).toBe(true);
+    expect(readPersistedListAccessRevoked('user-b', 'list-1')).toBe(false);
+  });
+
+  it('clears persisted revocation when access is restored', () => {
+    writePersistedListAccessRevoked('user-a', 'list-1', true);
+    writePersistedListAccessRevoked('user-a', 'list-1', false);
+    expect(readPersistedListAccessRevoked('user-a', 'list-1')).toBe(false);
+  });
+});
+
+describe('saved private denial persistence', () => {
+  const storage = new Map<string, string>();
+
+  beforeEach(() => {
+    storage.clear();
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      },
+      clear: () => {
+        storage.clear();
+      },
+    });
+  });
+
+  it('builds stable storage keys per user and list', () => {
+    expect(listSavedPrivateDeniedStorageKey('user-a', 'list-1')).toBe(
+      'listSavedPrivateDenied:user-a:list-1'
+    );
+  });
+
+  it('persists saved-private denial across reloads without setting accessRevoked', () => {
+    writePersistedListSavedPrivateDenied('user-a', 'list-1', true);
+    expect(readPersistedListSavedPrivateDenied('user-a', 'list-1')).toBe(true);
+    expect(readPersistedListAccessRevoked('user-a', 'list-1')).toBe(false);
+  });
+
+  it('clears persisted saved-private denial when trusted context grants', () => {
+    writePersistedListSavedPrivateDenied('user-a', 'list-1', true);
+    writePersistedListSavedPrivateDenied('user-a', 'list-1', false);
+    expect(readPersistedListSavedPrivateDenied('user-a', 'list-1')).toBe(false);
   });
 });

@@ -15,6 +15,7 @@ export function shouldGrantListAccess(options: {
   userId: string | undefined;
   fromCache: boolean;
   accessRevoked: boolean;
+  savedPrivateDenied?: boolean;
 }): boolean {
   if (!options.list) {
     return false;
@@ -23,9 +24,16 @@ export function shouldGrantListAccess(options: {
     return false;
   }
   // Private lists may linger in persistent cache after revocation or account switch.
-  // Public lists stay readable per Firestore rules even when removed from saved lists.
-  if (options.accessRevoked && options.fromCache && !options.list.isPublic) {
-    return false;
+  // Public lists stay readable per Firestore rules even when removed from saved lists,
+  // but saved-list rows may carry stale isPublic after visibility changes.
+  if (options.fromCache) {
+    if (!options.list.isPublic) {
+      if (options.accessRevoked || options.savedPrivateDenied) {
+        return false;
+      }
+    } else if (options.accessRevoked && options.list.isSavedList) {
+      return false;
+    }
   }
   return true;
 }

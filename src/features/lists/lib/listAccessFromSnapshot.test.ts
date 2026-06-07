@@ -91,4 +91,39 @@ describe('shouldGrantListAccess', () => {
       })
     ).toBe(true);
   });
+
+  it('denies cached saved lists with stale isPublic after access was revoked', () => {
+    expect(
+      shouldGrantListAccess({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        userId: 'user-c',
+        fromCache: true,
+        accessRevoked: true,
+      })
+    ).toBe(false);
+  });
+
+  it('denies cached private list data after an untrusted saved-private denial', () => {
+    expect(
+      shouldGrantListAccess({
+        list: list(),
+        userId: 'collab-b',
+        fromCache: true,
+        accessRevoked: false,
+        savedPrivateDenied: true,
+      })
+    ).toBe(false);
+  });
+
+  it('still allows server-confirmed private access when saved-private denial is cleared', () => {
+    expect(
+      shouldGrantListAccess({
+        list: list(),
+        userId: 'collab-b',
+        fromCache: false,
+        accessRevoked: false,
+        savedPrivateDenied: true,
+      })
+    ).toBe(true);
+  });
 });

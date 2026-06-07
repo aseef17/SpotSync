@@ -875,6 +875,12 @@ async function deleteListAndPlaces(db, listId) {
   }
 }
 
+async function markAccountDeletionPending(db, uid) {
+  await db.collection('accountDeletions').doc(uid).set({
+    startedAt: FieldValue.serverTimestamp(),
+  });
+}
+
 async function pruneSavedListReferences(db, listIds) {
   if (!listIds.length) return;
 
@@ -951,6 +957,7 @@ exports.deleteAccount = onCall(
 
     if (!userDoc.exists) {
       // Retry after a prior partial deletion removed the profile but left auth intact.
+      await markAccountDeletionPending(db, uid);
       try {
         await getAuth().deleteUser(uid);
       } catch (error) {
@@ -1055,11 +1062,17 @@ exports.deleteAccount = onCall(
       }
     }
 
-    console.log('[deleteAccount] Deleting Firebase Auth user');
-    await getAuth().deleteUser(uid);
-
+    // Delete the profile before Auth so a failed auth delete can be retried while the user
+    // is still signed in. The !userDoc.exists branch above handles the inverse partial run.
+    // Mark deletion first so client orphan recovery cannot recreate the profile. Keep the
+    // marker permanently: deleted users' ID tokens stay valid for up to an hour, so clearing
+    // the marker would let stale sessions run claimUsernameForUser after deletion completes.
+    await markAccountDeletionPending(db, uid);
     console.log('[deleteAccount] Deleting users profile document');
     await userRef.delete();
+
+    console.log('[deleteAccount] Deleting Firebase Auth user');
+    await getAuth().deleteUser(uid);
 
     console.log(`[deleteAccount] Completed deletion for uid=${uid}`);
     return { success: true };
