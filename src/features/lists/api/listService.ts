@@ -30,6 +30,7 @@ import { subscribeToUserProfile } from '@/features/auth/api/userProfileStore';
 import { getPlaceListAccessFields } from '@/features/places/utils/placeAccess';
 import { toMilliseconds } from '@/utils/date';
 import { omit } from '@/utils/objectUtils';
+import { fetchSavedListsByIds } from '@/features/lists/api/savedListsFetch';
 
 function getExpectedCollaboratorIds(list: PlaceList): string[] {
   return Array.from(new Set([list.ownerId, ...(list.collaborators?.map((c) => c.userId) || [])]));
@@ -503,31 +504,14 @@ export class ListService {
           return;
         }
 
-        const fetched: PlaceList[] = [];
-        const { documentId } = await import('firebase/firestore');
+        const { lists: fetched, resolved } = await fetchSavedListsByIds(idsToFetch, listConverter);
 
-        for (let i = 0; i < idsToFetch.length; i += 10) {
-          const chunk = idsToFetch.slice(i, i + 10);
-          const savedQuery = query(
-            collection(db, 'lists').withConverter(listConverter),
-            where(documentId(), 'in', chunk)
-          );
-          const savedSnap = await getDocs(savedQuery);
-          savedSnap.forEach((docSnap) => {
-            fetched.push({ ...docSnap.data(), isSavedList: true } as PlaceList);
-          });
-        }
-
-        if (seq === fetchSavedListsSeq) {
+        if (seq === fetchSavedListsSeq && resolved) {
           savedLists = fetched;
           emit();
         }
       } catch (err) {
         logger.error('Error fetching saved lists:', err);
-        if (seq === fetchSavedListsSeq) {
-          savedLists = [];
-          emit();
-        }
       }
     };
 
