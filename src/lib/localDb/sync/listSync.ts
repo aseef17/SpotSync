@@ -5,7 +5,7 @@ import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { acquireSubscription } from '@/lib/localDb/subscriptionRegistry';
 import { removeCachedList, upsertCachedList } from '@/lib/localDb/listCache';
 import { enqueueSnapshotTask } from '@/lib/localDb/snapshotQueue';
-import { removeCachedUserList, syncCachedUserLists } from '@/lib/localDb/userListsCache';
+import { removeCachedUserList, writeUserListsForDashboard } from '@/lib/localDb/userListsCache';
 import { listConverter } from '@/features/lists/api/listFirestore';
 import {
   fetchSavedListsByIds,
@@ -56,6 +56,8 @@ interface UserListsSyncState {
   ownedLists: PlaceList[];
   savedLists: PlaceList[];
   fetchSavedListsSeq: number;
+  /** False until the first saved-list profile sync has committed. */
+  savedListsHydrated: boolean;
 }
 
 const userListsState = new Map<string, UserListsSyncState>();
@@ -74,8 +76,15 @@ async function publishUserLists(userId: string): Promise<void> {
     ...state.savedLists.filter((list) => !existingIds.has(list.id)),
   ];
 
-  await syncCachedUserLists(userId, merged);
+  await writeUserListsForDashboard(userId, merged, state.savedListsHydrated);
   emitChange(changeTopics.userLists(userId));
+}
+
+function markSavedListsHydrated(userId: string): void {
+  const state = userListsState.get(userId);
+  if (state) {
+    state.savedListsHydrated = true;
+  }
 }
 
 async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<void> {
@@ -89,6 +98,7 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
   if (!ids.length) {
     state.savedLists = [];
     if (seq === state.fetchSavedListsSeq) {
+      markSavedListsHydrated(userId);
       await publishUserLists(userId);
     }
     return;
@@ -101,6 +111,7 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
     if (!idsToFetch.length) {
       state.savedLists = [];
       if (seq === state.fetchSavedListsSeq) {
+        markSavedListsHydrated(userId);
         await publishUserLists(userId);
       }
       return;
@@ -122,6 +133,7 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
           fetched,
           resolved,
         });
+        markSavedListsHydrated(userId);
         await publishUserLists(userId);
       }
     }
@@ -131,6 +143,10 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
 }
 
 export function setUserSavedListIds(userId: string, savedListIds: string[]): void {
+  const state = userListsState.get(userId);
+  if (state) {
+    state.savedListsHydrated = false;
+  }
   void fetchSavedListsForUser(userId, savedListIds);
 }
 
@@ -140,6 +156,7 @@ export function acquireUserOwnedListsSync(userId: string): () => void {
       ownedLists: [],
       savedLists: [],
       fetchSavedListsSeq: 0,
+      savedListsHydrated: false,
     });
 
     const listsQuery = query(
