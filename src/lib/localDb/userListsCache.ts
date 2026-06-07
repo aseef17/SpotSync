@@ -1,5 +1,6 @@
 import type { Database } from 'sql.js';
 import type { PlaceList } from '@/features/lists/types/list';
+import { upsertCachedList } from '@/lib/localDb/listCache';
 import { getLocalDatabase, runWriteAsync } from '@/lib/localDb/database';
 import { deserializeRecord, serializeRecord } from '@/lib/localDb/serialization';
 import { toMilliseconds } from '@/utils/date';
@@ -31,11 +32,16 @@ export async function getCachedUserLists(userId: string): Promise<PlaceList[] | 
 }
 
 export async function upsertCachedUserLists(userId: string, lists: PlaceList[]): Promise<void> {
-  if (lists.length === 0) {
-    return;
-  }
+  const nextIds = new Set(lists.map((list) => list.id));
 
   await runWriteAsync((db) => {
+    const existing = readUserListsFromDb(db, userId);
+    for (const list of existing) {
+      if (!nextIds.has(list.id)) {
+        db.run('DELETE FROM user_lists WHERE user_id = ? AND list_id = ?', [userId, list.id]);
+      }
+    }
+
     const now = Date.now();
     for (const list of lists) {
       db.run(
@@ -46,16 +52,12 @@ export async function upsertCachedUserLists(userId: string, lists: PlaceList[]):
            updated_at = excluded.updated_at`,
         [userId, list.id, serializeRecord(list), now]
       );
-      db.run(
-        `INSERT INTO lists (id, data, updated_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           data = excluded.data,
-           updated_at = excluded.updated_at`,
-        [list.id, serializeRecord(list), now]
-      );
     }
   });
+
+  for (const list of lists) {
+    await upsertCachedList(list);
+  }
 }
 
 export async function removeCachedUserList(userId: string, listId: string): Promise<void> {
