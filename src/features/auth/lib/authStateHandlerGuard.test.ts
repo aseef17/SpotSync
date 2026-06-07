@@ -3,6 +3,7 @@ import {
   beginAuthStateHandler,
   isCurrentAuthStateHandler,
   resetAuthStateHandlerGuardForTests,
+  shouldRetainUserOnAuthChange,
 } from '@/features/auth/lib/authStateHandlerGuard';
 
 describe('authStateHandlerGuard', () => {
@@ -16,5 +17,11 @@ describe('authStateHandlerGuard', () => {
 
     expect(isCurrentAuthStateHandler(first)).toBe(false);
     expect(isCurrentAuthStateHandler(second)).toBe(true);
+  });
+
+  it('drops the hydrated user when Firebase auth switches accounts', () => {
+    expect(shouldRetainUserOnAuthChange('user-a', 'user-b')).toBe(false);
+    expect(shouldRetainUserOnAuthChange('user-a', 'user-a')).toBe(true);
+    expect(shouldRetainUserOnAuthChange(undefined, 'user-b')).toBe(false);
   });
 });

@@ -27,6 +27,7 @@ import type { User } from '@/features/auth/types/user';
 import {
   beginAuthStateHandler,
   isCurrentAuthStateHandler,
+  shouldRetainUserOnAuthChange,
 } from '@/features/auth/lib/authStateHandlerGuard';
 import {
   REGISTRATION_HEARTBEAT_MS,
@@ -224,6 +225,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
       try {
         if (fbUser) {
           setFirebaseUser(fbUser);
+          setUser((prev) => (shouldRetainUserOnAuthChange(prev?.id, fbUser.uid) ? prev : null));
 
           let profile = await loadUserProfile(fbUser.uid);
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
