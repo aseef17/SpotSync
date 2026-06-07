@@ -950,7 +950,15 @@ exports.deleteAccount = onCall(
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
-      throw new HttpsError('not-found', 'User profile not found.');
+      // Retry after a prior partial deletion removed the profile but left auth intact.
+      try {
+        await getAuth().deleteUser(uid);
+      } catch (error) {
+        if (error.code !== 'auth/user-not-found') {
+          throw error;
+        }
+      }
+      return { success: true };
     }
 
     const userData = userDoc.data();
@@ -1047,11 +1055,11 @@ exports.deleteAccount = onCall(
       }
     }
 
-    console.log('[deleteAccount] Deleting users profile document');
-    await userRef.delete();
-
     console.log('[deleteAccount] Deleting Firebase Auth user');
     await getAuth().deleteUser(uid);
+
+    console.log('[deleteAccount] Deleting users profile document');
+    await userRef.delete();
 
     console.log(`[deleteAccount] Completed deletion for uid=${uid}`);
     return { success: true };
