@@ -18,15 +18,27 @@ A real-time collaborative map app for organizing shared places. Import directly 
 
 ### List Management
 
-|                List View                |                    Expanded View                     |                   Collaboration                    |
-| :-------------------------------------: | :--------------------------------------------------: | :------------------------------------------------: |
-| ![List View](docs/images/list_view.png) | ![Expanded View](docs/images/list_view_expanded.png) | ![Collaborators](docs/images/list_collaborator.png) |
+Desktop list pages support **list** and **map** view modes. Map mode uses a `ResizableSplitPane` — drag the divider to resize the glassmorphic sidebar against the full-height map.
+
+|                List View                |              Map View (Split Pane)              |                    Expanded Sidebar                     |                   Collaboration                    |
+| :-------------------------------------: | :---------------------------------------------: | :-----------------------------------------------------: | :------------------------------------------------: |
+| ![List View](docs/images/list_view.png) | ![Map View](docs/images/list_map.png) | ![Expanded View](docs/images/list_view_expanded.png) | ![Collaborators](docs/images/list_collaborator.png) |
 
 ### Place Discovery & Details
+
+Search and add flows use modals on the list layout; in map mode, search opens inline in the sidebar while markers stay visible on the map. Place details use `PlaceDetailsPane` with `PlacePhotoGallery` on desktop.
 
 |              Search               |                     Map Selection                     |                       Selection Details                       |                  Place Details                  |
 | :-------------------------------: | :---------------------------------------------------: | :-----------------------------------------------------------: | :---------------------------------------------: |
 | ![Search](docs/images/search.png) | ![Map Selection](docs/images/place_selection_map.png) | ![Selection Details](docs/images/place_selection_details.png) | ![Place Details](docs/images/place_details.png) |
+
+### Mobile Experience
+
+On mobile, lists use a sticky map with a draggable bottom sheet for place cards and details (`MobileBottomSheet`).
+
+|                   Dashboard                   |                    List + Map                    |                  Place Details (Bottom Sheet)                  |                      Map View                      |                    Search                    |
+| :-------------------------------------------: | :----------------------------------------------: | :------------------------------------------------------------: | :------------------------------------------------: | :------------------------------------------: |
+| ![Mobile Dashboard](docs/images/mobile/mobile_dashboard.png) | ![Mobile List](docs/images/mobile/mobile_list_view.png) | ![Mobile Place Details](docs/images/mobile/mobile_place_details.png) | ![Mobile Map](docs/images/mobile/mobile_map.png) | ![Mobile Search](docs/images/mobile/mobile_search.png) |
 
 ### Google Maps Import
 
@@ -43,11 +55,12 @@ A real-time collaborative map app for organizing shared places. Import directly 
 - **Public Lists & Dashboard**: Owners can mark lists public for view-only access. Other users can **Save to Dashboard** without editing rights.
 - **Offline Resilience**: Persistent Firestore IndexedDB cache (multi-tab), cache-first list loading, and an `OfflineBanner` when the browser is offline.
 - **Google Maps Synchronization**: Import saved lists from Google Maps shared links (`getGoogleMapsList` Cloud Function).
-- **Place Details Revamp**: Desktop `ResizableSplitPane` layout with `PlaceDetailsPane` and `PlacePhotoGallery`; mobile bottom-sheet details.
+- **List & Map Views**: Toggle between grid list and full-height map layouts on desktop (`ResizableSplitPane` with resizable sidebar); mobile uses sticky map + bottom sheet. Collaborator management and place search run in modals without leaving the list.
+- **Place Details Revamp**: Desktop `PlaceDetailsPane` with `PlacePhotoGallery` in split-pane and modal layouts; mobile `MobileBottomSheet` for place details.
 - **Robust Photo Syncing**: Resolves ephemeral Google Places photos and stores compressed WebP copies in Firebase Storage to reduce API cost.
 - **AI-Powered Search**: Natural-language place filtering via Gemini (`askList` Cloud Function), e.g. "Find brunch spots with vegetarian options."
 - **Comprehensive Place Data**: Hours, delivery/dine-in options, accessibility, service options, ratings, and notes.
-- **Responsive Design**: Unified list view with filtering and sorting on mobile and desktop; glassmorphic sidebar on desktop, sticky map + bottom sheet on mobile.
+- **Responsive Design**: Unified list view with filtering, sorting, and list/map toggle on desktop; glassmorphic sidebar in map mode; sticky map with expandable bottom sheet on mobile.
 - **Smart Push Notifications**: FCM delivery for invites, list changes, and place updates. Token sync is gated until email is verified and can be disabled in Settings.
 
 ## Technical Foundation
