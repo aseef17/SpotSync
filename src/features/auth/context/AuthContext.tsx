@@ -39,13 +39,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const REGISTRATION_IN_PROGRESS_KEY = 'spotsync_registration_in_progress';
 
+let activeRegistrationUid: string | null = null;
+
 const isEmailPasswordUser = (fbUser: FirebaseUser): boolean =>
   fbUser.providerData.some((provider) => provider.providerId === 'password');
 
-const isRegistrationInProgress = (uid: string): boolean => {
-  const value = sessionStorage.getItem(REGISTRATION_IN_PROGRESS_KEY);
-  return value === uid || value === 'pending';
-};
+const isRegistrationInProgress = (uid: string): boolean =>
+  activeRegistrationUid === uid || activeRegistrationUid === 'pending';
 
 const waitForUserProfile = async (
   uid: string,
@@ -153,7 +153,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
           if (profile) {
             setUser(profile);
-          } else if (!registrationInProgress) {
+          } else {
+            // Stale sessionStorage or interrupted registration must not block recovery.
+            sessionStorage.removeItem(REGISTRATION_IN_PROGRESS_KEY);
             await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
             const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
             if (provisionedUserDoc.exists()) {
@@ -183,11 +185,13 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
   const register = useCallback(
     async (email: string, password: string, username: string, displayName: string) => {
+      activeRegistrationUid = 'pending';
       sessionStorage.setItem(REGISTRATION_IN_PROGRESS_KEY, 'pending');
 
       let userCredential: UserCredential;
       try {
         userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        activeRegistrationUid = userCredential.user.uid;
         sessionStorage.setItem(REGISTRATION_IN_PROGRESS_KEY, userCredential.user.uid);
         await updateProfile(userCredential.user, { displayName });
 
@@ -230,6 +234,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
         await sendEmailVerification(userCredential.user);
       } finally {
+        activeRegistrationUid = null;
         sessionStorage.removeItem(REGISTRATION_IN_PROGRESS_KEY);
       }
     },
