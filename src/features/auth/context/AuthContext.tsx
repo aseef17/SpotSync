@@ -185,7 +185,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             } else {
               // Profile never appeared and register() is not running on this page — clear any
               // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
-              clearRegistrationProgress();
+              clearRegistrationProgress(fbUser.uid);
               await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
               const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
               if (provisionedUserDoc.exists()) {
@@ -273,9 +273,11 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
         await sendEmailVerification(userCredential.user);
       } finally {
         window.clearInterval(heartbeat);
+        const completedUid = heartbeatUid;
         registrationInFlightCount--;
+        clearRegistrationProgress(completedUid);
         if (registrationInFlightCount === 0) {
-          clearRegistrationProgress();
+          clearRegistrationProgress('pending');
         }
       }
     },
