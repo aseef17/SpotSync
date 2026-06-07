@@ -1,7 +1,11 @@
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
-/** True when deleteAccount removed the profile but auth deletion is still pending. */
+/**
+ * True when deleteAccount has started for this uid. Markers are kept permanently as
+ * tombstones so orphan recovery cannot run while a stale ID token is still valid after
+ * auth deletion (tokens can remain usable for up to an hour).
+ */
 export async function isAccountDeletionInProgress(uid: string): Promise<boolean> {
   try {
     const markerDoc = await getDoc(doc(db, 'accountDeletions', uid));

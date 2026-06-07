@@ -875,16 +875,6 @@ async function deleteListAndPlaces(db, listId) {
   }
 }
 
-async function clearAccountDeletionMarker(db, uid) {
-  try {
-    await getAuth().getUser(uid);
-  } catch (error) {
-    if (error.code === 'auth/user-not-found') {
-      await db.collection('accountDeletions').doc(uid).delete();
-    }
-  }
-}
-
 async function markAccountDeletionPending(db, uid) {
   await db.collection('accountDeletions').doc(uid).set({
     startedAt: FieldValue.serverTimestamp(),
@@ -969,17 +959,13 @@ exports.deleteAccount = onCall(
       // Retry after a prior partial deletion removed the profile but left auth intact.
       await markAccountDeletionPending(db, uid);
       try {
-        try {
-          await getAuth().deleteUser(uid);
-        } catch (error) {
-          if (error.code !== 'auth/user-not-found') {
-            throw error;
-          }
+        await getAuth().deleteUser(uid);
+      } catch (error) {
+        if (error.code !== 'auth/user-not-found') {
+          throw error;
         }
-        return { success: true };
-      } finally {
-        await clearAccountDeletionMarker(db, uid);
       }
+      return { success: true };
     }
 
     const userData = userDoc.data();
@@ -1078,20 +1064,18 @@ exports.deleteAccount = onCall(
 
     // Delete the profile before Auth so a failed auth delete can be retried while the user
     // is still signed in. The !userDoc.exists branch above handles the inverse partial run.
-    // Mark deletion pending first so client orphan recovery cannot recreate the profile.
+    // Mark deletion first so client orphan recovery cannot recreate the profile. Keep the
+    // marker permanently: deleted users' ID tokens stay valid for up to an hour, so clearing
+    // the marker would let stale sessions run claimUsernameForUser after deletion completes.
     await markAccountDeletionPending(db, uid);
-    try {
-      console.log('[deleteAccount] Deleting users profile document');
-      await userRef.delete();
+    console.log('[deleteAccount] Deleting users profile document');
+    await userRef.delete();
 
-      console.log('[deleteAccount] Deleting Firebase Auth user');
-      await getAuth().deleteUser(uid);
+    console.log('[deleteAccount] Deleting Firebase Auth user');
+    await getAuth().deleteUser(uid);
 
-      console.log(`[deleteAccount] Completed deletion for uid=${uid}`);
-      return { success: true };
-    } finally {
-      await clearAccountDeletionMarker(db, uid);
-    }
+    console.log(`[deleteAccount] Completed deletion for uid=${uid}`);
+    return { success: true };
   }
 );
 

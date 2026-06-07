@@ -128,7 +128,7 @@ service cloud.firestore {
       allow write: if request.auth.uid == userId;
     }
 
-    // ACCOUNT DELETIONS (server-written marker; client reads to block orphan recovery)
+    // ACCOUNT DELETIONS (server-written tombstone; client reads to block orphan recovery)
     match /accountDeletions/{userId} {
       allow read: if isAuthenticated() && request.auth.uid == userId;
     }
