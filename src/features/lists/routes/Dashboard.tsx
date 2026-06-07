@@ -19,6 +19,8 @@ import { logger } from '@/utils/logger';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
 import { subscribeToRecipientInvitationsShared } from '@/features/lists/api/invitationRecipientSubscriptionStore';
 import { prefetchListView } from '@/features/lists/lib/prefetchListView';
+import { listRepository } from '@/lib/localDb/repositories/listRepository';
+import { useInitialCacheHydrationScope } from '@/hooks/useInitialCacheHydrationScope';
 
 const isPendingOptimisticList = (
   list: PlaceList,
@@ -59,6 +61,31 @@ export const Dashboard: React.FunctionComponent = () => {
   const { trigger: triggerAction } = useDeferredAction();
   const [removedListIds, setRemovedListIds] = useState<Set<string>>(() => new Set());
   const prevListIdsRef = useRef<Set<string>>(new Set());
+  const userId = user?.id;
+  const [listCacheProbe, setListCacheProbe] = useState<{
+    userId: string;
+    hadCache: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    let cancelled = false;
+    void listRepository.getForUser(userId).then((cachedLists) => {
+      if (!cancelled) {
+        setListCacheProbe({ userId, hadCache: cachedLists.length > 0 });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId]);
+
+  const hadListCacheInitially =
+    userId && listCacheProbe?.userId === userId ? listCacheProbe.hadCache : null;
 
   useEffect(() => {
     prefetchListView();
@@ -128,6 +155,12 @@ export const Dashboard: React.FunctionComponent = () => {
 
   const myLists = useMemo(() => displayedLists.filter((l) => !l.isSavedList), [displayedLists]);
   const savedLists = useMemo(() => displayedLists.filter((l) => l.isSavedList), [displayedLists]);
+
+  useInitialCacheHydrationScope('dashboard', {
+    isLoading: loading,
+    hasContent: displayedLists.length > 0,
+    hadCacheInitially: hadListCacheInitially,
+  });
 
   const canTrackInvitations = Boolean(user?.email || user?.username);
   const displayedPendingInvitationCount = canTrackInvitations ? pendingInvitationCount : 0;
@@ -475,12 +508,7 @@ export const Dashboard: React.FunctionComponent = () => {
             {error && displayedLists.length === 0 ? (
               <ConnectionIssueCard title="Unable to load lists" message={error} />
             ) : loading && displayedLists.length === 0 ? (
-              <div className="text-center py-12">
-                <div
-                  className={`animate-spin rounded-full h-8 w-8 border-b-2 ${themeColors.text.primary} mx-auto`}
-                />
-                <p className={`mt-2 text-sm ${themeColors.text.secondary}`}>Loading lists...</p>
-              </div>
+              <div className="py-12" aria-hidden="true" />
             ) : displayedLists.length === 0 ? (
               <div className="text-center py-12">
                 <img src="/mappin-icon.svg" alt="Empty" className="mx-auto h-20 w-20 opacity-20" />

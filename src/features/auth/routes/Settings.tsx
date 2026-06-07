@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowLeft, User, Bell, LogOut, Save, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -12,11 +12,44 @@ import { LoadingButton } from '@/components/Elements/Button/LoadingButton';
 import { useProfile } from '@/features/auth/hooks/useProfile';
 import { useToast } from '@/hooks/useToast';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
+import { readUserProfileFromCache } from '@/features/auth/api/userProfileBootstrap';
+import { useInitialCacheHydrationScope } from '@/hooks/useInitialCacheHydrationScope';
 
 const DELETE_ACCOUNT_PHRASE = 'Delete my SpotSync account';
 
 export const Settings: React.FunctionComponent = () => {
-  const { user, firebaseUser, logout } = useAuth();
+  const { user, firebaseUser, logout, loading: authLoading } = useAuth();
+  const profileUid = firebaseUser?.uid;
+  const [profileCacheProbe, setProfileCacheProbe] = useState<{
+    uid: string;
+    hadCache: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!profileUid) {
+      return;
+    }
+
+    let cancelled = false;
+    void readUserProfileFromCache(profileUid).then((profile) => {
+      if (!cancelled) {
+        setProfileCacheProbe({ uid: profileUid, hadCache: !!profile });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [profileUid]);
+
+  const hadProfileCacheInitially =
+    profileUid && profileCacheProbe?.uid === profileUid ? profileCacheProbe.hadCache : null;
+
+  useInitialCacheHydrationScope('settings', {
+    isLoading: authLoading || !user,
+    hasContent: !!user,
+    hadCacheInitially: hadProfileCacheInitially,
+  });
   const { toast } = useToast();
   const navigate = useNavigate();
   const {
