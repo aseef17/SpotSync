@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { User } from '@/features/auth/types/user';
 import type { PlaceList } from '@/features/lists/types/list';
 
 const syncCachedUserListsMock = vi.fn();
@@ -200,8 +201,8 @@ describe('dashboard cache publish gating', () => {
   it('does not let stale profile cache reseed overwrite fresher profile sync during grace resubscribe', async () => {
     fetchSavedListsByIdsMock.mockResolvedValue({ lists: [], resolved: true });
 
-    let resolveCachedUser: (value: unknown) => void = () => {};
-    const cachedUserDeferred = new Promise((resolve) => {
+    let resolveCachedUser: (value: User) => void = () => {};
+    const cachedUserDeferred = new Promise<User>((resolve) => {
       resolveCachedUser = resolve;
     });
     getCachedUserMock.mockReturnValueOnce(cachedUserDeferred);
