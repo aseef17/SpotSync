@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search, MapPin, Star, DollarSign, Plus, X, Loader, ArrowLeft } from 'lucide-react';
+import { Search, MapPin, Star, DollarSign, Plus, X, Loader } from 'lucide-react';
+import { useScrollLock } from '@/hooks/useScrollLock';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { PlaceService } from '@/features/places/api/placeService';
@@ -55,6 +56,8 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
   const [isDebouncing, setIsDebouncing] = useState(false);
   const [addingPlace, setAddingPlace] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  useScrollLock(isOpen && !inline);
 
   useEffect(() => {
     if (isOpen) {
@@ -169,7 +172,6 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
       );
 
       onPlaceAdded(newPlaceData);
-      onClose();
 
       triggerAction(
         async () => {
@@ -236,17 +238,16 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
       )}
 
       {inline && (
-        <div className="flex items-center gap-2 mb-4 px-2 pt-2">
-          <button
-            onClick={onClose}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-            title="Back to list"
-          >
-            <ArrowLeft className="h-5 w-5 light-text-secondary" />
-          </button>
+        <div className="flex items-center justify-between mb-4 px-2 pt-2">
           <h2 className={`text-lg font-semibold ${themeColors.text.primary}`}>
             Search & Add Places
           </h2>
+          <button
+            onClick={onClose}
+            className={`text-sm font-medium ${themeColors.text.secondary} hover:${themeColors.text.primary} px-2 py-1 rounded-md transition-colors`}
+          >
+            Close
+          </button>
         </div>
       )}
 
@@ -288,7 +289,9 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
       </AnimatePresence>
 
       {/* Search Results */}
-      <div className="max-h-96 overflow-y-auto pr-2 custom-scrollbar">
+      <div
+        className={`${inline ? 'flex-1 min-h-0 overflow-y-auto' : 'max-h-96 overflow-y-auto'} pr-2 custom-scrollbar`}
+      >
         {loading || isDebouncing ? (
           <div className="text-center py-8">
             <Loader className={`h-8 w-8 animate-spin mx-auto ${themeColors.text.secondary}`} />
@@ -323,7 +326,7 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
                 },
               },
             }}
-            className="grid grid-cols-1 md:grid-cols-2 gap-4"
+            className={`grid gap-4 ${inline ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}
           >
             {searchResults.map((place) => (
               <motion.div
@@ -332,10 +335,12 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
                   hidden: { opacity: 0, x: -10 },
                   visible: { opacity: 1, x: 0 },
                 }}
-                className={`border ${themeColors.border.default} rounded-lg p-4 hover:border-${colors.primary[400]} transition-colors`}
+                className={`border ${themeColors.border.default} rounded-lg p-4 hover:border-${colors.primary[400]} transition-colors w-full`}
               >
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
+                <div
+                  className={`flex ${inline ? 'flex-col gap-3' : 'justify-between items-start'}`}
+                >
+                  <div className="flex-1 w-full">
                     <h3 className={`font-medium ${themeColors.text.primary} mb-1`}>{place.name}</h3>
                     <p className={`text-sm ${themeColors.text.secondary} mb-2`}>
                       {place.formatted_address}
@@ -368,7 +373,9 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
                     </div>
                   </div>
 
-                  <div className="ml-4 flex flex-col gap-2">
+                  <div
+                    className={`${inline ? 'w-full flex flex-row gap-2' : 'ml-4 flex flex-col gap-2'}`}
+                  >
                     <button
                       onClick={() => handleAddPlace(place, false)}
                       disabled={addingPlace === place.place_id}
@@ -416,7 +423,7 @@ export const PlaceSearchModal: React.FunctionComponent<PlaceSearchModalProps> = 
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            className="w-full h-full flex flex-col custom-scrollbar overflow-y-auto"
+            className="w-full h-full flex flex-col min-h-0 overflow-hidden"
           >
             {content}
           </motion.div>

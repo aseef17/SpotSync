@@ -4,7 +4,9 @@ import { themeColors, colors } from '@/styles/colors';
 import { IconPicker } from '@/components/Elements/IconPicker/IconPicker';
 import { CollaboratorManager } from '@/features/lists/components/CollaboratorManager';
 import type { PlaceList } from '@/features/lists/types/list';
+import { LIST_NAME_MAX_LENGTH, LIST_DESCRIPTION_MAX_LENGTH } from '@/features/lists/types/list';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useScrollLock } from '@/hooks/useScrollLock';
 
 interface CreateListModalProps {
   isOpen: boolean;
@@ -41,6 +43,9 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
   const [listColor, setListColor] = useState(editingList?.color || 'AUTO');
   const [listIconSize, setListIconSize] = useState(editingList?.iconSize || 36);
   const [isPublic, setIsPublic] = useState(editingList?.isPublic || false);
+  const [validationError, setValidationError] = useState('');
+
+  useScrollLock(isOpen);
 
   // Reset form when modal opens/closes or editingList changes
   React.useEffect(() => {
@@ -58,6 +63,23 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setValidationError('');
+
+    const trimmedName = listName.trim();
+    const trimmedDescription = listDescription.trim();
+
+    if (!trimmedName) {
+      setValidationError('List name is required.');
+      return;
+    }
+    if (trimmedName.length > LIST_NAME_MAX_LENGTH) {
+      setValidationError(`List name must be ${LIST_NAME_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
+    if (trimmedDescription.length > LIST_DESCRIPTION_MAX_LENGTH) {
+      setValidationError(`Description must be ${LIST_DESCRIPTION_MAX_LENGTH} characters or fewer.`);
+      return;
+    }
 
     // Check if anything actually changed when editing
     if (editingList) {
@@ -76,8 +98,8 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
     }
 
     await onSave({
-      name: listName,
-      description: listDescription,
+      name: trimmedName,
+      description: trimmedDescription,
       icon: listIcon,
       color: listColor,
       iconSize: listIconSize,
@@ -165,6 +187,9 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
             {activeTab === 'details' && (
               <form onSubmit={handleSubmit}>
                 <div className="space-y-4">
+                  {validationError && (
+                    <p className={`text-sm ${themeColors.text.error}`}>{validationError}</p>
+                  )}
                   <div>
                     <label
                       htmlFor="listName"
@@ -177,11 +202,15 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
                       id="listName"
                       value={listName}
                       onChange={(e) => setListName(e.target.value)}
+                      maxLength={LIST_NAME_MAX_LENGTH}
                       className="mt-1 w-full px-3 py-2 border light-border-default light-bg-card light-text-primary rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="e.g., Favorite Restaurants"
                       autoFocus
                       required
                     />
+                    <p className={`mt-1 text-xs ${themeColors.text.secondary}`}>
+                      {listName.length}/{LIST_NAME_MAX_LENGTH}
+                    </p>
                   </div>
 
                   <div>
@@ -195,10 +224,14 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
                       id="listDescription"
                       value={listDescription}
                       onChange={(e) => setListDescription(e.target.value)}
+                      maxLength={LIST_DESCRIPTION_MAX_LENGTH}
                       rows={3}
                       className="mt-1 w-full px-3 py-2 border light-border-default light-bg-card light-text-primary rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Describe what this list is for..."
                     />
+                    <p className={`mt-1 text-xs ${themeColors.text.secondary}`}>
+                      {listDescription.length}/{LIST_DESCRIPTION_MAX_LENGTH}
+                    </p>
                   </div>
 
                   <IconPicker

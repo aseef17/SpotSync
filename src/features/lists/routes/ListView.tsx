@@ -1,4 +1,5 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useRef, useLayoutEffect } from 'react';
+import { ResizableSplitPane } from '@/components/Layout/ResizableSplitPane';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import {
   Plus,
@@ -40,9 +41,9 @@ import { useListDetails } from '@/features/lists/hooks/useListDetails';
 import { listViewRemountKey } from '@/features/lists/hooks/listViewAccess';
 import { usePlaceFilters } from '@/features/places/hooks/usePlaceFilters';
 import { useIsMobile } from '@/hooks/useMediaQuery';
-import { useNetworkStatus } from '@/hooks/useNetworkStatus';
-import { ConnectionIssueCard } from '@/components/Layout/ConnectionIssueCard';
 import { useToast } from '@/hooks/useToast';
+import { ConnectionIssueCard } from '@/components/Layout/ConnectionIssueCard';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { buildAskListPlacesSummary } from '@/features/places/utils/askListPlacesSummary';
 
 export const ListView: React.FunctionComponent = () => {
@@ -344,15 +345,46 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
     [listId, user, handlePlaceAdded, handleUndoAdd, triggerAction, handlePlaceUpdated]
   );
 
-  const handlePlaceClick = useCallback((place: Place) => {
-    setSelectedPlace(place);
-    setShowPlaceDetails(true);
+  const listScrollRef = useRef<HTMLElement>(null);
+  const scrollRestoreRef = useRef<number | null>(null);
+
+  const getListScrollTop = useCallback(() => {
+    const el = listScrollRef.current;
+    if (el && el.scrollHeight > el.clientHeight) {
+      return el.scrollTop;
+    }
+    return window.scrollY;
   }, []);
+
+  const restoreListScrollTop = useCallback((top: number) => {
+    const el = listScrollRef.current;
+    if (el && el.scrollHeight > el.clientHeight) {
+      el.scrollTop = top;
+    } else {
+      window.scrollTo(0, top);
+    }
+  }, []);
+
+  const handlePlaceClick = useCallback(
+    (place: Place) => {
+      scrollRestoreRef.current = getListScrollTop();
+      setSelectedPlace(place);
+      setShowPlaceDetails(true);
+    },
+    [getListScrollTop]
+  );
 
   const handleBackToList = useCallback(() => {
     setShowPlaceDetails(false);
     setSelectedPlace(null);
   }, []);
+
+  useLayoutEffect(() => {
+    if (showPlaceDetails || scrollRestoreRef.current === null) return;
+    const top = scrollRestoreRef.current;
+    scrollRestoreRef.current = null;
+    requestAnimationFrame(() => restoreListScrollTop(top));
+  }, [showPlaceDetails, restoreListScrollTop]);
 
   const handleMobilePlaceClick = useCallback((place: Place) => {
     setSelectedPlace(place);
@@ -412,7 +444,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
     );
   }
 
-  if (!displayedList) {
+  if (error || !list || !displayedList) {
     return (
       <div className={`min-h-screen ${themeColors.background.app}`}>
         <header
@@ -496,23 +528,25 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
           {/* Shared modals for mobile */}
           {showCollaborators && (
             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-              <div className="light-bg-card rounded-lg w-full max-w-2xl max-h-[80vh] overflow-y-auto border light-border-default">
-                <div className="sticky top-0 light-bg-card border-b light-border-default p-4 flex items-center justify-between z-10">
-                  <h2 className="text-lg font-semibold light-text-primary">Manage Team</h2>
+              <div className="light-bg-card rounded-xl w-full max-w-3xl max-h-[85vh] overflow-y-auto border light-border-default flex flex-col">
+                <div className="sticky top-0 light-bg-card border-b light-border-default px-6 py-5 flex items-center justify-between z-10">
+                  <h2 className="text-xl font-semibold light-text-primary">Manage Team</h2>
                   <button
                     onClick={() => setShowCollaborators(false)}
-                    className="light-text-secondary hover:light-text-primary"
+                    className="p-2 rounded-full light-text-secondary hover:light-text-primary hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
                   >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
-                <CollaboratorManager
-                  list={list}
-                  currentUserId={user?.id || ''}
-                  onUpdate={() => {
-                    setShowCollaborators(false);
-                  }}
-                />
+                <div className="px-6 sm:px-8 py-6 pb-8">
+                  <CollaboratorManager
+                    list={list}
+                    currentUserId={user?.id || ''}
+                    onUpdate={() => {
+                      setShowCollaborators(false);
+                    }}
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -549,374 +583,440 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
     );
   }
 
-  return (
-    <div
-      className={`w-full ${themeColors.background.app} relative overflow-hidden ${!isMobile && viewMode === 'map' ? 'h-screen' : 'min-h-screen flex flex-col'}`}
-    >
-      {/* Background Map - Full Bleed */}
-      {!isMobile && viewMode === 'map' && (
-        <div className="absolute inset-0 z-0">
-          <MapView
-            places={effectiveFilteredPlaces}
-            onPlaceClick={handlePlaceClick}
-            markerIcon={displayedList?.icon}
-            markerColor={displayedList?.color}
-            markerSize={displayedList?.iconSize}
-            highlightedPlaceId={selectedPlace?.id}
-            onUserLocationUpdate={setUserLocation}
-          />
+  const isMapDesktop = !isMobile && viewMode === 'map';
+
+  const listPanelBody = (
+    <>
+      {isAiMode && (
+        <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-purple-500/20 blur-[120px] rounded-full mix-blend-multiply dark:mix-blend-screen opacity-50 animate-pulse" />
+          <div className="absolute top-[-100px] right-0 w-[800px] h-[600px] bg-indigo-500/20 blur-[100px] rounded-full mix-blend-multiply dark:mix-blend-screen opacity-50" />
         </div>
       )}
-      {/* Foreground Container */}
-      <div
-        className={`relative z-10 flex flex-col pointer-events-none w-full h-full ${!isMobile && viewMode === 'map' ? '' : 'bg-white dark:bg-gray-900'}`}
+
+      <header
+        className={`shadow-sm border-b ${themeColors.border.default} shrink-0 ${!isMobile && viewMode === 'map' ? 'bg-transparent' : themeColors.background.card}`}
       >
-        {/* Floating Sidebar (Desktop Map) or Standard Layout (Otherwise) */}
-        <div
-          className={`pointer-events-auto flex flex-col ${!isMobile && viewMode === 'map' ? `w-[420px] h-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-2xl border-r ${themeColors.border.default}` : 'w-full flex-1'}`}
-        >
+        <div className={`w-full ${isMapDesktop ? 'px-3' : 'px-4 sm:px-6 lg:px-8'}`}>
+          <div className="flex items-center justify-between py-4 gap-4">
+            <div className="flex items-center min-w-0 flex-1">
+              <Link
+                to="/"
+                className={`p-2 rounded-md ${themeColors.text.secondary} hover:${themeColors.text.primary} mr-2 flex-shrink-0`}
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Link>
+              <div className="min-w-0">
+                <h1 className={`text-xl font-semibold ${themeColors.text.primary} truncate`}>
+                  {displayedList.name}
+                </h1>
+                <div
+                  className={`flex flex-wrap items-center mt-1 gap-x-4 gap-y-1 text-sm ${themeColors.text.secondary}`}
+                >
+                  <span>
+                    {effectiveFilteredPlaces.length} of {places.length} places
+                  </span>
+                  <span className="flex items-center">
+                    {displayedList.isPublic ? (
+                      <>
+                        <Eye className="h-4 w-4 mr-1" />
+                        Public
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff className="h-4 w-4 mr-1" />
+                        Private
+                      </>
+                    )}
+                  </span>
+                  <span className="flex items-center">
+                    <button
+                      onClick={() => {
+                        if (!canEditList) {
+                          toast.error('You do not have permission to manage collaborators.');
+                          return;
+                        }
+                        setShowCollaborators(true);
+                      }}
+                      className="flex items-center hover:underline focus:outline-none"
+                    >
+                      <Users className="h-4 w-4 mr-1" />
+                      {displayedList.collaborators.length}{' '}
+                      {displayedList.collaborators.length === 1 ? 'collaborator' : 'collaborators'}
+                    </button>
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 flex-shrink-0">
+              {displayedList.isPublic && user && !isMember && !isSavedList && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const { UserService } = await import('@/features/auth/api/userService');
+                      await UserService.saveListToProfile(user.id, displayedList.id);
+                      toast.success('List saved to your homepage!');
+                      window.location.reload();
+                    } catch {
+                      toast.error('Failed to save list.');
+                    }
+                  }}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md ${themeColors.button.primary} transition-colors whitespace-nowrap`}
+                >
+                  Save to Homepage
+                </button>
+              )}
+              {displayedList.isPublic && user && isSavedList && (
+                <button
+                  onClick={async () => {
+                    try {
+                      const { UserService } = await import('@/features/auth/api/userService');
+                      await UserService.removeListFromProfile(user.id, displayedList.id);
+                      toast.success('List removed from your homepage.');
+                      window.location.reload();
+                    } catch {
+                      toast.error('Failed to remove list.');
+                    }
+                  }}
+                  className={`px-3 py-1.5 text-sm font-medium border rounded-md ${themeColors.button.secondary} transition-colors whitespace-nowrap`}
+                >
+                  Remove from Homepage
+                </button>
+              )}
+
+              {!isMobile && viewMode === 'map' ? (
+                <OptionsMenu
+                  options={[
+                    {
+                      label: 'Share List',
+                      icon: <Share2 className="h-5 w-5" />,
+                      onClick: () => {
+                        if (!displayedList.isPublic) {
+                          toast.error('Please make the list public before sharing.');
+                          if (canEditList) setShowEditList(true);
+                          return;
+                        }
+                        navigator.clipboard.writeText(window.location.href);
+                        toast.success('Link copied to clipboard!');
+                      },
+                    },
+                    ...(canEditList
+                      ? [
+                          {
+                            label: isSyncingPhotos ? 'Syncing Photos...' : 'Sync Photos',
+                            icon: (
+                              <RefreshCw
+                                className={`h-5 w-5 ${isSyncingPhotos ? 'animate-spin' : ''}`}
+                              />
+                            ),
+                            onClick: async () => {
+                              setIsSyncingPhotos(true);
+                              toast.info('Syncing photos in the background...');
+                              try {
+                                await PlaceService.syncListPhotos(list.id);
+                                toast.success('Photos synced successfully!');
+                              } catch {
+                                toast.error('Failed to sync photos.');
+                              } finally {
+                                setIsSyncingPhotos(false);
+                              }
+                            },
+                          },
+                          {
+                            label: 'Edit List',
+                            icon: <Edit className="h-5 w-5" />,
+                            onClick: () => setShowEditList(true),
+                          },
+                        ]
+                      : []),
+                  ]}
+                />
+              ) : (
+                !isMobile && (
+                  <>
+                    <button
+                      onClick={() => {
+                        if (!displayedList.isPublic) {
+                          toast.error('Please make the list public before sharing.');
+                          if (canEditList) setShowEditList(true);
+                          return;
+                        }
+                        navigator.clipboard.writeText(window.location.href);
+                        toast.success('Link copied to clipboard!');
+                      }}
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border ${themeColors.border.default} ${themeColors.text.primary} hover:${themeColors.background.app} transition-colors whitespace-nowrap`}
+                    >
+                      <Share2 className="h-4 w-4" />
+                      Share
+                    </button>
+                    {canEditList && (
+                      <>
+                        <button
+                          onClick={async () => {
+                            setIsSyncingPhotos(true);
+                            toast.info('Syncing photos in the background...');
+                            try {
+                              await PlaceService.syncListPhotos(list.id);
+                              toast.success('Photos synced successfully!');
+                            } catch {
+                              toast.error('Failed to sync photos.');
+                            } finally {
+                              setIsSyncingPhotos(false);
+                            }
+                          }}
+                          disabled={isSyncingPhotos}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border ${themeColors.border.default} ${themeColors.text.primary} hover:${themeColors.background.app} transition-colors whitespace-nowrap disabled:opacity-50`}
+                        >
+                          <RefreshCw
+                            className={`h-4 w-4 ${isSyncingPhotos ? 'animate-spin' : ''}`}
+                          />
+                          {isSyncingPhotos ? 'Syncing...' : 'Sync Photos'}
+                        </button>
+                        <button
+                          onClick={() => setShowEditList(true)}
+                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border ${themeColors.border.default} ${themeColors.text.primary} hover:${themeColors.background.app} transition-colors whitespace-nowrap`}
+                        >
+                          <Edit className="h-4 w-4" />
+                          Edit List
+                        </button>
+                      </>
+                    )}
+                  </>
+                )
+              )}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main
+        ref={listScrollRef}
+        className={`flex-1 relative w-full ${
+          isMapDesktop
+            ? 'overflow-y-auto custom-scrollbar flex flex-col'
+            : 'w-full px-4 sm:px-6 lg:px-12 py-6'
+        }`}
+      >
+        <div className="w-full h-full flex flex-col">
+          {!isMobile && viewMode === 'map' && showPlaceDetails && selectedPlace ? (
+            <div className="h-full flex flex-col">
+              <PlaceDetailsPane
+                place={selectedPlace}
+                onClose={handleBackToList}
+                onPlaceUpdated={handlePlaceUpdated}
+                onPlaceHidden={(id) => {
+                  setHiddenPlaceIds((prev) => {
+                    const next = new Set(prev);
+                    next.add(id);
+                    return next;
+                  });
+                  handleBackToList();
+                }}
+                onPlaceRestored={handlePlaceRestored}
+                canDelete={getCanDelete(selectedPlace)}
+                layout="panel"
+                className="border-none shadow-none"
+              />
+            </div>
+          ) : (
+            <div
+              className={`${!isMobile && viewMode === 'map' ? 'px-2 pt-2 pb-20 h-full flex flex-col' : ''}`}
+            >
+              {!isMobile && viewMode === 'map' && showAddPlacesModal ? (
+                <div className="flex-1 min-h-0 w-full h-full relative">
+                  <PlaceSearchModal
+                    isOpen={showAddPlacesModal}
+                    onClose={() => setShowAddPlacesModal(false)}
+                    listId={list.id}
+                    onPlaceAdded={handlePlaceAdded}
+                    onUndoAdd={(tempId) => setHiddenPlaceIds((prev) => new Set([...prev, tempId]))}
+                    onPlaceUpdated={handlePlaceUpdated}
+                    onReplaceId={handleReplacePlaceId}
+                    inline={true}
+                  />
+                </div>
+              ) : (
+                <>
+                  {displayedList.description && (
+                    <div className="mb-6">
+                      <p className={`${themeColors.text.secondary}`}>{displayedList.description}</p>
+                    </div>
+                  )}
+
+                  {places.length > 0 && (
+                    <PlaceFilters
+                      filters={filters}
+                      onFiltersChange={setFilters}
+                      availableCategories={availableCategories}
+                      availableCuisines={availableCuisines}
+                      customStatuses={displayedList.customStatuses}
+                      totalPlaces={basePlaces.length}
+                      filteredCount={effectiveFilteredPlaces.length}
+                      viewMode={viewMode}
+                      onViewModeChange={setViewMode}
+                      onAiSearch={handleAiSearchSubmit}
+                      isAiMode={isAiMode}
+                      onAiModeChange={handleAiModeChange}
+                      isAiLoading={isAiSearching}
+                      userLocation={userLocation}
+                      density={density}
+                      onDensityChange={setDensity}
+                      isInSidebar={!isMobile && viewMode === 'map'}
+                    />
+                  )}
+
+                  {places.length === 0 ? (
+                    <div
+                      className={`${themeColors.background.card} rounded-lg shadow-sm border p-12`}
+                    >
+                      <div className="text-center">
+                        <MapIcon className={`mx-auto h-12 w-12 ${themeColors.text.secondary}`} />
+                        <h3 className={`mt-2 text-lg font-medium ${themeColors.text.primary}`}>
+                          No places yet
+                        </h3>
+                        <p className={`mt-1 ${themeColors.text.secondary}`}>
+                          Get started by adding some places to your list.
+                        </p>
+                        <button
+                          onClick={() => setShowAddPlacesModal(true)}
+                          className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.primary} transition-colors`}
+                        >
+                          <Plus className="h-4 w-4 mr-2" />
+                          Add Your First Place
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <AnimatePresence mode="popLayout">
+                      <motion.div
+                        initial="hidden"
+                        animate="visible"
+                        variants={{
+                          hidden: { opacity: 0 },
+                          visible: {
+                            opacity: 1,
+                            transition: {
+                              staggerChildren: 0.05,
+                            },
+                          },
+                        }}
+                        className={`
+                   ${
+                     density === 'compact'
+                       ? 'flex flex-col gap-3'
+                       : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
+                   }
+                   ${!isMobile && viewMode === 'map' ? '!grid-cols-1 !gap-4' : ''}
+                `}
+                      >
+                        {effectiveFilteredPlaces.map((place) =>
+                          density === 'compact' ? (
+                            <motion.div
+                              key={`${place.id}-compact-${viewMode}`}
+                              layoutId={`card-${place.id}`}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <CompactPlaceCard
+                                place={place}
+                                list={list}
+                                onClick={handlePlaceClick}
+                                onStatusChange={noopStatusChange}
+                                layout
+                              />
+                            </motion.div>
+                          ) : (
+                            <motion.div
+                              key={`${place.id}-comfortable-${viewMode}`}
+                              layoutId={`card-${place.id}`}
+                              initial={{ opacity: 0, y: 20 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, scale: 0.95 }}
+                              transition={{ duration: 0.2 }}
+                            >
+                              <PlaceCard
+                                place={place}
+                                list={list}
+                                onClick={handlePlaceClick}
+                                onStatusChange={noopStatusChange}
+                                layout
+                                density={density}
+                              />
+                            </motion.div>
+                          )
+                        )}
+                      </motion.div>
+                      {hasMorePlaces && aiMatchedIds === null && (
+                        <div className="flex justify-center pt-6">
+                          <button
+                            type="button"
+                            onClick={() => void loadMorePlaces()}
+                            disabled={loadingMore}
+                            className="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                          >
+                            {loadingMore ? 'Loading…' : 'Load more places'}
+                          </button>
+                        </div>
+                      )}
+                    </AnimatePresence>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+        </div>
+      </main>
+    </>
+  );
+
+  return (
+    <div
+      className={`w-full ${themeColors.background.app} relative overflow-hidden ${isMapDesktop ? 'h-screen' : 'min-h-screen flex flex-col'}`}
+    >
+      {isMapDesktop ? (
+        <ResizableSplitPane
+          storageKey="spotsync-map-sidebar-width"
+          defaultLeftPercent={28}
+          minLeftPercent={15}
+          maxLeftPercent={50}
+          left={
+            <div
+              className={`flex h-full flex-col min-w-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-xl shadow-2xl border-r ${themeColors.border.default}`}
+            >
+              {listPanelBody}
+            </div>
+          }
+          right={
+            <div className="relative h-full min-w-0">
+              <MapView
+                places={effectiveFilteredPlaces}
+                onPlaceClick={handlePlaceClick}
+                markerIcon={displayedList?.icon}
+                markerColor={displayedList?.color}
+                markerSize={displayedList?.iconSize}
+                highlightedPlaceId={selectedPlace?.id}
+                onUserLocationUpdate={setUserLocation}
+              />
+              {canEditList && (
+                <div className="absolute bottom-8 right-8 z-20">
+                  <FAB onClick={() => setShowAddPlacesModal(true)} label="Add Places" />
+                </div>
+              )}
+            </div>
+          }
+        />
+      ) : (
+        <div className="relative flex flex-col w-full flex-1 bg-white dark:bg-gray-900">
           {isAiMode && (
             <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
               <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-purple-500/20 blur-[120px] rounded-full mix-blend-multiply dark:mix-blend-screen opacity-50 animate-pulse" />
               <div className="absolute top-[-100px] right-0 w-[800px] h-[600px] bg-indigo-500/20 blur-[100px] rounded-full mix-blend-multiply dark:mix-blend-screen opacity-50" />
             </div>
           )}
-
-          <header
-            className={`shadow-sm border-b ${themeColors.border.default} shrink-0 ${!isMobile && viewMode === 'map' ? 'bg-transparent' : themeColors.background.card}`}
-          >
-            <div className="w-full px-4">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-4 gap-4">
-                <div className="flex items-center min-w-0">
-                  <Link
-                    to="/"
-                    className={`p-2 rounded-md ${themeColors.text.secondary} hover:${themeColors.text.primary} mr-2 flex-shrink-0`}
-                  >
-                    <ArrowLeft className="h-5 w-5" />
-                  </Link>
-                  <div className="min-w-0 flex-1">
-                    <h1 className={`text-xl font-semibold ${themeColors.text.primary} truncate`}>
-                      {displayedList.name}
-                    </h1>
-                    <div
-                      className={`flex flex-wrap items-center mt-1 gap-x-4 gap-y-1 text-sm ${themeColors.text.secondary}`}
-                    >
-                      <span className="flex items-center">
-                        <span className="flex items-center">
-                          {effectiveFilteredPlaces.length} of {places.length} places
-                        </span>
-                      </span>
-                      <span className="flex items-center">
-                        {displayedList.isPublic ? (
-                          <>
-                            <Eye className="h-4 w-4 mr-1" />
-                            Public
-                          </>
-                        ) : (
-                          <>
-                            <EyeOff className="h-4 w-4 mr-1" />
-                            Private
-                          </>
-                        )}
-                      </span>
-                      <span className="flex items-center">
-                        <button
-                          onClick={() => {
-                            if (!canEditList) {
-                              toast.error('You do not have permission to manage collaborators.');
-                              return;
-                            }
-                            setShowCollaborators(true);
-                          }}
-                          className="flex items-center hover:underline focus:outline-none"
-                        >
-                          <Users className="h-4 w-4 mr-1" />
-                          {displayedList.collaborators.length}{' '}
-                          {displayedList.collaborators.length === 1
-                            ? 'collaborator'
-                            : 'collaborators'}
-                        </button>
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 ml-4">
-                    {displayedList.isPublic && user && !isMember && !isSavedList && (
-                      <button
-                        onClick={async () => {
-                          try {
-                            const { UserService } = await import('@/features/auth/api/userService');
-                            await UserService.saveListToProfile(user.id, displayedList.id);
-                            toast.success('List saved to your homepage!');
-                            // Optimistically update the user context or reload
-                            window.location.reload();
-                          } catch {
-                            toast.error('Failed to save list.');
-                          }
-                        }}
-                        className={`px-3 py-1.5 text-sm font-medium rounded-md ${themeColors.button.primary} transition-colors whitespace-nowrap`}
-                      >
-                        Save to Homepage
-                      </button>
-                    )}
-                    {displayedList.isPublic && user && isSavedList && (
-                      <button
-                        onClick={async () => {
-                          try {
-                            const { UserService } = await import('@/features/auth/api/userService');
-                            await UserService.removeListFromProfile(user.id, displayedList.id);
-                            toast.success('List removed from your homepage.');
-                            window.location.reload();
-                          } catch {
-                            toast.error('Failed to remove list.');
-                          }
-                        }}
-                        className={`px-3 py-1.5 text-sm font-medium border rounded-md ${themeColors.button.secondary} transition-colors whitespace-nowrap`}
-                      >
-                        Remove from Homepage
-                      </button>
-                    )}
-                    <OptionsMenu
-                      options={[
-                        {
-                          label: 'Share List',
-                          icon: <Share2 className="h-5 w-5" />,
-                          onClick: () => {
-                            if (!displayedList.isPublic) {
-                              toast.error('Please make the list public before sharing.');
-                              if (canEditList) setShowEditList(true);
-                              return;
-                            }
-                            navigator.clipboard.writeText(window.location.href);
-                            toast.success('Link copied to clipboard!');
-                          },
-                        },
-                        ...(canEditList
-                          ? [
-                              {
-                                label: isSyncingPhotos ? 'Syncing Photos...' : 'Sync Photos',
-                                icon: (
-                                  <RefreshCw
-                                    className={`h-5 w-5 ${isSyncingPhotos ? 'animate-spin' : ''}`}
-                                  />
-                                ),
-                                onClick: async () => {
-                                  setIsSyncingPhotos(true);
-                                  toast.info('Syncing photos in the background...');
-                                  try {
-                                    await PlaceService.syncListPhotos(displayedList.id);
-                                    toast.success('Photos synced successfully!');
-                                  } catch {
-                                    toast.error('Failed to sync photos.');
-                                  } finally {
-                                    setIsSyncingPhotos(false);
-                                  }
-                                },
-                              },
-                              {
-                                label: 'Edit List',
-                                icon: <Edit className="h-5 w-5" />,
-                                onClick: () => setShowEditList(true),
-                              },
-                            ]
-                          : []),
-                      ]}
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </header>
-
-          <main
-            className={`flex-1 relative w-full ${
-              !isMobile && viewMode === 'map'
-                ? 'overflow-y-auto custom-scrollbar flex flex-col'
-                : 'w-full px-4 sm:px-6 lg:px-12 py-6'
-            }`}
-          >
-            <div className="w-full h-full flex flex-col">
-              {!isMobile && viewMode === 'map' && showPlaceDetails && selectedPlace ? (
-                <div className="h-full flex flex-col">
-                  <PlaceDetailsPane
-                    place={selectedPlace}
-                    onClose={handleBackToList}
-                    onPlaceUpdated={handlePlaceUpdated}
-                    onPlaceHidden={(id) => {
-                      setHiddenPlaceIds((prev) => {
-                        const next = new Set(prev);
-                        next.add(id);
-                        return next;
-                      });
-                      handleBackToList();
-                    }}
-                    onPlaceRestored={handlePlaceRestored}
-                    canDelete={getCanDelete(selectedPlace)}
-                    className="border-none shadow-none"
-                  />
-                </div>
-              ) : (
-                <div
-                  className={`${!isMobile && viewMode === 'map' ? 'px-2 pt-2 pb-20 h-full flex flex-col' : ''}`}
-                >
-                  {!isMobile && viewMode === 'map' && showAddPlacesModal ? (
-                    <div className="flex-1 min-h-0 w-full h-full relative">
-                      <PlaceSearchModal
-                        isOpen={showAddPlacesModal}
-                        onClose={() => setShowAddPlacesModal(false)}
-                        listId={displayedList.id}
-                        onPlaceAdded={handlePlaceAdded}
-                        onUndoAdd={(tempId) =>
-                          setHiddenPlaceIds((prev) => new Set([...prev, tempId]))
-                        }
-                        onPlaceUpdated={handlePlaceUpdated}
-                        onReplaceId={handleReplacePlaceId}
-                        inline={true}
-                      />
-                    </div>
-                  ) : (
-                    <>
-                      {displayedList.description && (
-                        <div className="mb-6">
-                          <p className={`${themeColors.text.secondary}`}>
-                            {displayedList.description}
-                          </p>
-                        </div>
-                      )}
-
-                      {places.length > 0 && (
-                        <PlaceFilters
-                          filters={filters}
-                          onFiltersChange={setFilters}
-                          availableCategories={availableCategories}
-                          availableCuisines={availableCuisines}
-                          customStatuses={displayedList.customStatuses}
-                          totalPlaces={basePlaces.length}
-                          filteredCount={effectiveFilteredPlaces.length}
-                          viewMode={viewMode}
-                          onViewModeChange={setViewMode}
-                          onAiSearch={handleAiSearchSubmit}
-                          isAiMode={isAiMode}
-                          onAiModeChange={handleAiModeChange}
-                          isAiLoading={isAiSearching}
-                          userLocation={userLocation}
-                          density={density}
-                          onDensityChange={setDensity}
-                          isInSidebar={!isMobile && viewMode === 'map'}
-                        />
-                      )}
-
-                      {!loading && places.length === 0 ? (
-                        <div
-                          className={`${themeColors.background.card} rounded-lg shadow-sm border p-12`}
-                        >
-                          <div className="text-center">
-                            <MapIcon
-                              className={`mx-auto h-12 w-12 ${themeColors.text.secondary}`}
-                            />
-                            <h3 className={`mt-2 text-lg font-medium ${themeColors.text.primary}`}>
-                              No places yet
-                            </h3>
-                            <p className={`mt-1 ${themeColors.text.secondary}`}>
-                              Get started by adding some places to your list.
-                            </p>
-                            <button
-                              onClick={() => setShowAddPlacesModal(true)}
-                              className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.primary} transition-colors`}
-                            >
-                              <Plus className="h-4 w-4 mr-2" />
-                              Add Your First Place
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <AnimatePresence mode="popLayout">
-                          <motion.div
-                            initial="hidden"
-                            animate="visible"
-                            variants={{
-                              hidden: { opacity: 0 },
-                              visible: {
-                                opacity: 1,
-                                transition: {
-                                  staggerChildren: 0.05,
-                                },
-                              },
-                            }}
-                            className={`
-                             ${
-                               density === 'compact'
-                                 ? 'flex flex-col gap-3'
-                                 : 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6'
-                             }
-                             ${!isMobile && viewMode === 'map' ? '!grid-cols-1 !gap-4' : ''}
-                          `}
-                          >
-                            {effectiveFilteredPlaces.map((place) =>
-                              density === 'compact' ? (
-                                <motion.div
-                                  key={`${place.id}-compact-${viewMode}`}
-                                  layoutId={`card-${place.id}`}
-                                  initial={{ opacity: 0, y: 20 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, scale: 0.95 }}
-                                  transition={{ duration: 0.2 }}
-                                >
-                                  <CompactPlaceCard
-                                    place={place}
-                                    list={displayedList}
-                                    onClick={handlePlaceClick}
-                                    onStatusChange={noopStatusChange}
-                                    layout
-                                  />
-                                </motion.div>
-                              ) : (
-                                <motion.div
-                                  key={`${place.id}-comfortable-${viewMode}`}
-                                  layoutId={`card-${place.id}`}
-                                  initial={{ opacity: 0, y: 20 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  exit={{ opacity: 0, scale: 0.95 }}
-                                  transition={{ duration: 0.2 }}
-                                >
-                                  <PlaceCard
-                                    place={place}
-                                    list={displayedList}
-                                    onClick={handlePlaceClick}
-                                    onStatusChange={noopStatusChange}
-                                    layout
-                                    density={density}
-                                  />
-                                </motion.div>
-                              )
-                            )}
-                          </motion.div>
-                          {hasMorePlaces && aiMatchedIds === null && (
-                            <div className="flex justify-center pt-6">
-                              <button
-                                type="button"
-                                onClick={() => void loadMorePlaces()}
-                                disabled={loadingMore}
-                                className="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
-                              >
-                                {loadingMore ? 'Loading…' : 'Load more places'}
-                              </button>
-                            </div>
-                          )}
-                        </AnimatePresence>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          </main>
-        </div>{' '}
-        {/* End floating sidebar */}
-      </div>{' '}
-      {/* End foreground container */}
-      {canEditList && !isMobile && viewMode === 'map' && (
-        <div className="absolute bottom-8 right-8 z-20 pointer-events-auto">
-          <FAB onClick={() => setShowAddPlacesModal(true)} label="Add Places" />
+          {listPanelBody}
         </div>
       )}
       {canEditList && !(!isMobile && viewMode === 'map') && (
@@ -926,7 +1026,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
         <PlaceSearchModal
           isOpen={showAddPlacesModal}
           onClose={() => setShowAddPlacesModal(false)}
-          listId={displayedList.id}
+          listId={list.id}
           onPlaceAdded={handlePlaceAdded}
           onUndoAdd={handleUndoAdd}
           onPlaceUpdated={handlePlaceUpdated}
@@ -937,10 +1037,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
         <PlaceDetailsModal
           place={selectedPlace}
           isOpen={showPlaceDetails}
-          onClose={() => {
-            setShowPlaceDetails(false);
-            setSelectedPlace(null);
-          }}
+          onClose={handleBackToList}
           onPlaceUpdated={handlePlaceUpdated}
           onPlaceHidden={(id) => {
             setHiddenPlaceIds((prev) => {
@@ -957,15 +1054,17 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
         />
       )}
       {showCollaborators && list && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4 z-50">
+        <div
+          className={`fixed inset-0 ${themeColors.background.modalOverlay} flex items-end sm:items-center justify-center p-0 sm:p-4 z-50`}
+        >
           <motion.div
             initial={isMobile ? { y: '100%' } : { opacity: 0, scale: 0.95 }}
             animate={isMobile ? { y: 0 } : { opacity: 1, scale: 1 }}
             className={`light-bg-card ${
-              isMobile ? 'rounded-t-3xl h-[92vh]' : 'rounded-xl max-w-2xl max-h-[85vh]'
+              isMobile ? 'rounded-t-3xl h-[92vh]' : 'rounded-xl max-w-3xl max-h-[85vh]'
             } w-full overflow-y-auto border light-border-default shadow-2xl flex flex-col`}
           >
-            <div className="sticky top-0 light-bg-card border-b light-border-default p-5 flex items-center justify-between z-10">
+            <div className="sticky top-0 light-bg-card border-b light-border-default px-6 py-5 flex items-center justify-between z-10">
               <h2 className="text-xl font-bold light-text-primary">Manage Team</h2>
               <button
                 onClick={() => setShowCollaborators(false)}
@@ -974,7 +1073,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                 <X className="h-6 w-6" />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto px-6 sm:px-8 py-6 pb-8">
               <CollaboratorManager list={list} currentUserId={user?.id || ''} onUpdate={() => {}} />
             </div>
           </motion.div>

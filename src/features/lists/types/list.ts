@@ -2,6 +2,9 @@ import type { Place } from '@/features/places/types/place';
 
 export type Permission = 'owner' | 'editor' | 'viewer';
 
+export const LIST_NAME_MAX_LENGTH = 100;
+export const LIST_DESCRIPTION_MAX_LENGTH = 500;
+
 export interface Collaborator {
   userId: string;
   username: string;

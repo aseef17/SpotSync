@@ -73,6 +73,57 @@ export const getPlaceAttribution = (place: Place, list: PlaceList) => {
   return `Place ${action} by ${name} · ${timeString}`;
 };
 
+export const DAYS_OF_WEEK = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+] as const;
+
+export const getTodayDayName = () => DAYS_OF_WEEK[new Date().getDay()];
+
+export const parseOpeningHourLine = (line: string): { day: string; hours: string } => {
+  const colonIndex = line.indexOf(': ');
+  if (colonIndex === -1) return { day: line, hours: '' };
+  return {
+    day: line.slice(0, colonIndex),
+    hours: line.slice(colonIndex + 2),
+  };
+};
+
+export const getPlaceMapsUrl = (
+  place: Pick<Place, 'googleMapsUrl' | 'googlePlaceId' | 'name' | 'address' | 'location'>
+): string | null => {
+  if (place.googleMapsUrl) return place.googleMapsUrl;
+  if (place.location && place.googlePlaceId) {
+    return `https://www.google.com/maps/search/?api=1&query=${place.location.lat},${place.location.lng}&query_place_id=${place.googlePlaceId}`;
+  }
+  if (place.location) {
+    return `https://www.google.com/maps/search/?api=1&query=${place.location.lat},${place.location.lng}`;
+  }
+  if (place.googlePlaceId) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.googlePlaceId}`;
+  }
+  if (place.address) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.address)}`;
+  }
+  return null;
+};
+
+export const getWebsiteHostname = (url: string) => {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url
+      .replace(/^https?:\/\//, '')
+      .replace(/^www\./, '')
+      .split('/')[0];
+  }
+};
+
 export const getTodayHoursText = (place: Place) => {
   if (!place.openingHours || place.openingHours.length === 0) return null;
 

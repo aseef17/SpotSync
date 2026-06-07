@@ -321,6 +321,23 @@ export const useListDetails = (listId: string | undefined) => {
     }
   }, [listId, loadingMore]);
 
+  useEffect(() => {
+    if (!loading || !listId) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setError(
+        (prev) =>
+          prev ??
+          (isBrowserOnline()
+            ? 'Loading is taking longer than expected. Please try again.'
+            : 'You appear to be offline. Reconnect to the internet to load this list.')
+      );
+      setLoading(false);
+    }, 12000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loading, listId]);
+
   const updateList = useCallback(
     async (targetListId: string, data: Partial<PlaceList>, userId?: string) => {
       try {

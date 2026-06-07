@@ -13,6 +13,7 @@ interface MultiSelectDropdownProps {
   onChange: (value: string[]) => void;
   placeholder?: string;
   className?: string;
+  isActive?: boolean;
 }
 
 export const MultiSelectDropdown: React.FunctionComponent<MultiSelectDropdownProps> = ({
@@ -21,6 +22,7 @@ export const MultiSelectDropdown: React.FunctionComponent<MultiSelectDropdownPro
   onChange,
   placeholder = 'Select...',
   className = '',
+  isActive = false,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -80,10 +82,20 @@ export const MultiSelectDropdown: React.FunctionComponent<MultiSelectDropdownPro
       <button
         type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full px-3 py-2 ${themeColors.background.card} ${themeColors.border.default} border rounded-lg flex items-center justify-between ${themeColors.text.primary} focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all`}
+        className={`w-full h-10 px-3 border rounded-lg flex items-center justify-between focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all ${
+          isActive
+            ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+            : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.primary}`
+        }`}
       >
         <span
-          className={`block truncate ${value.length > 0 ? themeColors.text.primary : themeColors.text.secondary}`}
+          className={`block truncate ${
+            isActive
+              ? 'text-blue-600 dark:text-blue-400 font-medium'
+              : value.length > 0
+                ? themeColors.text.primary
+                : themeColors.text.secondary
+          }`}
         >
           {displayLabel()}
         </span>

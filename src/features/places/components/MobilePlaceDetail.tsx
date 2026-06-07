@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  X,
+  ArrowLeft,
   Star,
   MapPin,
   Phone,
@@ -24,6 +24,14 @@ import type { Place, PlaceStatus } from '@/features/places/types/place';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { formatCategoryName } from '@/constants/placeCategories';
 import { calculateDistance } from '@/utils/geo';
+import {
+  getPlaceMapsUrl,
+  getTodayDayName,
+  getTodayHoursText,
+  getWebsiteHostname,
+  isPlaceOpen,
+  parseOpeningHourLine,
+} from '@/features/places/utils/placeHelpers';
 import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
 import { PlaceService } from '@/features/places/api/placeService';
 import { useToast } from '@/hooks/useToast';
@@ -196,10 +204,12 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
           </div>
         </div>
         <button
+          type="button"
           onClick={onClose}
-          className={`p-2 rounded-full bg-gray-100 dark:bg-gray-800 ${themeColors.text.secondary}`}
+          className={`p-2 rounded-lg bg-gray-100 dark:bg-gray-800 ${themeColors.text.secondary} hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors`}
+          aria-label="Back to list"
         >
-          <X className="h-5 w-5" />
+          <ArrowLeft className="h-5 w-5" />
         </button>
       </div>
 
@@ -217,69 +227,70 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
         </button>
       )}
 
-      {/* Action Buttons Row */}
-      <div className="flex gap-3 overflow-x-auto scrollbar-hide pb-1 items-center">
-        <button
-          onClick={() => {
-            if (place.googleMapsUrl) {
-              window.open(place.googleMapsUrl, '_blank');
-            } else {
-              const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(place.name)}&query_place_id=${place.googlePlaceId}`;
-              window.open(url, '_blank');
-            }
-          }}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full border ${themeColors.border.default} ${themeColors.text.primary} text-sm font-medium whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-95 transition-transform`}
-        >
-          <Globe className="h-4 w-4" />
-          View on Maps
-        </button>
-
-        {/* Custom Status Selector (Trigger) */}
-        {!place.isPreview && (
+      {/* Action Buttons */}
+      <div className="space-y-2">
+        <div className="grid grid-cols-2 gap-2">
           <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              setIsStatusOpen(true);
-            }}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full border ${themeColors.border.default} ${themeColors.text.primary} text-sm font-medium whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors`}
+            onClick={handleDirections}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700 active:scale-[0.98] transition-transform"
           >
-            <Check className="h-4 w-4 text-green-600" />
-            {currentLabel}
-            <ChevronDown className="h-3 w-3 ml-1" />
+            <Navigation className="h-4 w-4 fill-current" />
+            Directions
           </button>
-        )}
-
-        <button
-          onClick={handleDirections}
-          className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium whitespace-nowrap shadow-sm hover:bg-blue-700 active:scale-95 transition-transform"
-        >
-          <Navigation className="h-4 w-4 fill-current" />
-          Directions
-        </button>
-        <button
-          onClick={handleStart}
-          className="flex items-center gap-2 px-4 py-2 rounded-full bg-blue-600 text-white text-sm font-medium whitespace-nowrap shadow-sm hover:bg-blue-700 active:scale-95 transition-transform"
-        >
-          <Play className="h-4 w-4 fill-current" />
-          Start
-        </button>
-        {place.phoneNumber && (
-          <a
-            href={`tel:${place.phoneNumber}`}
-            className={`flex items-center gap-2 px-4 py-2 rounded-full border ${themeColors.border.default} ${themeColors.text.primary} text-sm font-medium whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-95 transition-transform`}
+          <button
+            onClick={handleStart}
+            className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-semibold shadow-sm hover:bg-blue-700 active:scale-[0.98] transition-transform"
           >
-            <Phone className="h-4 w-4" />
-            Call
-          </a>
-        )}
-        <button
-          onClick={handleShare}
-          className={`flex items-center gap-2 px-4 py-2 rounded-full border ${themeColors.border.default} ${themeColors.text.primary} text-sm font-medium whitespace-nowrap hover:bg-gray-50 dark:hover:bg-gray-800 active:scale-95 transition-transform`}
-        >
-          <Share2 className="h-4 w-4" />
-          Share
-        </button>
+            <Play className="h-4 w-4 fill-current" />
+            Start
+          </button>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {place.phoneNumber && (
+            <a
+              href={`tel:${place.phoneNumber}`}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border ${themeColors.border.default} ${themeColors.text.primary} text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors`}
+            >
+              <Phone className="h-3.5 w-3.5" />
+              Call
+            </a>
+          )}
+          <button
+            onClick={handleShare}
+            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border ${themeColors.border.default} ${themeColors.text.primary} text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors`}
+          >
+            <Share2 className="h-3.5 w-3.5" />
+            Share
+          </button>
+          {!place.isPreview && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setIsStatusOpen(true);
+              }}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border ${themeColors.border.default} ${themeColors.text.primary} text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors`}
+            >
+              <Check className="h-3.5 w-3.5 text-green-600" />
+              {currentLabel}
+              <ChevronDown className="h-3 w-3" />
+            </button>
+          )}
+          {getPlaceMapsUrl(place) && (
+            <button
+              type="button"
+              onClick={() => {
+                const url = getPlaceMapsUrl(place);
+                if (url) window.open(url, '_blank', 'noopener,noreferrer');
+              }}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border ${themeColors.border.default} ${themeColors.text.primary} text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors`}
+            >
+              <Globe className="h-3.5 w-3.5" />
+              Maps
+            </button>
+          )}
+        </div>
 
         {/* Status Options Portal */}
         {isStatusOpen &&
@@ -365,6 +376,11 @@ export const MobilePlaceDetailContent: React.FunctionComponent<MobilePlaceDetail
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
   const [isHoursExpanded, setIsHoursExpanded] = useState(false);
+
+  const mapsUrl = getPlaceMapsUrl(place);
+  const openNow = isPlaceOpen(place);
+  const todayDayName = getTodayDayName();
+  const todayHoursText = getTodayHoursText(place);
 
   // Filter out duplicates
   const photos = Array.from(new Set(place.photoUrls || []));
@@ -465,72 +481,87 @@ export const MobilePlaceDetailContent: React.FunctionComponent<MobilePlaceDetail
       {/* Info Section */}
       <div className="space-y-4">
         {/* Address */}
-        <div className="flex items-start gap-3">
-          <MapPin className={`h-5 w-5 ${themeColors.text.secondary} mt-0.5 shrink-0`} />
-          <span className={`text-sm ${themeColors.text.secondary} select-all`}>
-            {place.address}
-          </span>
-        </div>
-
-        {/* Hours Accordion */}
-        {place.openingHours && place.openingHours.length > 0 && (
+        {place.address && (
           <div className="flex items-start gap-3">
-            <Clock className={`h-5 w-5 ${themeColors.text.secondary} mt-0.5 shrink-0`} />
-            <div className="flex-1">
-              <button
-                onClick={() => setIsHoursExpanded(!isHoursExpanded)}
-                className="flex items-center gap-2 text-sm w-full text-left"
+            <MapPin className={`h-5 w-5 ${themeColors.text.secondary} mt-0.5 shrink-0`} />
+            {mapsUrl ? (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`text-sm ${themeColors.text.secondary} underline decoration-blue-500/40 underline-offset-2 hover:text-blue-600 dark:hover:text-blue-400`}
               >
-                <span
-                  className={
-                    place.openNow ? 'text-green-600 font-medium' : 'text-red-600 font-medium'
-                  }
+                {place.address}
+              </a>
+            ) : (
+              <span className={`text-sm ${themeColors.text.secondary}`}>{place.address}</span>
+            )}
+          </div>
+        )}
+
+        {/* Hours */}
+        {place.openingHours && place.openingHours.length > 0 && (
+          <div
+            className={`rounded-xl border ${themeColors.border.default} ${themeColors.background.app} p-3`}
+          >
+            <button
+              type="button"
+              onClick={() => setIsHoursExpanded(!isHoursExpanded)}
+              className="flex w-full items-center gap-2 text-left"
+            >
+              <Clock className={`h-4 w-4 ${themeColors.text.secondary} shrink-0`} />
+              <span
+                className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                  openNow
+                    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
+                    : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
+                }`}
+              >
+                {openNow ? 'Open now' : 'Closed'}
+              </span>
+              {todayHoursText && (
+                <span className={`text-sm ${themeColors.text.secondary} truncate`}>
+                  {todayHoursText}
+                </span>
+              )}
+              {isHoursExpanded ? (
+                <ChevronUp className={`ml-auto h-4 w-4 ${themeColors.text.secondary}`} />
+              ) : (
+                <ChevronDown className={`ml-auto h-4 w-4 ${themeColors.text.secondary}`} />
+              )}
+            </button>
+
+            <AnimatePresence>
+              {isHoursExpanded && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="overflow-hidden"
                 >
-                  {place.openNow ? 'Open' : 'Closed'}
-                </span>
-                <span className={`${themeColors.text.secondary}`}>
-                  · {place.openingHours[(new Date().getDay() + 6) % 7].split(':')[0]}
-                </span>
-                {isHoursExpanded ? (
-                  <ChevronUp className="h-4 w-4 ml-auto" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 ml-auto" />
-                )}
-              </button>
-
-              <AnimatePresence>
-                {isHoursExpanded && (
-                  <motion.div
-                    initial={{ height: 0, opacity: 0 }}
-                    animate={{ height: 'auto', opacity: 1 }}
-                    exit={{ height: 0, opacity: 0 }}
-                    transition={{ duration: 0.2, ease: 'easeInOut' }}
-                    className="overflow-hidden"
-                  >
-                    <div
-                      className={`mt-2 space-y-1 text-sm ${themeColors.text.secondary} border-l-2 border-gray-200 dark:border-gray-700 pl-3 ml-0.5`}
-                    >
-                      {place.openingHours.map((hour, idx) => {
-                        const parts = hour.split(': ');
-                        const day = parts[0];
-                        const time = parts.slice(1).join(': ');
-                        const isToday = idx === (new Date().getDay() + 6) % 7;
-
-                        return (
-                          <div
-                            key={idx}
-                            className={`grid grid-cols-[100px_1fr] ${isToday ? `font-medium ${themeColors.text.primary}` : ''}`}
-                          >
-                            <span>{day}</span>
-                            <span>{time}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
+                  <div className={`mt-3 space-y-1 border-t pt-3 ${themeColors.border.default}`}>
+                    {place.openingHours.map((line) => {
+                      const { day, hours } = parseOpeningHourLine(line);
+                      const isToday = day === todayDayName;
+                      return (
+                        <div
+                          key={line}
+                          className={`grid grid-cols-[7rem_1fr] gap-2 text-sm ${
+                            isToday
+                              ? `font-medium ${themeColors.text.primary}`
+                              : themeColors.text.secondary
+                          }`}
+                        >
+                          <span>{day}</span>
+                          <span>{hours || '—'}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
         )}
 
@@ -542,9 +573,9 @@ export const MobilePlaceDetailContent: React.FunctionComponent<MobilePlaceDetail
               href={place.website}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:underline truncate"
+              className="text-sm text-blue-600 underline underline-offset-2 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 truncate"
             >
-              {new URL(place.website).hostname.replace('www.', '')}
+              {getWebsiteHostname(place.website)}
             </a>
           </div>
         )}

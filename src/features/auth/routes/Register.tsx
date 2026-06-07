@@ -20,7 +20,7 @@ export const Register: React.FunctionComponent = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [success, setSuccess] = useState(false);
-  const { register, loginWithGoogle } = useAuth();
+  const { register, loginWithGoogle, logout } = useAuth();
   const navigate = useNavigate();
   const { usernameAvailable, checkingUsername, isUsernameValid } = useUsernameAvailability(
     formData.username
@@ -62,6 +62,7 @@ export const Register: React.FunctionComponent = () => {
       }
 
       await register(formData.email, formData.password, formData.username, formData.displayName);
+      await logout();
       setSuccess(true);
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'Username is not available') {

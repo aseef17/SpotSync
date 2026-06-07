@@ -8,7 +8,6 @@ import {
   getPlaceAttribution,
   getTodayHoursText,
   formatPlaceDistance,
-  getPlaceThumbnail,
   isPlaceOpen,
 } from '@/features/places/utils/placeHelpers';
 import type { Place } from '@/features/places/types/place';
@@ -26,7 +25,7 @@ export const MobilePlaceCard = React.memo<MobilePlaceCardProps>(
     const hoursText = getTodayHoursText(place);
     const categoryText = place.category ? formatCategoryName(place.category) : undefined;
     const distanceText = formatPlaceDistance(place, userLocation);
-    const photos = getPlaceThumbnail(place) ? [getPlaceThumbnail(place)!] : place.photoUrls || [];
+    const photos = place.photoUrls || [];
 
     return (
       <div
@@ -122,16 +121,24 @@ export const MobilePlaceCard = React.memo<MobilePlaceCardProps>(
         )}
 
         {photos.length > 0 && (
-          <div className="mb-2">
-            <div className="w-full h-32 rounded-lg overflow-hidden bg-gray-100 dark:bg-gray-800">
-              <img
-                src={GoogleMapsService.getPhotoUrl(photos[0], 400, 240)}
-                alt={place.name}
-                className="w-full h-full object-cover"
-                loading="lazy"
-                decoding="async"
-              />
-            </div>
+          <div
+            className="-mx-4 mb-2 flex gap-2 overflow-x-auto px-4 pb-2 scrollbar-hide"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {photos.slice(0, 5).map((photo, i) => (
+              <div
+                key={i}
+                className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800"
+              >
+                <img
+                  src={GoogleMapsService.getPhotoUrl(photo, 300, 300)}
+                  alt={`${place.name} photo ${i + 1}`}
+                  className="h-full w-full object-cover"
+                  loading="lazy"
+                  decoding="async"
+                />
+              </div>
+            ))}
           </div>
         )}
 

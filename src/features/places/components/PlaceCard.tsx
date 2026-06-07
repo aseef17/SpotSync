@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { MapIcon, Star, Edit3 } from 'lucide-react';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { PlaceStatusSelector } from '@/features/places/components/PlaceStatusSelector';
-import { formatPrice, getPlaceThumbnail } from '@/features/places/utils/placeHelpers';
+import { formatPrice, getTodayHoursText, isPlaceOpen } from '@/features/places/utils/placeHelpers';
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList } from '@/features/lists/types/list';
 import { themeColors } from '@/styles/colors';
@@ -60,6 +60,29 @@ export const PlaceCard = React.memo<PlaceCardProps>(
             <p className={`text-[13px] ${themeColors.text.secondary} line-clamp-1`}>
               {place.address}
             </p>
+            {(place.openNow !== undefined || getTodayHoursText(place)) && (
+              <div
+                className={`flex items-center gap-1.5 text-[12px] mt-0.5 ${themeColors.text.secondary}`}
+              >
+                {place.openNow !== undefined && (
+                  <span
+                    className={
+                      isPlaceOpen(place)
+                        ? 'text-green-600 dark:text-green-400 font-medium'
+                        : 'text-red-600 dark:text-red-400 font-medium'
+                    }
+                  >
+                    {isPlaceOpen(place) ? 'Open' : 'Closed'}
+                  </span>
+                )}
+                {place.openNow !== undefined && getTodayHoursText(place) && (
+                  <span className="text-gray-400">·</span>
+                )}
+                {getTodayHoursText(place) && (
+                  <span className="truncate">{getTodayHoursText(place)}</span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex flex-wrap gap-1.5 mt-1.5">
@@ -89,9 +112,9 @@ export const PlaceCard = React.memo<PlaceCardProps>(
 
         <div className="w-[100px] h-[100px] shrink-0 relative flex-col flex items-end">
           <div className="w-full h-full bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800/50">
-            {getPlaceThumbnail(place) ? (
+            {place.photoUrls && place.photoUrls.length > 0 ? (
               <img
-                src={GoogleMapsService.getPhotoUrl(getPlaceThumbnail(place)!, 200, 200)}
+                src={GoogleMapsService.getPhotoUrl(place.photoUrls[0], 200, 200)}
                 alt={place.name}
                 className="w-full h-full object-cover"
                 loading="lazy"
