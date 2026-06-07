@@ -89,6 +89,19 @@ const waitForUserProfile = async (
   return null;
 };
 
+// registrationInFlight is per-tab; sessionStorage is shared. Poll until the other
+// tab clears its flag or it goes stale before running orphan recovery.
+const waitForCrossTabRegistration = async (uid: string): Promise<User | null> => {
+  while (isRegistrationInProgress(uid)) {
+    const profile = await waitForUserProfile(uid, 1, 0);
+    if (profile) {
+      return profile;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return waitForUserProfile(uid, 4, 250);
+};
+
 const buildDefaultUsername = (fbUser: FirebaseUser): string => {
   const emailPrefix = (fbUser.email || '').split('@')[0].toLowerCase().trim();
   return emailPrefix || `user_${fbUser.uid.slice(0, 8)}`;
@@ -170,11 +183,15 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           // Email/password registration creates the Firestore profile in register().
           // Wait for that transaction before recovering orphaned auth-only accounts.
           const registrationInProgress = isRegistrationInProgress(fbUser.uid);
-          const profile = await waitForUserProfile(
+          let profile = await waitForUserProfile(
             fbUser.uid,
             registrationInProgress ? 12 : 2,
             registrationInProgress ? 250 : 0
           );
+
+          if (!profile && !registrationInFlight && registrationInProgress) {
+            profile = await waitForCrossTabRegistration(fbUser.uid);
+          }
 
           if (profile) {
             setUser(profile);
