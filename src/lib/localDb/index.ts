@@ -48,3 +48,10 @@ export { listRepository } from '@/lib/localDb/repositories/listRepository';
 export { invitationRepository } from '@/lib/localDb/repositories/invitationRepository';
 export { initLocalDataStore, resetLocalDataRuntime } from '@/lib/localDb/localDataStore';
 export { changeTopics, emitChange, subscribeToChanges } from '@/lib/localDb/changeBus';
+export {
+  cachePlacePhotoBlob,
+  clearPlacePhotoCache,
+  getCachedPlacePhotoBlob,
+  invalidatePlacePhotos,
+  loadPlacePhotoBlob,
+} from '@/lib/localDb/placePhotoCache';

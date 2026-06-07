@@ -1,33 +1,36 @@
 import React from 'react';
+import { CachedPlacePhoto } from '@/features/places/components/CachedPlacePhoto';
 
 const MAX_SLOTS = 4;
 
 interface PlacePhotoGalleryProps {
-  images: string[];
+  placeId: string;
+  photoRefs: string[];
   placeName: string;
   compact?: boolean;
   onOpenFullscreen?: (index: number) => void;
 }
 
 export const PlacePhotoGallery: React.FunctionComponent<PlacePhotoGalleryProps> = ({
-  images,
+  placeId,
+  photoRefs,
   placeName,
   compact = false,
   onOpenFullscreen,
 }) => {
-  if (images.length === 0) return null;
+  if (photoRefs.length === 0) return null;
 
   const maxSlots = compact ? 3 : MAX_SLOTS;
-  const hasOverflow = images.length > maxSlots;
-  const visibleCount = hasOverflow ? maxSlots - 1 : images.length;
-  const overflowCount = images.length - visibleCount;
+  const hasOverflow = photoRefs.length > maxSlots;
+  const visibleCount = hasOverflow ? maxSlots - 1 : photoRefs.length;
+  const overflowCount = photoRefs.length - visibleCount;
 
   const tileClass =
     'relative min-w-0 flex-1 aspect-square overflow-hidden rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
 
   return (
     <div className="flex w-full gap-1.5">
-      {images.slice(0, visibleCount).map((img, idx) => (
+      {photoRefs.slice(0, visibleCount).map((photoRef, idx) => (
         <button
           key={idx}
           type="button"
@@ -35,9 +38,13 @@ export const PlacePhotoGallery: React.FunctionComponent<PlacePhotoGalleryProps> 
           className={`${tileClass} bg-gray-100 dark:bg-gray-800`}
           aria-label={`View ${placeName} photo ${idx + 1}`}
         >
-          <img
-            src={img}
+          <CachedPlacePhoto
+            placeId={placeId}
+            photoRef={photoRef}
+            photoIndex={idx}
             alt={`${placeName} photo ${idx + 1}`}
+            maxWidth={600}
+            maxHeight={600}
             className="h-full w-full object-cover transition-opacity hover:opacity-90"
           />
         </button>
@@ -49,11 +56,14 @@ export const PlacePhotoGallery: React.FunctionComponent<PlacePhotoGalleryProps> 
           className={`${tileClass} bg-gray-900`}
           aria-label={`View ${overflowCount} more photos`}
         >
-          <img
-            src={images[visibleCount]}
+          <CachedPlacePhoto
+            placeId={placeId}
+            photoRef={photoRefs[visibleCount]}
+            photoIndex={visibleCount}
             alt=""
+            maxWidth={600}
+            maxHeight={600}
             className="h-full w-full object-cover opacity-40"
-            aria-hidden
           />
           <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-base font-semibold text-white">
             +{overflowCount}
