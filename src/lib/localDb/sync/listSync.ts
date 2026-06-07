@@ -80,12 +80,17 @@ async function hydrateOwnedListsFromCache(userId: string): Promise<void> {
   }
 
   const cachedLists = await getCachedUserLists(userId);
+
+  const stateAfterCacheRead = userListsState.get(userId);
+  if (!stateAfterCacheRead || stateAfterCacheRead.ownedListsHydrated) {
+    return;
+  }
   if (!cachedLists) {
     return;
   }
 
-  state.ownedLists = cachedLists.filter((list) => list.isSavedList !== true);
-  state.ownedListsHydrated = true;
+  stateAfterCacheRead.ownedLists = cachedLists.filter((list) => list.isSavedList !== true);
+  stateAfterCacheRead.ownedListsHydrated = true;
   await publishUserLists(userId);
 }
 
@@ -256,11 +261,6 @@ export function acquireUserOwnedListsSync(userId: string): () => void {
       listsQuery,
       (snapshot) => {
         enqueueSnapshotTask(ownedListsSnapshotChains, userId, async () => {
-          const state = userListsState.get(userId);
-          if (!state) {
-            return;
-          }
-
           const batch = writeBatch(db);
           let updatesNeeded = false;
 
@@ -286,6 +286,11 @@ export function acquireUserOwnedListsSync(userId: string): () => void {
 
           if (updatesNeeded) {
             batch.commit().catch((err) => logger.error('Error in list self-healing:', err));
+          }
+
+          const state = userListsState.get(userId);
+          if (!state) {
+            return;
           }
 
           state.ownedLists = snapshot.docs.map((snapDoc) => snapDoc.data());

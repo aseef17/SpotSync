@@ -73,6 +73,8 @@ vi.mock('@/lib/localDb/listCache', () => ({
   removeCachedList: vi.fn(),
 }));
 
+import { upsertCachedList } from '@/lib/localDb/listCache';
+
 vi.mock('@/lib/localDb/changeBus', () => ({
   changeTopics: {
     userLists: vi.fn((userId: string) => `userLists:${userId}`),
@@ -107,6 +109,7 @@ import {
 } from '@/lib/localDb/sync/listSync';
 
 const getCachedUserMock = vi.mocked(getCachedUser);
+const upsertCachedListMock = vi.mocked(upsertCachedList);
 
 const ownedList = {
   id: 'owned-1',
@@ -143,6 +146,7 @@ describe('dashboard cache publish gating', () => {
     getCachedUserListsMock.mockResolvedValue(null);
     fetchSavedListsByIdsMock.mockReset();
     getCachedUserMock.mockReset();
+    upsertCachedListMock.mockReset();
     ownedListsSnapshotHandler = undefined;
     ownedListsSyncCreateCount = 0;
     ownedListsSyncEntryExists = false;
@@ -403,6 +407,69 @@ describe('dashboard cache publish gating', () => {
     await Promise.resolve();
 
     expect(syncCachedUserListsMock).toHaveBeenCalledWith('user-1', [ownedList]);
+  });
+
+  it('still updates list cache when sync state is cleared during subscription grace', async () => {
+    const updatedOwnedList = {
+      ...ownedList,
+      name: 'Updated while unmounted',
+    } as PlaceList;
+
+    acquireUserOwnedListsSync('user-1');
+    clearUserListsSyncState('user-1');
+
+    ownedListsSnapshotHandler?.({
+      docs: [{ data: () => updatedOwnedList }],
+      docChanges: () => [
+        {
+          type: 'added',
+          doc: { id: updatedOwnedList.id, data: () => updatedOwnedList, ref: {} },
+        },
+      ],
+    });
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(upsertCachedListMock).toHaveBeenCalledWith(updatedOwnedList);
+  });
+
+  it('does not let stale owned-list cache hydrate overwrite fresher snapshot during grace resubscribe', async () => {
+    const updatedOwnedList = {
+      ...ownedList,
+      id: 'owned-2',
+      name: 'Updated owned list',
+    } as PlaceList;
+
+    let resolveCachedUserLists: (value: PlaceList[]) => void = () => {};
+    const cachedUserListsDeferred = new Promise<PlaceList[]>((resolve) => {
+      resolveCachedUserLists = resolve;
+    });
+    getCachedUserListsMock.mockReturnValueOnce(cachedUserListsDeferred);
+
+    acquireUserOwnedListsSync('user-1');
+    releaseOwnedListsSync?.();
+    clearUserListsSyncState('user-1');
+    upsertCachedUserListsMock.mockClear();
+
+    acquireUserOwnedListsSync('user-1');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    ownedListsSnapshotHandler?.({
+      docs: [{ data: () => updatedOwnedList }],
+      docChanges: () => [],
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    resolveCachedUserLists([ownedList]);
+    await cachedUserListsDeferred;
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const lastUpsertCall = upsertCachedUserListsMock.mock.calls.at(-1);
+    expect(lastUpsertCall?.[1]).toEqual([updatedOwnedList]);
   });
 
   it('does not prune dashboard rows when profile hydrates before owned lists load', async () => {
