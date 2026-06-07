@@ -13,7 +13,10 @@ vi.mock('@/lib/firebase', () => ({
   db: {},
 }));
 
-import { isAccountDeletionInProgress } from '@/features/auth/lib/accountDeletionGuard';
+import {
+  isAccountDeletionInProgress,
+  resolveProfileUnlessDeletionPending,
+} from '@/features/auth/lib/accountDeletionGuard';
 
 describe('isAccountDeletionInProgress', () => {
   beforeEach(() => {
@@ -44,5 +47,32 @@ describe('isAccountDeletionInProgress', () => {
     getDocMock.mockResolvedValue({ exists: () => true });
 
     await expect(isAccountDeletionInProgress('deleted-user')).resolves.toBe(true);
+  });
+});
+
+describe('resolveProfileUnlessDeletionPending', () => {
+  beforeEach(() => {
+    getDocMock.mockReset();
+  });
+
+  it('returns null when a tombstone exists even if a cached profile is present', async () => {
+    getDocMock.mockResolvedValue({ exists: () => true });
+    const cachedProfile = { id: 'deleted-user', username: 'alice' };
+
+    await expect(
+      resolveProfileUnlessDeletionPending('deleted-user', cachedProfile)
+    ).resolves.toBeNull();
+  });
+
+  it('returns the profile when no tombstone exists', async () => {
+    getDocMock.mockResolvedValue({ exists: () => false });
+    const profile = { id: 'user-1', username: 'alice' };
+
+    await expect(resolveProfileUnlessDeletionPending('user-1', profile)).resolves.toBe(profile);
+  });
+
+  it('returns null for a null profile without checking the tombstone', async () => {
+    await expect(resolveProfileUnlessDeletionPending('user-1', null)).resolves.toBeNull();
+    expect(getDocMock).not.toHaveBeenCalled();
   });
 });

@@ -31,7 +31,10 @@ import {
   isCurrentAuthStateHandler,
   shouldRetainUserOnAuthChange,
 } from '@/features/auth/lib/authStateHandlerGuard';
-import { isAccountDeletionInProgress } from '@/features/auth/lib/accountDeletionGuard';
+import {
+  isAccountDeletionInProgress,
+  resolveProfileUnlessDeletionPending,
+} from '@/features/auth/lib/accountDeletionGuard';
 import {
   REGISTRATION_HEARTBEAT_MS,
   beginRegistrationSession,
@@ -73,29 +76,33 @@ const isEmailPasswordUser = (fbUser: FirebaseUser): boolean =>
   fbUser.providerData.some((provider) => provider.providerId === 'password');
 
 const loadUserProfile = async (uid: string): Promise<User | null> => {
+  let profile: User | null = null;
+
   try {
     const cached = await getDocFromCache(doc(db, 'users', uid));
     if (cached.exists()) {
-      return cached.data() as User;
+      profile = cached.data() as User;
     }
   } catch {
     // Not in local cache yet.
   }
 
-  if (!isBrowserOnline()) {
-    return null;
-  }
-
-  try {
-    const userDoc = await getDoc(doc(db, 'users', uid));
-    if (userDoc.exists()) {
-      return userDoc.data() as User;
+  if (!profile) {
+    if (!isBrowserOnline()) {
+      return null;
     }
-  } catch (error) {
-    logger.error('Failed to load user profile:', error);
+
+    try {
+      const userDoc = await getDoc(doc(db, 'users', uid));
+      if (userDoc.exists()) {
+        profile = userDoc.data() as User;
+      }
+    } catch (error) {
+      logger.error('Failed to load user profile:', error);
+    }
   }
 
-  return null;
+  return resolveProfileUnlessDeletionPending(uid, profile);
 };
 
 const waitForUserProfile = async (
@@ -115,7 +122,7 @@ const waitForUserProfile = async (
 
     const userDoc = await readUserDoc(doc(db, 'users', uid));
     if (userDoc.exists()) {
-      return userDoc.data() as User;
+      return resolveProfileUnlessDeletionPending(uid, userDoc.data() as User);
     }
     if (attempt < maxAttempts - 1) {
       await new Promise((resolve) => setTimeout(resolve, delayMs));
