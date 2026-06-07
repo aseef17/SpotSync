@@ -1,12 +1,10 @@
 import {
   doc,
   getDoc,
-  updateDoc,
   collection,
   query,
   where,
   getDocs,
-  runTransaction,
 } from 'firebase/firestore';
 import type {
   FirestoreDataConverter,
@@ -19,6 +17,14 @@ import { db } from '@/lib/firebase';
 import type { User } from '@/features/auth/types/user';
 import { omit } from '@/utils/objectUtils';
 import { checkUsernameExistsRemote } from '@/features/auth/api/accountService';
+import {
+  getCachedUser,
+  getPendingMutations,
+  patchCachedUser,
+  queueOfflineMutation,
+  upsertCachedUser,
+  applyPendingMutationsToUser,
+} from '@/lib/localDb';
 
 const userConverter: FirestoreDataConverter<User> = {
   toFirestore(user: User): DocumentData {
@@ -44,11 +50,21 @@ const userConverter: FirestoreDataConverter<User> = {
 export class UserService {
   static async getUser(userId: string): Promise<User | null> {
     try {
-      const userDoc = await getDoc(doc(db, 'users', userId).withConverter(userConverter));
-      if (userDoc.exists()) {
-        return userDoc.data();
+      const cached = await getCachedUser(userId);
+      if (cached) {
+        const pendingMutations = await getPendingMutations();
+        return applyPendingMutationsToUser(cached, pendingMutations);
       }
-      return null;
+
+      const userDoc = await getDoc(doc(db, 'users', userId).withConverter(userConverter));
+      if (!userDoc.exists()) {
+        return null;
+      }
+
+      const user = userDoc.data();
+      void upsertCachedUser(user);
+      const pendingMutations = await getPendingMutations();
+      return applyPendingMutationsToUser(user, pendingMutations);
     } catch (error) {
       logger.error('Error getting user:', error);
       throw error;
@@ -57,10 +73,19 @@ export class UserService {
 
   static async updateUser(userId: string, updates: Partial<User>): Promise<void> {
     try {
-      await updateDoc(doc(db, 'users', userId), {
+      const updateData = {
         ...updates,
         updatedAt: new Date(),
-      });
+      };
+
+      await queueOfflineMutation(
+        'updateUser',
+        userId,
+        { userId, updates: updateData },
+        async () => {
+          await patchCachedUser(userId, updateData);
+        }
+      );
     } catch (error) {
       logger.error('Error updating user:', error);
       throw error;
@@ -85,37 +110,23 @@ export class UserService {
       return;
     }
 
-    try {
-      await runTransaction(db, async (transaction) => {
-        const userRef = doc(db, 'users', userId);
-        const userDoc = await transaction.get(userRef);
-        const currentUsername = (userDoc.data() as User | undefined)?.username
-          ?.toLowerCase()
-          .trim();
-
-        const newUsernameRef = doc(db, 'usernames', normalizedNewUsername);
-        const newUsernameDoc = await transaction.get(newUsernameRef);
-
-        if (newUsernameDoc.exists()) {
-          throw new Error('Username is not available');
-        }
-
-        const usernameToRelease = currentUsername || normalizedOldUsername;
-        if (usernameToRelease && usernameToRelease !== normalizedNewUsername) {
-          transaction.delete(doc(db, 'usernames', usernameToRelease));
-        }
-        transaction.set(newUsernameRef, { uid: userId });
-
-        transaction.update(userRef, {
+    await queueOfflineMutation(
+      'updateProfile',
+      userId,
+      {
+        userId,
+        displayName: updates.displayName,
+        username: normalizedNewUsername,
+        oldUsername: normalizedOldUsername,
+      },
+      async () => {
+        await patchCachedUser(userId, {
           displayName: updates.displayName,
           username: normalizedNewUsername,
           updatedAt: new Date(),
         });
-      });
-    } catch (error) {
-      logger.error('Error updating profile:', error);
-      throw error;
-    }
+      }
+    );
   }
 
   static async checkUsernameExists(username: string): Promise<boolean> {
@@ -125,7 +136,6 @@ export class UserService {
       const usernameDoc = await getDoc(doc(db, 'usernames', normalizedUsername));
       if (usernameDoc.exists()) return true;
 
-      // Server-side check covers legacy users missing from the usernames registry
       return await checkUsernameExistsRemote(normalizedUsername);
     } catch (error) {
       logger.error('Error checking username:', error);
@@ -152,11 +162,21 @@ export class UserService {
 
   static async saveListToProfile(userId: string, listId: string): Promise<void> {
     try {
-      const { arrayUnion } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'users', userId), {
-        savedLists: arrayUnion(listId),
-        updatedAt: new Date(),
-      });
+      await queueOfflineMutation(
+        'saveListToProfile',
+        `${userId}:${listId}`,
+        { userId, listId },
+        async () => {
+          const user = await getCachedUser(userId);
+          const savedLists = user?.savedLists ?? [];
+          if (user && !savedLists.includes(listId)) {
+            await patchCachedUser(userId, {
+              savedLists: [...savedLists, listId],
+              updatedAt: new Date(),
+            });
+          }
+        }
+      );
     } catch (error) {
       logger.error('Error saving list to profile:', error);
       throw error;
@@ -165,11 +185,21 @@ export class UserService {
 
   static async removeListFromProfile(userId: string, listId: string): Promise<void> {
     try {
-      const { arrayRemove } = await import('firebase/firestore');
-      await updateDoc(doc(db, 'users', userId), {
-        savedLists: arrayRemove(listId),
-        updatedAt: new Date(),
-      });
+      await queueOfflineMutation(
+        'removeListFromProfile',
+        `${userId}:${listId}`,
+        { userId, listId },
+        async () => {
+          const user = await getCachedUser(userId);
+          if (user) {
+            const savedLists = user.savedLists ?? [];
+            await patchCachedUser(userId, {
+              savedLists: savedLists.filter((id) => id !== listId),
+              updatedAt: new Date(),
+            });
+          }
+        }
+      );
     } catch (error) {
       logger.error('Error removing list from profile:', error);
       throw error;
@@ -178,7 +208,6 @@ export class UserService {
 
   static async searchUsers(searchTerm: string): Promise<User[]> {
     try {
-      // TODO: Implement full-text search using Algolia or Firebase Extensions
       const users: User[] = [];
       const q = query(collection(db, 'users').withConverter(userConverter));
       const querySnapshot = await getDocs(q);

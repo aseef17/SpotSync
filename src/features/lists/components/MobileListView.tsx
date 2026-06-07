@@ -40,6 +40,7 @@ import { buildAskListPlacesSummary } from '@/features/places/utils/askListPlaces
 interface MobileListViewProps {
   list: PlaceList;
   places: Place[];
+  placesLoading?: boolean;
   filteredPlaces: Place[];
   filters: FilterOptions;
   onFiltersChange: (filters: FilterOptions) => void;
@@ -74,6 +75,7 @@ const ScrollRestorer = ({ scrollPos }: { scrollPos: number }) => {
 export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   list,
   places,
+  placesLoading = false,
   filteredPlaces,
   filters,
   onFiltersChange,
@@ -440,13 +442,13 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
       <ScrollRestorer scrollPos={listScrollPos} />
 
       <div className="pb-20">
-        {effectiveFilteredPlaces.length === 0 ? (
+        {effectiveFilteredPlaces.length === 0 && !(placesLoading && places.length === 0) ? (
           <div className="text-center py-12">
             <p className={themeColors.text.secondary}>
               {places.length === 0 ? 'No places yet' : 'No places match your filters'}
             </p>
           </div>
-        ) : (
+        ) : effectiveFilteredPlaces.length > 0 ? (
           <AnimatePresence mode="popLayout">
             <motion.div
               initial="hidden"
@@ -481,7 +483,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
               ))}
             </motion.div>
           </AnimatePresence>
-        )}
+        ) : null}
         {hasMorePlaces && aiMatchedIds === null && onLoadMorePlaces && (
           <div className="flex justify-center pt-4 pb-2">
             <button
@@ -528,9 +530,13 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
 
   const snapPoints = React.useMemo(() => [140, '50%', '95%'], []);
   const [forcedSnap, setForcedSnap] = React.useState<number | undefined>(undefined);
+  const isMapAreaLoading = !mapMounted || (placesLoading && places.length === 0);
+  const bottomSheetSnapIndex = forcedSnap ?? (isMapAreaLoading ? 0 : undefined);
 
   return (
-    <div className="fixed inset-0 w-full h-[100dvh] flex flex-col bg-white dark:bg-gray-900 overflow-hidden">
+    <div
+      className={`fixed inset-0 w-full h-[100dvh] flex flex-col ${themeColors.background.app} overflow-hidden`}
+    >
       {/* AI Mode Highlight Border */}
       {isAiMode && (
         <div className="absolute inset-0 z-[9999] pointer-events-none shadow-[inset_0_0_80px_rgba(168,85,247,0.4)] transition-all duration-300" />
@@ -559,7 +565,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
             onUserLocationUpdate={setUserLocation}
           />
         ) : (
-          <div className="w-full h-full bg-gray-100 dark:bg-gray-800" />
+          <div className={`w-full h-full ${themeColors.background.app}`} />
         )}
       </div>
 
@@ -621,8 +627,8 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
           </AnimatePresence>
         }
         snapPoints={snapPoints}
-        defaultSnap={1}
-        snapIndex={forcedSnap}
+        defaultSnap={isMapAreaLoading ? 0 : 1}
+        snapIndex={bottomSheetSnapIndex}
         onHeightChange={setBottomSheetHeight}
       >
         <AnimatePresence mode="wait">

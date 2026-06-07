@@ -1,7 +1,13 @@
 import { logger } from '@/utils/logger';
 import type { Place } from '@/features/places/types/place';
-import { PLACES_SUBSCRIPTION_LIMIT, PlaceService } from '@/features/places/api/placeService';
+import { PLACES_SUBSCRIPTION_LIMIT } from '@/features/places/api/placeFirestore';
+import { placeRepository } from '@/lib/localDb';
 import type { PlaceListAccessQuery } from '@/features/places/utils/placeAccess';
+import {
+  cancelAllScheduledTeardowns,
+  cancelScheduledTeardown,
+  scheduleTeardown,
+} from '@/utils/subscriptionTeardownGrace';
 
 type PlacesListener = (places: Place[]) => void;
 type ErrorListener = (error: Error) => void;
@@ -36,7 +42,7 @@ function startSubscription(
   const key = buildSubscriptionKey(access, subscriptionLimit);
   const listeners = new Set<ListenerEntry>();
 
-  const unsubscribe = PlaceService.subscribeToListPlaces(
+  const unsubscribe = placeRepository.subscribeToListPlaces(
     access,
     (places) => {
       const subscription = activeSubscriptions.get(key);
@@ -63,6 +69,7 @@ export function subscribeToListPlacesShared(
   subscriptionLimit: number = PLACES_SUBSCRIPTION_LIMIT
 ): () => void {
   const key = buildSubscriptionKey(access, subscriptionLimit);
+  cancelScheduledTeardown(key);
   let subscription = activeSubscriptions.get(key);
 
   if (!subscription) {
@@ -78,13 +85,26 @@ export function subscribeToListPlacesShared(
 
     current.listeners.delete(entry);
     if (current.listeners.size === 0) {
-      current.unsubscribe();
-      activeSubscriptions.delete(key);
+      scheduleTeardown(
+        key,
+        () => {
+          const subscription = activeSubscriptions.get(key);
+          if (subscription && subscription.listeners.size === 0) {
+            subscription.unsubscribe();
+            activeSubscriptions.delete(key);
+          }
+        },
+        () => {
+          const subscription = activeSubscriptions.get(key);
+          return !subscription || subscription.listeners.size === 0;
+        }
+      );
     }
   };
 }
 
 export function clearPlaceListSubscriptions(): void {
+  cancelAllScheduledTeardowns();
   activeSubscriptions.forEach((subscription) => {
     try {
       subscription.unsubscribe();

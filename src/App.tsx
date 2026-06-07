@@ -4,7 +4,6 @@ import { AuthProvider, useAuth } from '@/features/auth/context/AuthContext';
 import { NotificationProvider } from '@/features/notifications/context';
 import { ThemeProvider } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
-import { ThemeLoader } from '@/components/Elements/Theme/ThemeLoader';
 import { OfflineBanner } from '@/components/Layout/OfflineBanner';
 import { AppRoutes } from '@/routes';
 import { ListsProvider } from '@/features/lists/context/ListsProvider';
@@ -27,7 +26,6 @@ function App() {
             <ThemeProvider>
               <div className="flex min-h-screen flex-col light-bg-app transition-colors">
                 <OfflineBanner />
-                <ThemeLoader />
                 <Toaster
                   position="top-center"
                   richColors

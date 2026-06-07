@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Users, Mail, UserX, Clock, X } from 'lucide-react';
 import { CollaborationService } from '@/features/lists/api/collaborationService';
+import { subscribeToListInvitationsShared } from '@/features/lists/api/invitationListSubscriptionStore';
 import { themeColors } from '@/styles/colors';
 import { CustomDropdown } from '@/components/Elements/Dropdown/CustomDropdown';
 import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
@@ -74,7 +75,6 @@ export const CollaboratorManager: React.FunctionComponent<CollaboratorManagerPro
       );
 
       setInviteeIdentifier('');
-      loadPendingInvitations(); // Refresh pending list
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to send invitation');
     } finally {
@@ -124,15 +124,6 @@ export const CollaboratorManager: React.FunctionComponent<CollaboratorManagerPro
     }
   };
 
-  const loadPendingInvitations = useCallback(async () => {
-    try {
-      const invites = await CollaborationService.getPendingInvitationsForList(list.id);
-      setPendingInvitations(invites);
-    } catch (err) {
-      logger.error('Error loading pending invitations:', err);
-    }
-  }, [list.id]);
-
   const handleCancelInvitation = async (invitationId: string) => {
     setConfirmState({
       isOpen: true,
@@ -144,7 +135,6 @@ export const CollaboratorManager: React.FunctionComponent<CollaboratorManagerPro
         setError('');
         try {
           await CollaborationService.cancelInvitation(invitationId);
-          loadPendingInvitations();
           setConfirmState((prev) => ({ ...prev, isOpen: false }));
         } catch (err) {
           setError(err instanceof Error ? err.message : 'Failed to cancel invitation');
@@ -157,8 +147,12 @@ export const CollaboratorManager: React.FunctionComponent<CollaboratorManagerPro
   };
 
   useEffect(() => {
-    loadPendingInvitations();
-  }, [list.id, loadPendingInvitations]);
+    return subscribeToListInvitationsShared(
+      list.id,
+      (invites) => setPendingInvitations(invites),
+      (err) => logger.error('Error loading pending invitations:', err)
+    );
+  }, [list.id]);
 
   return (
     <div className={`${themeColors.background.card}`}>

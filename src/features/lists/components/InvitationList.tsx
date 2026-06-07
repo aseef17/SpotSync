@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { logger } from '@/utils/logger';
 import { Mail, Check, X, Clock } from 'lucide-react';
 import { CollaborationService } from '@/features/lists/api/collaborationService';
+import { subscribeToRecipientInvitationsShared } from '@/features/lists/api/invitationRecipientSubscriptionStore';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { themeColors } from '@/styles/colors';
 import type { Invitation } from '@/features/lists/types/invitation';
@@ -15,29 +16,62 @@ interface InvitationListProps {
 export const InvitationList: React.FunctionComponent<InvitationListProps> = ({
   onInvitationAccepted,
 }) => {
-  const { user } = useAuth();
+  const { user, firebaseUser, loading: authLoading } = useAuth();
   const { toast } = useToast();
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const loadInvitations = useCallback(async () => {
-    if (!user?.email || !user?.username) return;
 
-    try {
-      setLoading(true);
-      const invites = await CollaborationService.getMyInvitations(user.email, user.username);
-      setInvitations(invites);
-    } catch (err) {
-      logger.error('Error loading invitations:', err);
-      toast.error('Failed to load invitations');
-    } finally {
-      setLoading(false);
-    }
-  }, [user?.email, user?.username, toast]);
+  const recipientEmail = firebaseUser?.email ?? user?.email;
+  const recipientUsername = user?.username;
 
   useEffect(() => {
-    loadInvitations();
-  }, [loadInvitations]);
+    logger.warn('[invitations] InvitationList mounted', {
+      authLoading,
+      recipientEmail: recipientEmail ?? null,
+      recipientUsername: recipientUsername ?? null,
+    });
+  }, []);
+
+  useEffect(() => {
+    if (authLoading) {
+      setLoading(true);
+      return;
+    }
+
+    if (!recipientEmail && !recipientUsername) {
+      logger.warn('[invitations] No recipient email or username — showing empty state');
+      setInvitations([]);
+      setLoadError(null);
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setLoadError(null);
+    logger.warn('[invitations] Subscribing to recipient invitations', {
+      email: recipientEmail,
+      username: recipientUsername,
+    });
+
+    return subscribeToRecipientInvitationsShared(
+      recipientEmail,
+      recipientUsername,
+      (invites) => {
+        logger.warn('[invitations] Received invitations update', { count: invites.length });
+        setInvitations(invites);
+        setLoading(false);
+        setLoadError(null);
+      },
+      (err) => {
+        logger.error('[invitations] Subscription error:', err);
+        setLoadError(err.message);
+        toast.error('Failed to load invitations');
+        setLoading(false);
+      }
+    );
+  }, [authLoading, recipientEmail, recipientUsername, toast]);
 
   const handleAccept = async (invitation: Invitation) => {
     if (!user) return;
@@ -48,9 +82,7 @@ export const InvitationList: React.FunctionComponent<InvitationListProps> = ({
       await CollaborationService.acceptInvitation(invitation.id);
       setInvitations((prev) => prev.filter((inv) => inv.id !== invitation.id));
       toast.success(`You joined ${invitation.listName}`);
-      if (onInvitationAccepted) {
-        onInvitationAccepted();
-      }
+      onInvitationAccepted?.();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Failed to accept invitation');
     } finally {
@@ -91,10 +123,19 @@ export const InvitationList: React.FunctionComponent<InvitationListProps> = ({
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-8">
+      <div className="flex flex-col items-center justify-center py-8 gap-2">
         <div
           className={`animate-spin rounded-full h-8 w-8 border-b-2 ${themeColors.text.primary}`}
-        ></div>
+        />
+        <p className={`text-sm ${themeColors.text.secondary}`}>Loading invitations...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className={`text-center py-8 ${themeColors.text.secondary}`}>
+        <p className="mb-3">{loadError}</p>
       </div>
     );
   }

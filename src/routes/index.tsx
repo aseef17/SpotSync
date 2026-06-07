@@ -5,6 +5,7 @@ import { Login } from '@/features/auth/routes/Login';
 import { Register } from '@/features/auth/routes/Register';
 import { PrivateRoute } from '@/features/auth/components/PrivateRoute';
 import { AppLoadingScreen } from '@/components/Layout/AppLoadingScreen';
+import { prefetchListView } from '@/features/lists/lib/prefetchListView';
 
 const Dashboard = lazy(() =>
   import('@/features/lists/routes/Dashboard').then((m) => ({ default: m.Dashboard }))
@@ -16,9 +17,12 @@ const Settings = lazy(() =>
   import('@/features/auth/routes/Settings').then((m) => ({ default: m.Settings }))
 );
 
-const RouteFallback = () => (
-  <AppLoadingScreen title="Loading page" message="Fetching the latest view..." showRetry={false} />
-);
+const RouteFallback = () => {
+  prefetchListView();
+  return (
+    <AppLoadingScreen title="Loading page" message="Fetching the latest view..." showRetry={false} />
+  );
+};
 
 export const AppRoutes = () => {
   const { user, requiresEmailVerification } = useAuth();

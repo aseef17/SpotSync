@@ -17,7 +17,8 @@ import { ListIcon } from '@/features/lists/components/ListIcon';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
 import { logger } from '@/utils/logger';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
-import { CollaborationService } from '@/features/lists/api/collaborationService';
+import { subscribeToRecipientInvitationsShared } from '@/features/lists/api/invitationRecipientSubscriptionStore';
+import { prefetchListView } from '@/features/lists/lib/prefetchListView';
 
 const isPendingOptimisticList = (
   list: PlaceList,
@@ -58,6 +59,14 @@ export const Dashboard: React.FunctionComponent = () => {
   const { trigger: triggerAction } = useDeferredAction();
   const [removedListIds, setRemovedListIds] = useState<Set<string>>(() => new Set());
   const prevListIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    prefetchListView();
+  }, []);
+
+  const prefetchListRoute = useCallback(() => {
+    prefetchListView();
+  }, []);
 
   // Drop optimistic entries once Firestore confirms the list by id or clientId
   const activeOptimisticLists = useMemo(() => {
@@ -121,19 +130,18 @@ export const Dashboard: React.FunctionComponent = () => {
   const savedLists = useMemo(() => displayedLists.filter((l) => l.isSavedList), [displayedLists]);
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.email && !user?.username) {
+      setPendingInvitationCount(0);
+      return;
+    }
 
-    const loadPendingCount = async () => {
-      try {
-        const invitations = await CollaborationService.getPendingInvitations(user.id);
-        setPendingInvitationCount(invitations.length);
-      } catch (err) {
-        logger.error('Failed to load pending invitations count', err);
-      }
-    };
-
-    void loadPendingCount();
-  }, [user?.id]);
+    return subscribeToRecipientInvitationsShared(
+      user?.email,
+      user?.username,
+      (invitations) => setPendingInvitationCount(invitations.length),
+      (err) => logger.error('Failed to sync pending invitations', err)
+    );
+  }, [user?.email, user?.username]);
 
   const resetForm = () => {
     setEditingList(null);
@@ -515,6 +523,8 @@ export const Dashboard: React.FunctionComponent = () => {
                       >
                         <Link
                           to={list.id.startsWith('temp-') ? '#' : `/list/${list.id}`}
+                          onMouseEnter={prefetchListRoute}
+                          onFocus={prefetchListRoute}
                           onClick={(e) => {
                             if (list.id.startsWith('temp-')) {
                               e.preventDefault();
@@ -618,6 +628,8 @@ export const Dashboard: React.FunctionComponent = () => {
                         >
                           <Link
                             to={`/list/${list.id}`}
+                            onMouseEnter={prefetchListRoute}
+                            onFocus={prefetchListRoute}
                             className={`${themeColors.background.card} border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer block h-full`}
                           >
                             <div className="flex items-start justify-between">

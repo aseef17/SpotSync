@@ -9,10 +9,8 @@ export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode 
 }) => {
   const { firebaseUser, user } = useAuth();
 
-  // Initialize theme from localStorage or system preference
   const [theme, setThemeState] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
-      // Priority: user profile > localStorage > system preference
       if (user?.theme) {
         return user.theme;
       }
@@ -20,7 +18,6 @@ export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode 
       if (savedTheme && (savedTheme === 'light' || savedTheme === 'dark')) {
         return savedTheme;
       }
-      // Fallback to system preference
       const systemPrefersDark =
         window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
       return systemPrefersDark ? 'dark' : 'light';
@@ -28,24 +25,33 @@ export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode 
     return 'light';
   });
 
-  // Function to update theme in Firestore and localStorage
-  const updateThemeInFirestore = useCallback(
+  const applyThemeLocally = useCallback((newTheme: Theme) => {
+    setThemeState(newTheme);
+    localStorage.setItem('theme', newTheme);
+  }, []);
+
+  const persistThemeIfChanged = useCallback(
     async (newTheme: Theme) => {
-      if (user && firebaseUser) {
-        try {
-          await UserService.updateUser(firebaseUser.uid, { theme: newTheme });
-          logger.info(`Theme updated to ${newTheme} in Firestore for user ${user.id}`);
-        } catch (error) {
-          logger.error('Failed to update theme in Firestore:', error);
-        }
+      if (!user || !firebaseUser || user.theme === newTheme) {
+        return;
       }
-      // Always update localStorage for immediate access
-      localStorage.setItem('theme', newTheme);
+
+      try {
+        await UserService.updateUser(firebaseUser.uid, { theme: newTheme });
+        logger.info(`Theme updated to ${newTheme} in Firestore for user ${user.id}`);
+      } catch (error) {
+        logger.error('Failed to update theme in Firestore:', error);
+      }
     },
     [user, firebaseUser]
   );
 
-  // Effect to apply theme to document and update meta tag
+  useEffect(() => {
+    if (user?.theme === 'light' || user?.theme === 'dark') {
+      applyThemeLocally(user.theme);
+    }
+  }, [user?.id, user?.theme, applyThemeLocally]);
+
   useEffect(() => {
     const root = document.documentElement;
     root.classList.remove('light', 'dark');
@@ -57,12 +63,14 @@ export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode 
     }
   }, [theme]);
 
+  const applyTheme = applyThemeLocally;
+
   const setTheme = useCallback(
     (newTheme: Theme) => {
-      setThemeState(newTheme);
-      updateThemeInFirestore(newTheme);
+      applyThemeLocally(newTheme);
+      void persistThemeIfChanged(newTheme);
     },
-    [updateThemeInFirestore]
+    [applyThemeLocally, persistThemeIfChanged]
   );
 
   const toggleTheme = useCallback(() => {
@@ -73,6 +81,7 @@ export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode 
   const value: ThemeContextType = {
     theme,
     toggleTheme,
+    applyTheme,
     setTheme,
   };
 

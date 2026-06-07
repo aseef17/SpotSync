@@ -34,6 +34,7 @@ import {
 } from '@/features/places/utils/placeHelpers';
 import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
 import { PlaceService } from '@/features/places/api/placeService';
+import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
 import { useToast } from '@/hooks/useToast';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
 import { logger } from '@/utils/logger';
@@ -99,7 +100,7 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
         const customValue = isStandard ? undefined : newStatus;
 
         await PlaceService.updatePlaceStatus(place.id, statusType, currentUserId, customValue);
-        const updatedPlace = await PlaceService.getPlace(place.id);
+        const updatedPlace = await placeRepository.getById(place.id);
         if (updatedPlace) {
           onPlaceUpdated(updatedPlace);
         } else {
@@ -392,7 +393,7 @@ export const MobilePlaceDetailContent: React.FunctionComponent<MobilePlaceDetail
     try {
       await PlaceService.updatePlace(place.id, { notes: editedNotes }, currentUserId);
       setIsEditingNotes(false);
-      const updatedPlace = await PlaceService.getPlace(place.id);
+      const updatedPlace = await placeRepository.getById(place.id);
       if (updatedPlace) {
         onPlaceUpdated(updatedPlace);
       } else {

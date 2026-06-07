@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getDocsMock, getDocsFromCacheMock } = vi.hoisted(() => ({
+const { getDocsMock, getCachedListMock } = vi.hoisted(() => ({
   getDocsMock: vi.fn(),
-  getDocsFromCacheMock: vi.fn(),
+  getCachedListMock: vi.fn(),
 }));
 
 vi.mock('firebase/firestore', async () => {
@@ -15,7 +15,6 @@ vi.mock('firebase/firestore', async () => {
     query: vi.fn((...args: unknown[]) => args),
     where: vi.fn((...args: unknown[]) => args),
     getDocs: getDocsMock,
-    getDocsFromCache: getDocsFromCacheMock,
   };
 });
 
@@ -25,6 +24,11 @@ vi.mock('@/lib/firebase', () => ({
 
 vi.mock('@/hooks/useNetworkStatus', () => ({
   isBrowserOnline: vi.fn(() => true),
+}));
+
+vi.mock('@/lib/localDb', () => ({
+  getCachedList: getCachedListMock,
+  upsertCachedList: vi.fn(),
 }));
 
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
@@ -43,7 +47,7 @@ const listConverter = {
 describe('fetchSavedListsByIds', () => {
   beforeEach(() => {
     getDocsMock.mockReset();
-    getDocsFromCacheMock.mockReset();
+    getCachedListMock.mockReset();
     vi.mocked(isBrowserOnline).mockReturnValue(true);
   });
 
@@ -60,13 +64,9 @@ describe('fetchSavedListsByIds', () => {
     expect(result.lists).toEqual([{ id: 'saved-1', name: 'Saved list', isSavedList: true }]);
   });
 
-  it('falls back to cache instead of wiping saved lists when the network read fails', async () => {
+  it('falls back to local cache when the network read fails', async () => {
     getDocsMock.mockRejectedValue(new Error('offline'));
-    getDocsFromCacheMock.mockResolvedValue({
-      forEach: (cb: (doc: { data: () => { id: string; name: string } }) => void) => {
-        cb({ data: () => ({ id: 'saved-1', name: 'Cached saved list' }) });
-      },
-    });
+    getCachedListMock.mockResolvedValue({ id: 'saved-1', name: 'Cached saved list' });
 
     const result = await fetchSavedListsByIds(['saved-1'], listConverter);
 
@@ -74,9 +74,9 @@ describe('fetchSavedListsByIds', () => {
     expect(result.lists).toEqual([{ id: 'saved-1', name: 'Cached saved list', isSavedList: true }]);
   });
 
-  it('keeps unresolved state when both network and cache reads fail', async () => {
+  it('keeps unresolved state when both network and local cache reads fail', async () => {
     getDocsMock.mockRejectedValue(new Error('offline'));
-    getDocsFromCacheMock.mockRejectedValue(new Error('cache miss'));
+    getCachedListMock.mockResolvedValue(null);
 
     const result = await fetchSavedListsByIds(['saved-1'], listConverter);
 
@@ -92,7 +92,7 @@ describe('fetchSavedListsByIds', () => {
         },
       })
       .mockRejectedValueOnce(new Error('offline'));
-    getDocsFromCacheMock.mockRejectedValue(new Error('cache miss'));
+    getCachedListMock.mockResolvedValue(null);
 
     const ids = Array.from({ length: 11 }, (_, index) => `saved-${index + 1}`);
     const result = await fetchSavedListsByIds(ids, listConverter);
@@ -108,13 +108,9 @@ describe('fetchSavedListsByIds', () => {
     expect(shouldCommitSavedListFetch(true, 12, true)).toBe(true);
   });
 
-  it('reads from cache directly when offline', async () => {
+  it('reads from local cache directly when offline', async () => {
     vi.mocked(isBrowserOnline).mockReturnValue(false);
-    getDocsFromCacheMock.mockResolvedValue({
-      forEach: (cb: (doc: { data: () => { id: string; name: string } }) => void) => {
-        cb({ data: () => ({ id: 'saved-1', name: 'Offline cached list' }) });
-      },
-    });
+    getCachedListMock.mockResolvedValue({ id: 'saved-1', name: 'Offline cached list' });
 
     const result = await fetchSavedListsByIds(['saved-1'], listConverter);
 
