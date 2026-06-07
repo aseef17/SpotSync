@@ -38,6 +38,7 @@ vi.mock('@/lib/firebase', () => ({
 }));
 
 vi.mock('@/lib/localDb/subscriptionRegistry', () => ({
+  hasSubscriptionEntry: vi.fn(() => ownedListsSyncEntryExists),
   acquireSubscription: vi.fn((_key: string, create: () => () => void) => {
     if (!ownedListsSyncEntryExists) {
       create();
@@ -153,6 +154,40 @@ describe('dashboard cache publish gating', () => {
 
     expect(upsertCachedUserListsMock).toHaveBeenCalledWith('user-1', [ownedList]);
     expect(syncCachedUserListsMock).not.toHaveBeenCalled();
+  });
+
+  it('does not overwrite profile saved-list ids with stale cache on first acquire', async () => {
+    fetchSavedListsByIdsMock.mockResolvedValue({ lists: [], resolved: true });
+    getCachedUserMock.mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      displayName: 'User',
+      username: 'user',
+      savedLists: ['stale-1', 'stale-2'],
+      fcmTokens: [],
+      notificationsDisabled: false,
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date('2024-01-01'),
+    });
+
+    acquireUserOwnedListsSync('user-1');
+    expect(getCachedUserMock).not.toHaveBeenCalled();
+
+    setUserSavedListIds('user-1', ['fresh-1']);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchSavedListsByIdsMock).toHaveBeenCalledWith(['fresh-1'], {});
+    expect(fetchSavedListsByIdsMock).not.toHaveBeenCalledWith(['stale-1', 'stale-2'], expect.anything());
+  });
+
+  it('does not reseed from profile cache on first owned-list sync acquire', async () => {
+    acquireUserOwnedListsSync('user-1');
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(getCachedUserMock).not.toHaveBeenCalled();
   });
 
   it('reseeds saved-list ids from profile cache when sync state is cleared and reacquired', async () => {
