@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { Plus, Users, Settings, Eye, EyeOff, Edit, AlertCircle } from 'lucide-react';
+import { Plus, Users, Settings, Eye, EyeOff, Edit } from 'lucide-react';
+import { ConnectionIssueCard } from '@/components/Layout/ConnectionIssueCard';
 import { Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeToggle } from '@/components/Elements/Theme/ThemeToggle';
@@ -439,21 +440,9 @@ export const Dashboard: React.FunctionComponent = () => {
             </p>
           </div>
           <div className="p-6">
-            {error ? (
-              <div className="text-center py-12">
-                <AlertCircle className={`mx-auto h-12 w-12 text-red-500`} />
-                <h3 className={`mt-2 text-lg font-medium ${themeColors.text.primary}`}>
-                  Error loading lists
-                </h3>
-                <p className={`mt-1 text-sm ${themeColors.text.secondary}`}>{error}</p>
-                <button
-                  onClick={() => window.location.reload()}
-                  className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.secondary} transition-colors`}
-                >
-                  Retry
-                </button>
-              </div>
-            ) : loading ? (
+            {error && displayedLists.length === 0 ? (
+              <ConnectionIssueCard title="Unable to load lists" message={error} />
+            ) : loading && displayedLists.length === 0 ? (
               <div className="text-center py-12">
                 <div
                   className={`animate-spin rounded-full h-8 w-8 border-b-2 ${themeColors.text.primary} mx-auto`}

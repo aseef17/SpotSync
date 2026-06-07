@@ -5,6 +5,7 @@ import { NotificationProvider } from '@/features/notifications/context';
 import { ThemeProvider } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
 import { ThemeLoader } from '@/components/Elements/Theme/ThemeLoader';
+import { OfflineBanner } from '@/components/Layout/OfflineBanner';
 import { AppRoutes } from '@/routes';
 import { ListsProvider } from '@/features/lists/context/ListsProvider';
 
@@ -24,7 +25,8 @@ function App() {
         <ToastProvider>
           <NotificationProvider>
             <ThemeProvider>
-              <div className="min-h-screen light-bg-app transition-colors">
+              <div className="flex min-h-screen flex-col light-bg-app transition-colors">
+                <OfflineBanner />
                 <ThemeLoader />
                 <Toaster
                   position="top-center"
@@ -36,7 +38,9 @@ function App() {
                     },
                   }}
                 />
-                <AppContent />
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <AppContent />
+                </div>
               </div>
             </ThemeProvider>
           </NotificationProvider>

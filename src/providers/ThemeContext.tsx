@@ -7,7 +7,7 @@ import { ThemeContext, type Theme, type ThemeContextType } from '@/providers/the
 export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { firebaseUser, user, loading: authLoading } = useAuth();
+  const { firebaseUser, user } = useAuth();
 
   // Initialize theme from localStorage or system preference
   const [theme, setThemeState] = useState<Theme>(() => {
@@ -45,21 +45,17 @@ export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode 
     [user, firebaseUser]
   );
 
-  const isThemeLoaded = !authLoading;
-
   // Effect to apply theme to document and update meta tag
   useEffect(() => {
-    if (isThemeLoaded) {
-      const root = document.documentElement;
-      root.classList.remove('light', 'dark');
-      root.classList.add(theme);
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
 
-      const metaThemeColor = document.querySelector('meta[name="theme-color"]');
-      if (metaThemeColor) {
-        metaThemeColor.setAttribute('content', theme === 'dark' ? '#1f2937' : '#ffffff');
-      }
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute('content', theme === 'dark' ? '#1f2937' : '#ffffff');
     }
-  }, [theme, isThemeLoaded]);
+  }, [theme]);
 
   const setTheme = useCallback(
     (newTheme: Theme) => {
@@ -73,11 +69,6 @@ export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode 
     const newTheme: Theme = theme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
   }, [theme, setTheme]);
-
-  // Don't render children until theme is loaded to prevent FOUC
-  if (!isThemeLoaded) {
-    return null;
-  }
 
   const value: ThemeContextType = {
     theme,
