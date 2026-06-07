@@ -48,17 +48,24 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
 
     const hydrateFromCache = async () => {
       const cachedLists = await listRepository.getForUser(userId);
-      if (cancelled || cachedLists.length === 0) {
+      if (cancelled) {
         return;
       }
 
-      hasCachedData = true;
-      setLists(cachedLists);
+      if (cachedLists.length > 0) {
+        hasCachedData = true;
+        setLists(cachedLists);
+      }
+
       setLoading(false);
       setError(null);
     };
 
     void hydrateFromCache();
+
+    const unsubscribeLocalDb = subscribeLocalDataChanges(() => {
+      void hydrateFromCache();
+    });
 
     const timeoutId = window.setTimeout(
       () => {
@@ -113,6 +120,7 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
       window.clearTimeout(timeoutId);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
+      unsubscribeLocalDb();
       unsubscribe();
     };
   }, [userId, isDashboard]);

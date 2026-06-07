@@ -77,6 +77,24 @@ export async function getCachedPlacesForList(listId: string): Promise<Place[] | 
   return places.length > 0 ? places : null;
 }
 
+export async function getCachedPlaceCountForList(listId: string): Promise<number> {
+  const db = await getLocalDatabase();
+  if (!db) {
+    return 0;
+  }
+
+  const statement = db.prepare('SELECT COUNT(*) AS count FROM places WHERE list_id = ?');
+  statement.bind([listId]);
+
+  let count = 0;
+  if (statement.step()) {
+    const row = statement.getAsObject() as { count?: number };
+    count = typeof row.count === 'number' ? row.count : 0;
+  }
+  statement.free();
+  return count;
+}
+
 export async function upsertCachedPlace(place: Place): Promise<void> {
   const db = await getLocalDatabase();
   const existingBeforeWrite = db ? readPlaceFromDb(db, place.id) : null;

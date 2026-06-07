@@ -29,8 +29,19 @@ const RouteFallback = () => {
 };
 
 export const AppRoutes = () => {
-  const { user, requiresEmailVerification } = useAuth();
-  const canAccessApp = user && !requiresEmailVerification;
+  const { firebaseUser, loading, requiresEmailVerification } = useAuth();
+
+  if (loading) {
+    return (
+      <AppLoadingScreen
+        title="Signing you in..."
+        message="Please wait while we load your account."
+        showRetry={false}
+      />
+    );
+  }
+
+  const canAccessApp = Boolean(firebaseUser) && !requiresEmailVerification;
 
   return (
     <Suspense fallback={<RouteFallback />}>

@@ -12,10 +12,12 @@ import { ListsProvider } from '@/features/lists/context/ListsProvider';
 import { InitialCacheHydrationProvider } from '@/context/InitialCacheHydrationProvider';
 
 function AppContent() {
-  const { user } = useAuth();
+  const { user, firebaseUser } = useAuth();
+  const listsUserId = user?.id ?? firebaseUser?.uid;
+
   return (
     <InitialCacheHydrationProvider>
-      <ListsProvider key={user?.id ?? 'anonymous'} userId={user?.id}>
+      <ListsProvider key={listsUserId ?? 'anonymous'} userId={listsUserId}>
         <AppRoutes />
       </ListsProvider>
     </InitialCacheHydrationProvider>
