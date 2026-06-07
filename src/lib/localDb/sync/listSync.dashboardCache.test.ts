@@ -197,6 +197,45 @@ describe('dashboard cache publish gating', () => {
     expect(getCachedUserMock).not.toHaveBeenCalled();
   });
 
+  it('does not let grace-period cache reseed overwrite fresher saved-list ids', async () => {
+    fetchSavedListsByIdsMock.mockResolvedValue({ lists: [], resolved: true });
+
+    acquireUserOwnedListsSync('user-1');
+    releaseOwnedListsSync?.();
+    clearUserListsSyncState('user-1');
+    fetchSavedListsByIdsMock.mockClear();
+
+    let resolveCachedUser: (user: unknown) => void = () => {};
+    const cachedUserDeferred = new Promise<unknown>((resolve) => {
+      resolveCachedUser = resolve;
+    });
+    getCachedUserMock.mockReturnValueOnce(cachedUserDeferred);
+
+    ownedListsSyncEntryExists = true;
+    acquireUserOwnedListsSync('user-1');
+
+    setUserSavedListIds('user-1', ['fresh-1', 'fresh-2']);
+    await Promise.resolve();
+
+    resolveCachedUser({
+      id: 'user-1',
+      email: 'user@example.com',
+      displayName: 'User',
+      username: 'user',
+      savedLists: ['stale-1'],
+      fcmTokens: [],
+      notificationsDisabled: false,
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date('2024-01-01'),
+    });
+    await cachedUserDeferred;
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchSavedListsByIdsMock).toHaveBeenCalledWith(['fresh-1', 'fresh-2'], {});
+    expect(fetchSavedListsByIdsMock).not.toHaveBeenCalledWith(['stale-1'], expect.anything());
+  });
+
   it('reseeds saved-list ids from profile cache when sync state is cleared and reacquired', async () => {
     fetchSavedListsByIdsMock.mockResolvedValue({ lists: [], resolved: true });
     getCachedUserMock.mockResolvedValue({
