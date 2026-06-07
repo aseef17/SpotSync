@@ -3,7 +3,6 @@ import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
   shouldClearAccessRevokedOnContextReturn,
-  shouldConfirmPrivateAccessFromTrustedContext,
   shouldHydrateCachedListSnapshot,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import type { PlaceList } from '@/features/lists/types/list';
@@ -156,52 +155,6 @@ describe('resolveListFromContextAccess', () => {
   });
 });
 
-describe('shouldConfirmPrivateAccessFromTrustedContext', () => {
-  it('confirms server access when a trusted owned row appears after sticky revocation', () => {
-    expect(
-      shouldConfirmPrivateAccessFromTrustedContext({
-        list: list(),
-        userId: 'collab-b',
-        accessRevoked: true,
-        isOnline: true,
-      })
-    ).toBe(true);
-  });
-
-  it('does not confirm for untrusted saved private rows that may retain stale collaboratorIds', () => {
-    expect(
-      shouldConfirmPrivateAccessFromTrustedContext({
-        list: list({ isSavedList: true }),
-        userId: 'collab-b',
-        accessRevoked: true,
-        isOnline: true,
-      })
-    ).toBe(false);
-  });
-
-  it('does not confirm when revocation is already cleared', () => {
-    expect(
-      shouldConfirmPrivateAccessFromTrustedContext({
-        list: list(),
-        userId: 'collab-b',
-        accessRevoked: false,
-        isOnline: true,
-      })
-    ).toBe(false);
-  });
-
-  it('does not confirm while offline because server reads are unavailable', () => {
-    expect(
-      shouldConfirmPrivateAccessFromTrustedContext({
-        list: list(),
-        userId: 'collab-b',
-        accessRevoked: true,
-        isOnline: false,
-      })
-    ).toBe(false);
-  });
-});
-
 describe('shouldClearAccessRevokedOnContextReturn', () => {
   it('clears sticky revocation when a public list reappears in live context', () => {
     expect(
@@ -251,5 +204,34 @@ describe('shouldClearAccessRevokedOnContextReturn', () => {
         userId: 'user-c',
       })
     ).toBe(false);
+  });
+});
+
+describe('useListDetails context access ordering', () => {
+  it('does not clear accessRevoked before denying stale saved public context', () => {
+    const staleSavedPublic = list({
+      isSavedList: true,
+      isPublic: true,
+      collaboratorIds: [],
+    });
+    let accessRevoked = true;
+
+    if (
+      shouldClearAccessRevokedOnContextReturn({
+        hadListFromContext: false,
+        list: staleSavedPublic,
+        userId: 'user-c',
+      })
+    ) {
+      accessRevoked = false;
+    }
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPublic,
+        userId: 'user-c',
+        accessRevoked,
+      })
+    ).toBe('deny-revoked');
   });
 });

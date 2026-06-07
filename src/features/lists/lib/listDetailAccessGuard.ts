@@ -55,36 +55,24 @@ export function resolveListFromContextAccess(options: {
   return 'grant';
 }
 
-/** Re-check server access for trusted owned/collaborator rows while revocation is sticky. */
-export function shouldConfirmPrivateAccessFromTrustedContext(options: {
-  list: PlaceList;
-  userId: string | undefined;
-  accessRevoked: boolean;
-  isOnline: boolean;
-}): boolean {
-  return (
-    options.accessRevoked &&
-    options.isOnline &&
-    !options.list.isPublic &&
-    !options.list.isSavedList &&
-    userCanReadList(options.list, options.userId)
-  );
-}
-
 /** Clear sticky revocation when a public list reappears in live context after being absent. */
 export function shouldClearAccessRevokedOnContextReturn(options: {
   hadListFromContext: boolean;
   list: PlaceList;
   userId: string | undefined;
 }): boolean {
+  if (options.hadListFromContext || !userCanReadList(options.list, options.userId)) {
+    return false;
+  }
   // Private lists can linger in persistent cache with stale collaboratorIds after revocation.
   // Those are cleared only after server-confirmed access in useListDetails.
   if (!options.list.isPublic) {
     return false;
   }
-  // Saved-list rows may carry stale isPublic after visibility changes; require server confirmation.
+  // Saved-list rows may carry stale isPublic after visibility changes.
+  // Only owned/collaborator query rows (isSavedList unset) indicate live access was restored.
   if (options.list.isSavedList) {
     return false;
   }
-  return !options.hadListFromContext && userCanReadList(options.list, options.userId);
+  return true;
 }
