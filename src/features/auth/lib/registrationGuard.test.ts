@@ -9,8 +9,10 @@ import {
   endRegistrationSession,
   isRegistrationActiveForUid,
   isRegistrationInProgress,
+  isUsernameOwnedByUid,
   parseRegistrationProgress,
   reconcileRegistrationSessionCount,
+  shouldDeleteAuthUserOnRegistrationFailure,
   writeRegistrationProgress,
 } from './registrationGuard';
 
@@ -156,5 +158,44 @@ describe('registrationGuard', () => {
 
     expect(localStorage.getItem(REGISTRATION_SESSION_COUNT_KEY)).toBeNull();
     vi.useRealTimers();
+  });
+
+  it('detects when a username reservation belongs to the registering user', () => {
+    expect(isUsernameOwnedByUid('user-1', 'user-1')).toBe(true);
+    expect(isUsernameOwnedByUid('user-2', 'user-1')).toBe(false);
+    expect(isUsernameOwnedByUid(undefined, 'user-1')).toBe(false);
+  });
+
+  it('does not roll back auth when orphan recovery already created the profile', () => {
+    expect(
+      shouldDeleteAuthUserOnRegistrationFailure({
+        userProfileExists: true,
+        usernameExists: true,
+        usernameOwnerUid: 'user-1',
+        registeringUid: 'user-1',
+      })
+    ).toBe(false);
+  });
+
+  it('does not roll back auth when the username is already reserved for this user', () => {
+    expect(
+      shouldDeleteAuthUserOnRegistrationFailure({
+        userProfileExists: false,
+        usernameExists: true,
+        usernameOwnerUid: 'user-1',
+        registeringUid: 'user-1',
+      })
+    ).toBe(false);
+  });
+
+  it('rolls back auth when registration failed with no profile and a foreign username owner', () => {
+    expect(
+      shouldDeleteAuthUserOnRegistrationFailure({
+        userProfileExists: false,
+        usernameExists: true,
+        usernameOwnerUid: 'user-2',
+        registeringUid: 'user-1',
+      })
+    ).toBe(true);
   });
 });

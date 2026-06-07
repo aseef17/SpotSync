@@ -22,6 +22,7 @@ import {
   clearRegistrationProgress,
   endRegistrationSession,
   isRegistrationInProgress,
+  shouldDeleteAuthUserOnRegistrationFailure,
   writeRegistrationProgress,
 } from '@/features/auth/lib/registrationGuard';
 
@@ -248,22 +249,59 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
         try {
           await runTransaction(db, async (transaction) => {
+            const userRef = doc(db, 'users', userCredential.user.uid);
             const usernameRef = doc(db, 'usernames', normalizedUsername);
             const usernameDoc = await transaction.get(usernameRef);
 
             if (usernameDoc.exists()) {
+              const usernameOwnerUid = usernameDoc.data()?.uid as string | undefined;
+              if (usernameOwnerUid === userCredential.user.uid) {
+                const userDoc = await transaction.get(userRef);
+                if (userDoc.exists()) {
+                  // Orphan recovery may have already provisioned this account in another tab.
+                  transaction.update(userRef, {
+                    displayName,
+                    email,
+                    updatedAt: new Date(),
+                  });
+                  return;
+                }
+              }
               throw new Error('Username is not available');
             }
 
-            transaction.set(doc(db, 'users', userCredential.user.uid), newUser);
+            transaction.set(userRef, newUser);
             transaction.set(usernameRef, { uid: userCredential.user.uid });
           });
         } catch (error) {
-          try {
-            await deleteUser(userCredential.user);
-          } catch (deleteError) {
-            logger.error('Failed to roll back auth user after registration failure:', deleteError);
-            await signOut(auth);
+          const userRef = doc(db, 'users', userCredential.user.uid);
+          const usernameRef = doc(db, 'usernames', normalizedUsername);
+          const [userDoc, usernameDoc] = await Promise.all([getDoc(userRef), getDoc(usernameRef)]);
+          const rollbackOptions = {
+            userProfileExists: userDoc.exists(),
+            usernameExists: usernameDoc.exists(),
+            usernameOwnerUid: usernameDoc.data()?.uid as string | undefined,
+            registeringUid: userCredential.user.uid,
+          };
+
+          if (!shouldDeleteAuthUserOnRegistrationFailure(rollbackOptions)) {
+            if (userDoc.exists()) {
+              setUser(userDoc.data() as User);
+              await sendEmailVerification(userCredential.user);
+              return;
+            }
+          }
+
+          if (shouldDeleteAuthUserOnRegistrationFailure(rollbackOptions)) {
+            try {
+              await deleteUser(userCredential.user);
+            } catch (deleteError) {
+              logger.error(
+                'Failed to roll back auth user after registration failure:',
+                deleteError
+              );
+              await signOut(auth);
+            }
           }
           throw error;
         }
