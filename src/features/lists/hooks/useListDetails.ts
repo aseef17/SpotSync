@@ -23,6 +23,7 @@ import {
 import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
+  shouldApplyContextListSnapshot,
   shouldApplyServerConfirmedPrivateAccess,
   shouldClearAccessRevokedOnContextReturn,
   shouldConfirmPrivateAccessFromTrustedContext,
@@ -149,6 +150,7 @@ export const useListDetails = (listId: string | undefined) => {
           loadTrackingRef.current.onProgress?.();
         })
         .catch(() => {
+          privateAccessConfirmKeyRef.current = null;
           // Permission denied or offline — keep sticky revocation.
         });
     },
@@ -225,7 +227,14 @@ export const useListDetails = (listId: string | undefined) => {
       setSavedPrivateDenied(false);
       listAccessibleRef.current = true;
       flushPendingPlacesSnapshot();
-      setList(listFromContext);
+      if (
+        shouldApplyContextListSnapshot({
+          listFromContext,
+          serverVerifiedPrivateAccess: privateListServerVerifiedRef.current,
+        })
+      ) {
+        setList(listFromContext);
+      }
       setError(null);
       loadTrackingRef.current.listLoaded = true;
       loadTrackingRef.current.hasCachedData = true;
