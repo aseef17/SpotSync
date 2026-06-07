@@ -1,10 +1,12 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { ListService } from '@/features/lists/api/listService';
 import {
   PlaceService,
   PLACES_PAGE_SIZE,
   PLACES_SUBSCRIPTION_LIMIT,
 } from '@/features/places/api/placeService';
+import { subscribeToListPlacesShared } from '@/features/places/api/placeListSubscriptionStore';
+import { toPlaceListAccessQuery } from '@/features/places/utils/placeAccess';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useListsContext } from '@/features/lists/context/useListsContext';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
@@ -40,6 +42,12 @@ export const useListDetails = (listId: string | undefined) => {
   const extraPlacesRef = useRef<Place[]>([]);
   const listsRef = useRef(lists);
   listsRef.current = lists;
+  const placeAccessQuery = useMemo(() => {
+    if (!listId || !user?.id || !list) {
+      return null;
+    }
+    return toPlaceListAccessQuery(listId, user.id, list);
+  }, [listId, user?.id, list]);
   const loadTrackingRef = useRef({
     listLoaded: false,
     hasCachedData: false,
@@ -150,23 +158,21 @@ export const useListDetails = (listId: string | undefined) => {
   }, [listId, listFromContext, flushPendingPlacesSnapshot]);
 
   useEffect(() => {
-    if (!listId) {
+    if (!listId || !placeAccessQuery) {
       return;
     }
 
     let cancelled = false;
     pendingPlacesSnapshotRef.current = undefined;
     applyPendingPlacesRef.current = null;
-    listAccessibleRef.current = !!listFromContext;
-    loadTrackingRef.current.listLoaded = !!listFromContext;
-    loadTrackingRef.current.hasCachedData = !!listFromContext;
+    listAccessibleRef.current = !!listFromContext || !!list;
+    loadTrackingRef.current.listLoaded = !!listFromContext || !!list;
+    loadTrackingRef.current.hasCachedData = !!listFromContext || !!list;
     let listLoaded = loadTrackingRef.current.listLoaded;
     let placesLoaded = false;
     let hasCachedData = loadTrackingRef.current.hasCachedData;
     paginationCursorRef.current = null;
     extraPlacesRef.current = [];
-    setPlaces([]);
-    setLoading(true);
 
     const finishLoading = () => {
       if (!cancelled && listLoaded && placesLoaded) {
@@ -192,7 +198,7 @@ export const useListDetails = (listId: string | undefined) => {
 
       const [cachedList, cachedPlaces] = await Promise.all([
         contextList ? Promise.resolve(null) : ListService.getListFromCache(listId),
-        PlaceService.getListPlacesFromCache(listId),
+        PlaceService.getListPlacesFromCache(placeAccessQuery),
       ]);
 
       if (!shouldApplyCachedListDetails(listAccessibleRef.current, cancelled)) {
@@ -207,13 +213,18 @@ export const useListDetails = (listId: string | undefined) => {
         finishLoading();
       }
 
-      if (cachedPlaces && cachedPlaces.length > 0) {
+      if (cachedPlaces) {
         setPlaces(cachedPlaces);
         setHasMorePlaces(cachedPlaces.length >= PLACES_SUBSCRIPTION_LIMIT);
         placesLoaded = true;
         hasCachedData = true;
+        setLoading(false);
         finishLoading();
+        return;
       }
+
+      setPlaces([]);
+      setLoading(true);
     };
 
     void hydrateFromCache();
@@ -245,8 +256,8 @@ export const useListDetails = (listId: string | undefined) => {
 
     applyPendingPlacesRef.current = applyPlacesSnapshot;
 
-    const unsubscribePlaces = PlaceService.subscribeToListPlaces(
-      listId,
+    const unsubscribePlaces = subscribeToListPlacesShared(
+      placeAccessQuery,
       (placesData) => {
         const resolution = resolvePlacesSnapshot({
           placesData,
@@ -262,7 +273,13 @@ export const useListDetails = (listId: string | undefined) => {
       },
       (err) => {
         if (cancelled) return;
-        logger.error('Error listening to places:', err);
+        if (isFirestorePermissionDenied(err)) {
+          listAccessibleRef.current = false;
+          setPlaces([]);
+          setError('List not found');
+        } else {
+          logger.error('Error listening to places:', err);
+        }
         placesLoaded = true;
         finishLoading();
       }
@@ -275,9 +292,7 @@ export const useListDetails = (listId: string | undefined) => {
       window.clearTimeout(timeoutId);
       unsubscribePlaces();
     };
-    // Re-subscribe when the viewed list or signed-in user changes. List metadata syncs in the effect above.
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- listFromContext syncs in the effect above; lists via listsRef
-  }, [listId, user?.id]);
+  }, [listId, placeAccessQuery, listFromContext, list]);
 
   const loadMorePlaces = useCallback(async () => {
     if (!listId || loadingMore || !listAccessibleRef.current) return;

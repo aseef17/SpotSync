@@ -25,6 +25,7 @@ import { auth, db } from '@/lib/firebase';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import type { User } from '@/features/auth/types/user';
 import { AccountService, checkUsernameExistsRemote } from '@/features/auth/api/accountService';
+import { getAuthActionCodeSettings } from '@/features/auth/lib/authActionSettings';
 import {
   beginAuthStateHandler,
   isCurrentAuthStateHandler,
@@ -348,7 +349,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
   const login = useCallback(async (email: string, password: string) => {
     const credential = await signInWithEmailAndPassword(auth, email, password);
     if (!credential.user.emailVerified) {
-      await sendEmailVerification(credential.user);
+      await sendEmailVerification(credential.user, getAuthActionCodeSettings());
       await signOut(auth);
       throw new Error('EMAIL_NOT_VERIFIED');
     }
@@ -437,7 +438,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           if (!shouldDeleteAuthUserOnRegistrationFailure(rollbackOptions)) {
             if (userDoc.exists()) {
               setUser(userDoc.data() as User);
-              await sendEmailVerification(userCredential.user);
+              await sendEmailVerification(userCredential.user, getAuthActionCodeSettings());
               return;
             }
 
@@ -449,7 +450,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
               const provisionedUserDoc = await getDocFromServer(userRef);
               if (provisionedUserDoc.exists()) {
                 setUser(provisionedUserDoc.data() as User);
-                await sendEmailVerification(userCredential.user);
+                await sendEmailVerification(userCredential.user, getAuthActionCodeSettings());
                 return;
               }
             }
@@ -474,7 +475,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           setUser(createdUserDoc.data() as User);
         }
 
-        await sendEmailVerification(userCredential.user);
+        await sendEmailVerification(userCredential.user, getAuthActionCodeSettings());
       } finally {
         window.clearInterval(heartbeat);
         const completedUid = heartbeatUid;
@@ -503,7 +504,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
   const sendVerificationEmail = useCallback(async () => {
     if (firebaseUser && !firebaseUser.emailVerified) {
-      await sendEmailVerification(firebaseUser);
+      await sendEmailVerification(firebaseUser, getAuthActionCodeSettings());
     }
   }, [firebaseUser]);
 

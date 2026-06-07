@@ -1,6 +1,7 @@
 import { httpsCallable } from 'firebase/functions';
 import { sendPasswordResetEmail } from 'firebase/auth';
 import { auth, functions } from '@/lib/firebase';
+import { getAuthActionCodeSettings } from '@/features/auth/lib/authActionSettings';
 import { logger } from '@/utils/logger';
 
 const DELETE_ACCOUNT_TIMEOUT_MS = 540_000;
@@ -26,7 +27,7 @@ export function getCallableErrorMessage(error: unknown, fallback: string): strin
 
 export class AccountService {
   static async resetPassword(email: string): Promise<void> {
-    await sendPasswordResetEmail(auth, email.trim());
+    await sendPasswordResetEmail(auth, email.trim(), getAuthActionCodeSettings());
   }
 
   static async deleteAccount(): Promise<void> {

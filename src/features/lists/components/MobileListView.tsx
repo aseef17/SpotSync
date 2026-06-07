@@ -311,7 +311,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
                   toast.success('Link copied to clipboard!');
                 },
               },
-              ...(canEditList
+              ...(canEditList && places.length > 0
                 ? [
                     {
                       label: isSyncingPhotos ? 'Syncing Photos...' : 'Sync Photos',

@@ -68,6 +68,11 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
   const [deletingListId, setDeletingListId] = useState<string | null>(null);
   const [hiddenPlaceIds, setHiddenPlaceIds] = useState<Set<string>>(new Set());
   const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
+  const [savedToHomepage, setSavedToHomepage] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setSavedToHomepage(null);
+  }, [listId]);
   const [optimisticPlaces, setOptimisticPlaces] = useState<Place[]>([]);
   const [pendingUpdate, setPendingUpdate] = useState<Partial<typeof list>>(null);
   const { trigger: triggerAction } = useDeferredAction();
@@ -105,7 +110,8 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
   )?.permission;
   const isOwner = user?.id === displayedList?.ownerId || currentUserRole === 'owner';
   const canEditList = isOwner || currentUserRole === 'editor';
-  const isSavedList = user?.savedLists?.includes(displayedList?.id || '');
+  const isSavedList =
+    savedToHomepage ?? user?.savedLists?.includes(displayedList?.id || '') ?? false;
   const isMember = !!currentUserRole || isOwner;
 
   const handleUpdateList = async (data: Partial<PlaceList>) => {
@@ -656,8 +662,8 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                     try {
                       const { UserService } = await import('@/features/auth/api/userService');
                       await UserService.saveListToProfile(user.id, displayedList.id);
+                      setSavedToHomepage(true);
                       toast.success('List saved to your homepage!');
-                      window.location.reload();
                     } catch {
                       toast.error('Failed to save list.');
                     }
@@ -673,8 +679,8 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                     try {
                       const { UserService } = await import('@/features/auth/api/userService');
                       await UserService.removeListFromProfile(user.id, displayedList.id);
+                      setSavedToHomepage(false);
                       toast.success('List removed from your homepage.');
-                      window.location.reload();
                     } catch {
                       toast.error('Failed to remove list.');
                     }
@@ -701,7 +707,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                         toast.success('Link copied to clipboard!');
                       },
                     },
-                    ...(canEditList
+                    ...(canEditList && places.length > 0
                       ? [
                           {
                             label: isSyncingPhotos ? 'Syncing Photos...' : 'Sync Photos',
@@ -752,27 +758,29 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                     </button>
                     {canEditList && (
                       <>
-                        <button
-                          onClick={async () => {
-                            setIsSyncingPhotos(true);
-                            toast.info('Syncing photos in the background...');
-                            try {
-                              await PlaceService.syncListPhotos(list.id);
-                              toast.success('Photos synced successfully!');
-                            } catch {
-                              toast.error('Failed to sync photos.');
-                            } finally {
-                              setIsSyncingPhotos(false);
-                            }
-                          }}
-                          disabled={isSyncingPhotos}
-                          className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border ${themeColors.border.default} ${themeColors.text.primary} hover:${themeColors.background.app} transition-colors whitespace-nowrap disabled:opacity-50`}
-                        >
-                          <RefreshCw
-                            className={`h-4 w-4 ${isSyncingPhotos ? 'animate-spin' : ''}`}
-                          />
-                          {isSyncingPhotos ? 'Syncing...' : 'Sync Photos'}
-                        </button>
+                        {places.length > 0 && (
+                          <button
+                            onClick={async () => {
+                              setIsSyncingPhotos(true);
+                              toast.info('Syncing photos in the background...');
+                              try {
+                                await PlaceService.syncListPhotos(list.id);
+                                toast.success('Photos synced successfully!');
+                              } catch {
+                                toast.error('Failed to sync photos.');
+                              } finally {
+                                setIsSyncingPhotos(false);
+                              }
+                            }}
+                            disabled={isSyncingPhotos}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border ${themeColors.border.default} ${themeColors.text.primary} hover:${themeColors.background.app} transition-colors whitespace-nowrap disabled:opacity-50`}
+                          >
+                            <RefreshCw
+                              className={`h-4 w-4 ${isSyncingPhotos ? 'animate-spin' : ''}`}
+                            />
+                            {isSyncingPhotos ? 'Syncing...' : 'Sync Photos'}
+                          </button>
+                        )}
                         <button
                           onClick={() => setShowEditList(true)}
                           className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border ${themeColors.border.default} ${themeColors.text.primary} hover:${themeColors.background.app} transition-colors whitespace-nowrap`}

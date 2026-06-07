@@ -915,7 +915,7 @@ exports.checkUsernameExists = onCall({ region: 'us-east4' }, async (request) => 
   const usernameRef = db.collection('usernames').doc(normalized);
   const usernameDoc = await usernameRef.get();
 
-  if (usernameDoc.exists()) {
+  if (usernameDoc.exists) {
     return { exists: true };
   }
 
