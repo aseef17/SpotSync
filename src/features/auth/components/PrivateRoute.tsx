@@ -1,6 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import { themeColors } from '@/styles/colors';
+import { AppLoadingScreen } from '@/components/Layout/AppLoadingScreen';
 
 interface PrivateRouteProps {
   children?: React.ReactNode;
@@ -9,15 +9,12 @@ interface PrivateRouteProps {
 export const PrivateRoute: React.FunctionComponent<PrivateRouteProps> = ({ children }) => {
   const { firebaseUser, loading } = useAuth();
 
-  if (loading) {
+  if (loading && !firebaseUser) {
     return (
-      <div
-        className={`min-h-screen ${themeColors.background.app} flex items-center justify-center`}
-      >
-        <div
-          className={`animate-spin rounded-full h-32 w-32 border-b-2 ${themeColors.text.primary}`}
-        ></div>
-      </div>
+      <AppLoadingScreen
+        title="Signing you in..."
+        message="Please wait while we load your account."
+      />
     );
   }
 

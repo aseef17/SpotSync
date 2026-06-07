@@ -6,6 +6,7 @@ export interface ListsContextValue {
   loading: boolean;
   creating: boolean;
   error: string | null;
+  isOfflineView: boolean;
   createList: (data: {
     name: string;
     description?: string;

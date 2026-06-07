@@ -6,6 +6,7 @@ import {
   limit,
   startAfter,
   getDocs,
+  getDocsFromCache,
   doc,
   getDoc,
   setDoc,
@@ -25,6 +26,7 @@ import type {
 import { db } from '@/lib/firebase';
 import type { Place, PlaceStatus } from '@/features/places/types/place';
 import { logger } from '@/utils/logger';
+import { toMilliseconds } from '@/utils/date';
 import { omit } from '@/utils/objectUtils';
 import {
   getPlaceListAccessFields,
@@ -841,6 +843,20 @@ export class PlaceService {
     } catch (error) {
       logger.error('Error syncing list photos:', error);
       throw error;
+    }
+  }
+
+  static async getListPlacesFromCache(listId: string): Promise<Place[] | null> {
+    try {
+      const q = query(
+        collection(db, 'places').withConverter(placeConverter),
+        where('listId', '==', listId)
+      );
+      const querySnapshot = await getDocsFromCache(q);
+      const places = querySnapshot.docs.map((docSnap) => docSnap.data());
+      return places.sort((a, b) => toMilliseconds(b.addedAt) - toMilliseconds(a.addedAt));
+    } catch {
+      return null;
     }
   }
 

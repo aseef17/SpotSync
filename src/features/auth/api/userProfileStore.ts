@@ -1,4 +1,4 @@
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDocFromCache, onSnapshot } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { logger } from '@/utils/logger';
 
@@ -14,11 +14,32 @@ let activeUserId: string | null = null;
 let unsubscribeFirestore: (() => void) | null = null;
 const listeners = new Set<UserProfileListener>();
 
+function toProfileSnapshot(data: Record<string, unknown>): UserProfileSnapshot {
+  return {
+    savedLists: (data.savedLists as string[] | undefined) ?? [],
+    fcmTokens: (data.fcmTokens as string[] | undefined) ?? [],
+    notificationsDisabled: data.notificationsDisabled === true,
+  };
+}
+
 function emit(data: UserProfileSnapshot | null) {
   listeners.forEach((listener) => listener(data));
 }
 
+async function hydrateFromCache(userId: string) {
+  try {
+    const snap = await getDocFromCache(doc(db, 'users', userId));
+    if (snap.exists()) {
+      emit(toProfileSnapshot(snap.data()));
+    }
+  } catch {
+    // Profile not cached yet.
+  }
+}
+
 function startSubscription(userId: string) {
+  void hydrateFromCache(userId);
+
   unsubscribeFirestore = onSnapshot(
     doc(db, 'users', userId),
     (snap) => {
@@ -26,12 +47,7 @@ function startSubscription(userId: string) {
         emit(null);
         return;
       }
-      const data = snap.data();
-      emit({
-        savedLists: (data.savedLists as string[] | undefined) ?? [],
-        fcmTokens: (data.fcmTokens as string[] | undefined) ?? [],
-        notificationsDisabled: data.notificationsDisabled === true,
-      });
+      emit(toProfileSnapshot(snap.data()));
     },
     (err) => logger.error('User profile subscription error:', err)
   );

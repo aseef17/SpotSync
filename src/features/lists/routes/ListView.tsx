@@ -39,6 +39,8 @@ import { FAB } from '@/components/Elements/Button/FAB';
 import { useListDetails } from '@/features/lists/hooks/useListDetails';
 import { usePlaceFilters } from '@/features/places/hooks/usePlaceFilters';
 import { useIsMobile } from '@/hooks/useMediaQuery';
+import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { ConnectionIssueCard } from '@/components/Layout/ConnectionIssueCard';
 import { useToast } from '@/hooks/useToast';
 import { buildAskListPlacesSummary } from '@/features/places/utils/askListPlacesSummary';
 
@@ -357,6 +359,12 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
   const handleClearSelection = useCallback(() => setSelectedPlace(null), []);
   const handleEditListOpen = useCallback(() => setShowEditList(true), []);
   const noopStatusChange = useCallback(() => {}, []);
+  const isOnline = useNetworkStatus();
+  const isConnectionIssue =
+    !!error &&
+    (error.includes('offline') ||
+      error.includes('longer than expected') ||
+      error.includes('Failed to load'));
 
   if (loading) {
     return (
@@ -392,12 +400,17 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
               </div>
             </div>
           </div>
+          {!isOnline && (
+            <p className={`mt-4 text-center text-sm ${themeColors.text.secondary}`}>
+              No internet connection. Showing cached data when available.
+            </p>
+          )}
         </main>
       </div>
     );
   }
 
-  if (error || !list || !displayedList) {
+  if (!displayedList) {
     return (
       <div className={`min-h-screen ${themeColors.background.app}`}>
         <header
@@ -419,18 +432,27 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
         </header>
         <main className="w-full py-6 px-4 sm:px-6 lg:px-12">
           <div className={`${themeColors.background.card} rounded-lg shadow-sm border p-6`}>
-            <div className="text-center py-12">
-              <h3 className={`text-lg font-medium ${themeColors.text.primary}`}>List Not Found</h3>
-              <p className={`${themeColors.text.secondary} mt-2`}>
-                {error || "The list you're looking for doesn't exist."}
-              </p>
-              <Link
-                to="/"
-                className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.primary} transition-colors`}
-              >
-                Back to Dashboard
-              </Link>
-            </div>
+            {isConnectionIssue ? (
+              <ConnectionIssueCard
+                title="Unable to load list"
+                message={error || 'Please check your connection and try again.'}
+              />
+            ) : (
+              <div className="text-center py-12">
+                <h3 className={`text-lg font-medium ${themeColors.text.primary}`}>
+                  List Not Found
+                </h3>
+                <p className={`${themeColors.text.secondary} mt-2`}>
+                  {error || "The list you're looking for doesn't exist."}
+                </p>
+                <Link
+                  to="/"
+                  className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.primary} transition-colors`}
+                >
+                  Back to Dashboard
+                </Link>
+              </div>
+            )}
           </div>
         </main>
       </div>
@@ -679,7 +701,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                                   setIsSyncingPhotos(true);
                                   toast.info('Syncing photos in the background...');
                                   try {
-                                    await PlaceService.syncListPhotos(list.id);
+                                    await PlaceService.syncListPhotos(displayedList.id);
                                     toast.success('Photos synced successfully!');
                                   } catch {
                                     toast.error('Failed to sync photos.');
@@ -739,7 +761,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                       <PlaceSearchModal
                         isOpen={showAddPlacesModal}
                         onClose={() => setShowAddPlacesModal(false)}
-                        listId={list.id}
+                        listId={displayedList.id}
                         onPlaceAdded={handlePlaceAdded}
                         onUndoAdd={(tempId) =>
                           setHiddenPlaceIds((prev) => new Set([...prev, tempId]))
@@ -781,7 +803,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                         />
                       )}
 
-                      {places.length === 0 ? (
+                      {!loading && places.length === 0 ? (
                         <div
                           className={`${themeColors.background.card} rounded-lg shadow-sm border p-12`}
                         >
@@ -839,7 +861,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                                 >
                                   <CompactPlaceCard
                                     place={place}
-                                    list={list}
+                                    list={displayedList}
                                     onClick={handlePlaceClick}
                                     onStatusChange={noopStatusChange}
                                     layout
@@ -856,7 +878,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                                 >
                                   <PlaceCard
                                     place={place}
-                                    list={list}
+                                    list={displayedList}
                                     onClick={handlePlaceClick}
                                     onStatusChange={noopStatusChange}
                                     layout
@@ -902,7 +924,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
         <PlaceSearchModal
           isOpen={showAddPlacesModal}
           onClose={() => setShowAddPlacesModal(false)}
-          listId={list.id}
+          listId={displayedList.id}
           onPlaceAdded={handlePlaceAdded}
           onUndoAdd={handleUndoAdd}
           onPlaceUpdated={handlePlaceUpdated}
