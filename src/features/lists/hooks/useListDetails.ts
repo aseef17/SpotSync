@@ -7,11 +7,15 @@ import {
 } from '@/features/places/api/placeService';
 import { useListsContext } from '@/features/lists/context/useListsContext';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
+import {
+  isFirestorePermissionDenied,
+  shouldClearStaleListView,
+} from '@/features/lists/hooks/listViewAccess';
+import { shouldApplyCachedListDetails } from '@/features/lists/lib/listDetailAccessGuard';
 import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
-import { shouldClearStaleListView } from '@/features/lists/hooks/listViewAccess';
 
 const OFFLINE_LOAD_TIMEOUT_MS = 8000;
 
@@ -35,8 +39,16 @@ export const useListDetails = (listId: string | undefined) => {
     onProgress: null as (() => void) | null,
   });
   const listAccessibleRef = useRef(true);
+  const hadListFromContextRef = useRef(!!listFromContext);
 
   useEffect(() => {
+    hadListFromContextRef.current = false;
+  }, [listId]);
+
+  useEffect(() => {
+    const hadListFromContext = hadListFromContextRef.current;
+    hadListFromContextRef.current = !!listFromContext;
+
     if (listFromContext) {
       listAccessibleRef.current = true;
       setList(listFromContext);
@@ -47,11 +59,20 @@ export const useListDetails = (listId: string | undefined) => {
       return;
     }
 
-    if (shouldClearStaleListView(listFromContext, listId)) {
+    if (
+      shouldClearStaleListView({
+        listId,
+        hadListFromContext,
+        hasListFromContext: false,
+      })
+    ) {
       listAccessibleRef.current = false;
       setList(null);
       setPlaces([]);
+      setError('List not found');
+      loadTrackingRef.current.listLoaded = true;
       loadTrackingRef.current.hasCachedData = false;
+      loadTrackingRef.current.onProgress?.();
     }
   }, [listFromContext, listId]);
 
@@ -61,11 +82,7 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
-    listAccessibleRef.current = false;
-    setList(null);
-    setPlaces([]);
     loadTrackingRef.current.listLoaded = false;
-    loadTrackingRef.current.hasCachedData = false;
     loadTrackingRef.current.onProgress?.();
 
     const unsubscribeList = ListService.subscribeToList(
@@ -91,11 +108,15 @@ export const useListDetails = (listId: string | undefined) => {
         if (cancelled) return;
         logger.error('Error listening to list:', err);
         listAccessibleRef.current = false;
-        setList(null);
-        setPlaces([]);
-        setError(
-          `Failed to load list data: ${err instanceof Error ? err.message : 'Unknown error'}`
-        );
+        if (isFirestorePermissionDenied(err)) {
+          setList(null);
+          setPlaces([]);
+          setError('List not found');
+        } else {
+          setError(
+            `Failed to load list data: ${err instanceof Error ? err.message : 'Unknown error'}`
+          );
+        }
         loadTrackingRef.current.hasCachedData = false;
         loadTrackingRef.current.listLoaded = true;
         loadTrackingRef.current.onProgress?.();
@@ -114,7 +135,7 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
-    listAccessibleRef.current = true;
+    listAccessibleRef.current = !!listFromContext;
     loadTrackingRef.current.listLoaded = !!listFromContext;
     loadTrackingRef.current.hasCachedData = !!listFromContext;
     let listLoaded = loadTrackingRef.current.listLoaded;
@@ -139,7 +160,7 @@ export const useListDetails = (listId: string | undefined) => {
 
     const hydrateFromCache = async () => {
       const contextList = listsRef.current.find((entry) => entry.id === listId) ?? null;
-      if (contextList) {
+      if (contextList && shouldApplyCachedListDetails(listAccessibleRef.current, cancelled)) {
         setList(contextList);
         setError(null);
         listLoaded = true;
@@ -152,7 +173,9 @@ export const useListDetails = (listId: string | undefined) => {
         PlaceService.getListPlacesFromCache(listId),
       ]);
 
-      if (cancelled) return;
+      if (!shouldApplyCachedListDetails(listAccessibleRef.current, cancelled)) {
+        return;
+      }
 
       if (!contextList && cachedList) {
         setList(cachedList);
