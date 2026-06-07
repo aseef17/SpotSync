@@ -136,22 +136,22 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
   };
 
   return (
-    <div className={`light-bg-card flex flex-col h-full ${className}`}>
-      <div className="flex items-center gap-3 p-6 border-b light-border-default flex-shrink-0">
+    <div className={`light-bg-card flex flex-col h-full min-h-0 ${className}`}>
+      <div className="flex items-center gap-3 border-b light-border-default p-6 shrink-0">
         {!hideHeaderBack && (
           <button
             type="button"
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 light-text-secondary transition-colors shrink-0"
+            className="light-text-secondary shrink-0 rounded-lg p-2 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
             aria-label="Back to list"
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
         )}
-        <h2 className="text-xl font-semibold light-text-primary truncate flex-1">{place.name}</h2>
+        <h2 className="light-text-primary flex-1 truncate text-xl font-semibold">{place.name}</h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar p-6 space-y-6">
+      <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain custom-scrollbar p-6 space-y-6">
         {/* Photos Section */}
         {place.photoUrls && place.photoUrls.length > 0 && (
           <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -373,68 +373,67 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
             )}
           </div>
         </div>
-
-        {/* Notes Section - Separate Card in flow */}
-        <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 delay-200">
-          <div className="flex items-center justify-between mb-2">
-            <h3 className="text-sm font-medium light-text-secondary">Notes</h3>
-            {!isEditing && canEdit && (
-              <button
-                onClick={() => setIsEditing(true)}
-                className="light-text-secondary hover:light-text-primary flex items-center gap-1 text-xs"
-              >
-                <Edit3 className="h-3 w-3" />
-                Edit
-              </button>
-            )}
-          </div>
-
-          {isEditing ? (
-            <div className="space-y-2">
-              <textarea
-                value={editedNotes}
-                onChange={(e) => setEditedNotes(e.target.value)}
-                placeholder="Add notes about this place..."
-                className="w-full px-3 py-2 border light-border-default light-bg-card light-text-primary rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                rows={4}
-              />
-              <div className="flex justify-end space-x-2">
-                <button
-                  onClick={() => {
-                    setIsEditing(false);
-                    setEditedNotes(place.notes || '');
-                  }}
-                  className="px-3 py-1 text-sm light-text-secondary hover:light-text-primary"
-                >
-                  Cancel
-                </button>
-                <LoadingButton
-                  onClick={handleSaveNotes}
-                  isLoading={saving}
-                  loadingText="Saving..."
-                  variant="primary"
-                  className="px-3 py-1 text-sm rounded h-8"
-                >
-                  Save
-                </LoadingButton>
-              </div>
-            </div>
-          ) : (
-            <div className="p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg border light-border-default">
-              <p className="text-sm light-text-primary whitespace-pre-wrap">
-                {place.notes || <span className="text-gray-400 italic">No notes added yet.</span>}
-              </p>
-            </div>
-          )}
-        </div>
       </div>
 
-      <div className="p-4 border-t light-border-default flex justify-between items-center gap-4 flex-shrink-0 bg-gray-50/50 dark:bg-gray-900/20">
+      <div className="light-border-default shrink-0 border-t bg-gray-50/50 p-4 dark:bg-gray-900/20">
+        <div className="mb-2 flex items-center justify-between">
+          <h3 className="text-sm font-medium light-text-secondary">Notes</h3>
+          {!isEditing && canEdit && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="light-text-secondary hover:light-text-primary flex items-center gap-1 text-xs"
+            >
+              <Edit3 className="h-3 w-3" />
+              Edit
+            </button>
+          )}
+        </div>
+
+        {isEditing ? (
+          <div className="space-y-2">
+            <textarea
+              value={editedNotes}
+              onChange={(e) => setEditedNotes(e.target.value)}
+              placeholder="Add notes about this place..."
+              className="light-bg-card light-text-primary light-border-default max-h-32 w-full overflow-y-auto rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              rows={3}
+            />
+            <div className="flex justify-end space-x-2">
+              <button
+                onClick={() => {
+                  setIsEditing(false);
+                  setEditedNotes(place.notes || '');
+                }}
+                className="px-3 py-1 text-sm light-text-secondary hover:light-text-primary"
+              >
+                Cancel
+              </button>
+              <LoadingButton
+                onClick={handleSaveNotes}
+                isLoading={saving}
+                loadingText="Saving..."
+                variant="primary"
+                className="h-8 rounded px-3 py-1 text-sm"
+              >
+                Save
+              </LoadingButton>
+            </div>
+          </div>
+        ) : (
+          <div className="light-border-default max-h-24 overflow-y-auto rounded-lg border bg-gray-50 p-3 dark:bg-gray-800/50">
+            <p className="text-sm light-text-primary whitespace-pre-wrap">
+              {place.notes || <span className="text-gray-400 italic">No notes added yet.</span>}
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="light-border-default flex shrink-0 items-center justify-between gap-4 border-t bg-gray-50/50 p-4 dark:bg-gray-900/20">
         {canDelete ? (
           <button
             type="button"
             onClick={() => setShowDeleteConfirm(true)}
-            className="px-3 sm:px-4 py-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors font-medium whitespace-nowrap text-sm sm:text-base"
+            className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20 sm:px-4 sm:text-base"
           >
             Delete Place
           </button>
@@ -444,7 +443,7 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
         <button
           type="button"
           onClick={onClose}
-          className="ml-auto px-4 py-2 bg-white dark:bg-gray-800 border light-border-default hover:bg-gray-50 dark:hover:bg-gray-700 rounded-lg transition-colors font-medium text-sm sm:text-base shadow-sm"
+          className="light-border-default ml-auto rounded-lg border bg-white px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-gray-50 dark:bg-gray-800 dark:hover:bg-gray-700 sm:text-base"
         >
           Back
         </button>
