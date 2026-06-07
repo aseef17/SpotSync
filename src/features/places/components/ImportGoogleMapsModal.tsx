@@ -9,7 +9,7 @@ import { ImportReportSection } from '@/features/places/components/ImportReportSe
 interface ImportGoogleMapsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess?: () => void;
+  onSuccess?: (listId?: string) => void;
   existingLists?: { id: string; name: string }[];
 }
 
@@ -39,6 +39,8 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
     enrichProgress,
     skippedPlaces,
     failedPlaces,
+    importComplete,
+    lastImportedListId,
   } = state;
   const {
     setImportUrl,
@@ -49,7 +51,7 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
     handleParseFile,
     handleParseUrl,
     handleImport,
-    resetPlaces,
+    resetImportState,
   } = actions;
 
   const successNotified = React.useRef(false);
@@ -62,18 +64,26 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
     };
   }, []);
 
-  // Auto-close on complete success (no warnings)
   useEffect(() => {
-    const isFinished = !resolving && progress === 100;
+    if (!isOpen) {
+      successNotified.current = false;
+      if (autoCloseTimeoutRef.current) {
+        clearTimeout(autoCloseTimeoutRef.current);
+        autoCloseTimeoutRef.current = null;
+      }
+      resetImportState();
+    }
+  }, [isOpen, resetImportState]);
+
+  useEffect(() => {
+    const isFinished = importComplete && !resolving;
     const hasWarnings = importStatus.skipped > 0 || importStatus.failed > 0;
 
     if (isFinished && importStatus.success > 0 && !successNotified.current) {
       successNotified.current = true;
-      if (onSuccess) onSuccess();
+      onSuccess?.(lastImportedListId ?? undefined);
 
-      // Only auto-close if there are NO warnings
       if (!hasWarnings) {
-        // Clear any existing timer just in case
         if (autoCloseTimeoutRef.current) clearTimeout(autoCloseTimeoutRef.current);
 
         autoCloseTimeoutRef.current = setTimeout(() => {
@@ -82,24 +92,36 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
       }
     }
 
-    // Reset notified state when resetting or starting new import
-    if (parsing || (progress === 0 && !resolving)) {
+    if (parsing || (!importComplete && progress === 0 && !resolving)) {
       successNotified.current = false;
       if (autoCloseTimeoutRef.current) {
         clearTimeout(autoCloseTimeoutRef.current);
         autoCloseTimeoutRef.current = null;
       }
     }
-  }, [resolving, progress, importStatus, onClose, onSuccess, parsing]);
+  }, [
+    resolving,
+    progress,
+    importStatus,
+    importComplete,
+    lastImportedListId,
+    onClose,
+    onSuccess,
+    parsing,
+  ]);
 
-  // Reset helper wrapper
   const handleReset = () => {
     successNotified.current = false;
     if (autoCloseTimeoutRef.current) {
       clearTimeout(autoCloseTimeoutRef.current);
       autoCloseTimeoutRef.current = null;
     }
-    resetPlaces();
+    resetImportState();
+  };
+
+  const handleClose = () => {
+    handleReset();
+    onClose();
   };
 
   return (
@@ -113,7 +135,7 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-            onClick={onClose}
+            onClick={handleClose}
           />
           <motion.div
             initial={{ opacity: 0, scale: 0.95, y: 10 }}
@@ -128,7 +150,7 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
                   Import from Google Maps
                 </h2>
                 <button
-                  onClick={onClose}
+                  onClick={handleClose}
                   className={`p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 ${themeColors.text.secondary} transition-colors`}
                 >
                   <X className="h-5 w-5" />
@@ -289,7 +311,7 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
                     </button>
                   </div>
 
-                  {!resolving && (
+                  {!resolving && !importComplete && (
                     <div className="space-y-4 py-2">
                       <div className="space-y-2">
                         <label
@@ -374,16 +396,19 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
                   )}
 
                   <LoadingButton
-                    onClick={progress === 100 ? onClose : handleImport}
+                    onClick={importComplete ? handleClose : handleImport}
                     isLoading={resolving}
-                    disabled={targetListId === 'new' && !newListName.trim() && progress !== 100}
+                    disabled={
+                      resolving ||
+                      (targetListId === 'new' && !newListName.trim() && !importComplete)
+                    }
                     loadingText={enriching ? 'Enriching Details...' : 'Importing Places...'}
                     className="w-full py-3 rounded-xl font-bold shadow-lg shadow-blue-500/10"
                   >
-                    {progress === 100 ? 'Done' : 'Start Import'}
+                    {importComplete ? 'Done' : 'Start Import'}
                   </LoadingButton>
 
-                  {progress === 100 && !enriching && (
+                  {importComplete && !enriching && (
                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                       <div
                         className={`p-5 rounded-2xl text-center border-2 ${

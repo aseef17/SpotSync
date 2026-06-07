@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import type { Place } from '@/features/places/types/place';
 import type { FilterOptions } from '@/features/places/types/filters';
 import { isPlaceOpen } from '@/features/places/utils/placeHelpers';
+import { toMilliseconds } from '@/utils/date';
 
 export const usePlaceFilters = (
   places: Place[],
@@ -115,51 +116,35 @@ export const usePlaceFilters = (
       });
     }
 
-    if (filters.sortBy) {
-      filtered.sort((a, b) => {
-        const direction = filters.sortDirection === 'desc' ? -1 : 1;
+    const sortDirection = filters.sortDirection === 'asc' ? 1 : -1;
 
-        switch (filters.sortBy) {
-          case 'name':
-            return direction * a.name.localeCompare(b.name);
-          case 'name-desc':
-            return -1 * a.name.localeCompare(b.name);
-          case 'rating':
-            return direction * ((a.rating || 0) - (b.rating || 0));
-          case 'price': {
-            const levelA =
-              typeof a.priceLevel === 'string'
-                ? parsePriceLevel(a.priceLevel)
-                : (a.priceLevel ?? -1);
-            const levelB =
-              typeof b.priceLevel === 'string'
-                ? parsePriceLevel(b.priceLevel)
-                : (b.priceLevel ?? -1);
-            return direction * (levelA - levelB);
-          }
-          case 'distance': {
-            if (!userLocation) return 0;
-            const distA = getDistance(userLocation, a.location);
-            const distB = getDistance(userLocation, b.location);
-            return direction * (distA - distB);
-          }
-          case 'date':
-          default: {
-            const toTime = (d: { seconds: number } | string | Date | null | undefined): number => {
-              if (!d) return 0;
-              if (typeof d === 'object' && 'seconds' in d) {
-                return (d as { seconds: number }).seconds * 1000;
-              }
-              if (d instanceof Date) return d.getTime();
-              return new Date(d).getTime();
-            };
-            const dateA = toTime(a.addedAt);
-            const dateB = toTime(b.addedAt);
-            return direction * (dateA - dateB);
-          }
+    filtered.sort((a, b) => {
+      switch (filters.sortBy) {
+        case 'name':
+          return sortDirection * a.name.localeCompare(b.name);
+        case 'name-desc':
+          return -1 * a.name.localeCompare(b.name);
+        case 'rating':
+          return sortDirection * ((a.rating || 0) - (b.rating || 0));
+        case 'price': {
+          const levelA =
+            typeof a.priceLevel === 'string' ? parsePriceLevel(a.priceLevel) : (a.priceLevel ?? -1);
+          const levelB =
+            typeof b.priceLevel === 'string' ? parsePriceLevel(b.priceLevel) : (b.priceLevel ?? -1);
+          return sortDirection * (levelA - levelB);
         }
-      });
-    }
+        case 'distance': {
+          if (!userLocation) return 0;
+          const distA = getDistance(userLocation, a.location);
+          const distB = getDistance(userLocation, b.location);
+          return sortDirection * (distA - distB);
+        }
+        case 'date':
+          return sortDirection * (toMilliseconds(a.addedAt) - toMilliseconds(b.addedAt));
+        default:
+          return toMilliseconds(b.addedAt) - toMilliseconds(a.addedAt);
+      }
+    });
 
     return filtered;
   }, [places, filters, userLocation]);

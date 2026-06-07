@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { Plus, Users, Settings, Eye, EyeOff, Edit } from 'lucide-react';
 import { ConnectionIssueCard } from '@/components/Layout/ConnectionIssueCard';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ThemeToggle } from '@/components/Elements/Theme/ThemeToggle';
 import { ImportGoogleMapsModal } from '@/features/places/components/ImportGoogleMapsModal';
@@ -41,6 +41,7 @@ const isPendingOptimisticList = (
 };
 
 export const Dashboard: React.FunctionComponent = () => {
+  const navigate = useNavigate();
   const { user, logout } = useAuth();
   const { toast } = useToast();
   const { lists, loading, creating, error, createList, updateList, deleteList } = useListsContext();
@@ -323,8 +324,14 @@ export const Dashboard: React.FunctionComponent = () => {
     setShowSignOutConfirm(false);
   };
 
-  // No-op: real-time subscription automatically picks up imported lists
-  const handleImportSuccess = useCallback(() => {}, []);
+  const handleImportSuccess = useCallback(
+    (listId?: string) => {
+      if (listId) {
+        navigate(`/list/${listId}`);
+      }
+    },
+    [navigate]
+  );
 
   const existingListsData = useMemo(
     () => displayedLists.map((l) => ({ id: l.id, name: l.name })),

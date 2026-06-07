@@ -191,6 +191,88 @@ export class GoogleMapsService {
     });
   }
 
+  /** True when the ID is a Places API resource id (ChIJ…), not a legacy numeric CID. */
+  static isCanonicalGooglePlaceId(placeId: string): boolean {
+    if (!placeId) return false;
+    if (/^ChIJ[\w-]+$/.test(placeId)) return true;
+    if (placeId.startsWith('places/')) return true;
+    if (placeId.startsWith('plus_') || placeId.startsWith('manual_')) return true;
+    if (/^\d+$/.test(placeId)) return false;
+    return placeId.length > 12;
+  }
+
+  private static async readCachedPlaceDetails(placeId: string): Promise<LegacyGooglePlace | null> {
+    try {
+      const cacheSnap = await getDoc(googlePlaceDocRef(placeId));
+      if (!cacheSnap.exists()) {
+        return null;
+      }
+
+      const cachedData = cacheSnap.data();
+      const fetchedAt = cachedData.detailsFetchedAt ?? cachedData.updatedAt;
+      if (fetchedAt && Date.now() - fetchedAt.getTime() < 30 * 24 * 60 * 60 * 1000) {
+        logger.info(`Using cached place details for ${placeId}`);
+        return this.canonicalGooglePlaceToLegacy(cachedData);
+      }
+    } catch (e) {
+      logger.error('Error reading from googlePlaces cache:', e);
+    }
+
+    return null;
+  }
+
+  /**
+   * Resolves canonical place details for import: checks googlePlaces cache first,
+   * skips API calls for non-canonical CIDs, then falls back to text search.
+   */
+  static async resolvePlaceDetailsForImport(input: {
+    placeId?: string | null;
+    googlePlaceId?: string | null;
+    title: string;
+    location?: { lat: number; lng: number };
+  }): Promise<{ details: LegacyGooglePlace | null; canonicalId?: string }> {
+    await this.initialize();
+
+    const candidateIds = [input.placeId, input.googlePlaceId].filter((id): id is string =>
+      Boolean(id && this.isCanonicalGooglePlaceId(id))
+    );
+
+    const uniqueCandidates = [...new Set(candidateIds)];
+
+    for (const id of uniqueCandidates) {
+      const cached = await this.readCachedPlaceDetails(id);
+      if (cached) {
+        return { details: cached, canonicalId: cached.place_id };
+      }
+    }
+
+    for (const id of uniqueCandidates) {
+      const details = await this.getPlaceDetails(id);
+      if (details) {
+        return { details, canonicalId: details.place_id };
+      }
+    }
+
+    if (input.title) {
+      try {
+        const results = await this.searchPlaces(input.title, input.location);
+        if (results.length > 0) {
+          const canonicalId = results[0].place_id;
+          const cached = await this.readCachedPlaceDetails(canonicalId);
+          if (cached) {
+            return { details: cached, canonicalId };
+          }
+          const details = await this.getPlaceDetails(canonicalId);
+          return { details, canonicalId: details?.place_id ?? canonicalId };
+        }
+      } catch (error) {
+        logger.warn('Place search failed during import resolve:', error);
+      }
+    }
+
+    return { details: null };
+  }
+
   static async getPlaceDetails(
     placeId: string,
     options?: { skipCache?: boolean }
@@ -202,18 +284,9 @@ export class GoogleMapsService {
     }
 
     if (!options?.skipCache) {
-      try {
-        const cacheSnap = await getDoc(googlePlaceDocRef(placeId));
-        if (cacheSnap.exists()) {
-          const cachedData = cacheSnap.data();
-          const fetchedAt = cachedData.detailsFetchedAt ?? cachedData.updatedAt;
-          if (fetchedAt && Date.now() - fetchedAt.getTime() < 30 * 24 * 60 * 60 * 1000) {
-            logger.info(`Using cached place details for ${placeId}`);
-            return this.canonicalGooglePlaceToLegacy(cachedData);
-          }
-        }
-      } catch (e) {
-        logger.error('Error reading from googlePlaces cache:', e);
+      const cached = await this.readCachedPlaceDetails(placeId);
+      if (cached) {
+        return cached;
       }
     }
 

@@ -14,10 +14,13 @@ export const listConverter: FirestoreDataConverter<PlaceList> = {
   },
   fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): PlaceList {
     const data = snapshot.data(options);
+    const placeIds = Array.isArray(data.placeIds) ? (data.placeIds as string[]) : [];
+
     return {
       id: snapshot.id,
-      ...data,
+      ...omit(data, ['places']),
       places: [] as Place[],
+      placeIds,
       createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
       updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
     } as PlaceList;
