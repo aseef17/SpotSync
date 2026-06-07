@@ -128,6 +128,19 @@ describe('dashboard cache publish gating', () => {
     expect(syncCachedUserListsMock).not.toHaveBeenCalled();
   });
 
+  it('replays profile saved-list ids that arrived before owned-list sync started', async () => {
+    fetchSavedListsByIdsMock.mockResolvedValue({ lists: [], resolved: true });
+
+    setUserSavedListIds('user-1', ['saved-1']);
+    expect(fetchSavedListsByIdsMock).not.toHaveBeenCalled();
+
+    acquireUserOwnedListsSync('user-1');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchSavedListsByIdsMock).toHaveBeenCalledWith(['saved-1'], {});
+  });
+
   it('replaces dashboard rows once profile saved-list state is ready', async () => {
     fetchSavedListsByIdsMock.mockResolvedValue({ lists: [], resolved: true });
 
