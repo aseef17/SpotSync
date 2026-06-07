@@ -43,8 +43,7 @@ describe('isAccountDeletionInProgress', () => {
   });
 
   it('treats a completed-deletion tombstone the same as an in-progress marker', async () => {
-    // deleteAccount keeps accountDeletions/{uid} after auth is removed so stale ID tokens
-    // cannot trigger claimUsernameForUser during the post-deletion token lifetime.
+    // Tombstones remain while stale ID tokens could still recreate a deleted profile.
     getDocMock.mockResolvedValue({ exists: () => true });
 
     await expect(isAccountDeletionInProgress('deleted-user')).resolves.toBe(true);

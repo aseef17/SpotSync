@@ -6,8 +6,8 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // deleteAccount keeps accountDeletions/{uid} permanently; stale ID tokens remain valid
-    // for up to an hour after auth removal, so block client writes while tombstone exists.
+    // deleteAccount writes accountDeletions/{uid} until stale ID tokens expire (~1 hour).
+    // pruneAccountDeletionTombstones removes completed markers after 48 hours.
     function hasAccountDeletionTombstone() {
       return isAuthenticated() &&
         exists(/databases/$(database)/documents/accountDeletions/$(request.auth.uid));

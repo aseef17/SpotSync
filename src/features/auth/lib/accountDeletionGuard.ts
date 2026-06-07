@@ -2,9 +2,9 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 
 /**
- * True when deleteAccount has started for this uid. Markers are kept permanently as
- * tombstones so orphan recovery cannot run while a stale ID token is still valid after
- * auth deletion (tokens can remain usable for up to an hour).
+ * True when deleteAccount has started for this uid. Tombstones block orphan recovery
+ * while a stale ID token may still be valid after auth deletion (up to ~1 hour).
+ * Cloud Functions prune completed markers after 48 hours.
  */
 export async function isAccountDeletionInProgress(uid: string): Promise<boolean> {
   try {
