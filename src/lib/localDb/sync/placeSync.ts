@@ -1,10 +1,23 @@
-import { onSnapshot } from 'firebase/firestore';
+import { doc, getDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
 import { logger } from '@/utils/logger';
 import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { acquireSubscription } from '@/lib/localDb/subscriptionRegistry';
 import { removeCachedPlace, upsertCachedPlace } from '@/lib/localDb/placeCache';
 import { buildListPlacesQuery } from '@/features/places/api/placeFirestore';
 import type { PlaceListAccessQuery } from '@/features/places/utils/placeAccess';
+
+export async function shouldRemovePlaceAfterSnapshotRemoval(
+  placeId: string,
+  subscriptionLimit: number
+): Promise<boolean> {
+  if (subscriptionLimit <= 0) {
+    return true;
+  }
+
+  const placeSnap = await getDoc(doc(db, 'places', placeId));
+  return !placeSnap.exists();
+}
 
 function buildPlacesSyncKey(access: PlaceListAccessQuery, subscriptionLimit: number): string {
   return [
@@ -23,10 +36,15 @@ async function applyPlaceDocChanges(
     type: 'added' | 'modified' | 'removed';
     placeId: string;
     place?: Parameters<typeof upsertCachedPlace>[0];
-  }>
+  }>,
+  subscriptionLimit: number
 ): Promise<void> {
   for (const change of changes) {
     if (change.type === 'removed') {
+      if (!(await shouldRemovePlaceAfterSnapshotRemoval(change.placeId, subscriptionLimit))) {
+        continue;
+      }
+
       await removeCachedPlace(change.placeId);
       emitChange(changeTopics.place(change.placeId));
       continue;
@@ -63,7 +81,7 @@ export function acquireListPlacesSync(
               place: change.type === 'removed' ? undefined : change.doc.data(),
             }));
             if (changes.length > 0) {
-              await applyPlaceDocChanges(access.listId, changes);
+              await applyPlaceDocChanges(access.listId, changes, subscriptionLimit);
             }
             // Always notify so empty lists and first server snapshots resolve loading state.
             emitChange(changeTopics.placesForList(access.listId));

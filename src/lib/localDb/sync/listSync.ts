@@ -3,10 +3,13 @@ import { db } from '@/lib/firebase';
 import { logger } from '@/utils/logger';
 import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { acquireSubscription } from '@/lib/localDb/subscriptionRegistry';
-import { getCachedList, removeCachedList, upsertCachedList } from '@/lib/localDb/listCache';
+import { removeCachedList, upsertCachedList } from '@/lib/localDb/listCache';
 import { removeCachedUserList, upsertCachedUserLists } from '@/lib/localDb/userListsCache';
 import { listConverter } from '@/features/lists/api/listFirestore';
-import { fetchSavedListsByIds } from '@/features/lists/api/savedListsFetch';
+import {
+  fetchSavedListsByIds,
+  shouldCommitSavedListFetch,
+} from '@/features/lists/api/savedListsFetch';
 import { reconcileSavedLists } from '@/features/lists/api/reconcileSavedLists';
 import type { PlaceList } from '@/features/lists/types/list';
 
@@ -99,41 +102,20 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
       return;
     }
 
-    const cachedSavedLists = (await Promise.all(idsToFetch.map((id) => getCachedList(id)))).filter(
-      (list): list is PlaceList => list !== null
-    );
-    const cachedSavedIds = new Set(cachedSavedLists.map((list) => list.id));
-    const missingIds = idsToFetch.filter((id) => !cachedSavedIds.has(id));
-
-    if (!missingIds.length) {
-      state.savedLists = reconcileSavedLists({
-        profileIds: ids,
-        ownedIds: existingIds,
-        previousSavedLists: state.savedLists,
-        fetched: cachedSavedLists.map((list) => ({ ...list, isSavedList: true }) as PlaceList),
-        resolved: true,
-      });
-      if (seq === state.fetchSavedListsSeq) {
-        await publishUserLists(userId);
-      }
-      return;
-    }
-
-    const { lists: fetched, resolved } = await fetchSavedListsByIds(missingIds, listConverter);
-    const mergedFetched = [
-      ...cachedSavedLists.map((list) => ({ ...list, isSavedList: true }) as PlaceList),
-      ...fetched,
-    ];
+    const hadSavedLists = state.savedLists.length > 0;
+    const { lists: fetched, resolved } = await fetchSavedListsByIds(idsToFetch, listConverter);
 
     if (seq === state.fetchSavedListsSeq) {
-      state.savedLists = reconcileSavedLists({
-        profileIds: ids,
-        ownedIds: existingIds,
-        previousSavedLists: state.savedLists,
-        fetched: mergedFetched,
-        resolved,
-      });
-      await publishUserLists(userId);
+      if (shouldCommitSavedListFetch(hadSavedLists, fetched.length, resolved)) {
+        state.savedLists = reconcileSavedLists({
+          profileIds: ids,
+          ownedIds: existingIds,
+          previousSavedLists: state.savedLists,
+          fetched,
+          resolved,
+        });
+        await publishUserLists(userId);
+      }
     }
   } catch (error) {
     logger.error('Error syncing saved lists to local store:', error);
