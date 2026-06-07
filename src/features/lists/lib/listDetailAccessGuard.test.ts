@@ -13,4 +13,8 @@ describe('shouldApplyCachedListDetails', () => {
   it('ignores cancelled hydration work', () => {
     expect(shouldApplyCachedListDetails(true, true)).toBe(false);
   });
+
+  it('blocks late pagination after access is revoked', () => {
+    expect(shouldApplyCachedListDetails(false, false)).toBe(false);
+  });
 });

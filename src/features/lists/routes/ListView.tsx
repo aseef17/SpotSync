@@ -37,6 +37,7 @@ import { MobileListView } from '@/features/lists/components/MobileListView';
 import { OptionsMenu } from '@/components/Elements/Menu/OptionsMenu';
 import { FAB } from '@/components/Elements/Button/FAB';
 import { useListDetails } from '@/features/lists/hooks/useListDetails';
+import { listViewRemountKey } from '@/features/lists/hooks/listViewAccess';
 import { usePlaceFilters } from '@/features/places/hooks/usePlaceFilters';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
@@ -46,7 +47,8 @@ import { buildAskListPlacesSummary } from '@/features/places/utils/askListPlaces
 
 export const ListView: React.FunctionComponent = () => {
   const { listId } = useParams<{ listId: string }>();
-  return <ListViewContent key={listId} listId={listId} />;
+  const { user } = useAuth();
+  return <ListViewContent key={listViewRemountKey({ userId: user?.id, listId })} listId={listId} />;
 };
 
 const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> = ({ listId }) => {
