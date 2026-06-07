@@ -11,6 +11,7 @@ import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import { shouldClearStaleListView } from '@/features/lists/hooks/listViewAccess';
 
 const OFFLINE_LOAD_TIMEOUT_MS = 8000;
 
@@ -43,8 +44,16 @@ export const useListDetails = (listId: string | undefined) => {
       loadTrackingRef.current.listLoaded = true;
       loadTrackingRef.current.hasCachedData = true;
       loadTrackingRef.current.onProgress?.();
+      return;
     }
-  }, [listFromContext]);
+
+    if (shouldClearStaleListView(listFromContext, listId)) {
+      listAccessibleRef.current = false;
+      setList(null);
+      setPlaces([]);
+      loadTrackingRef.current.hasCachedData = false;
+    }
+  }, [listFromContext, listId]);
 
   useEffect(() => {
     if (!listId || listFromContext) {
