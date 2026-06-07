@@ -44,5 +44,13 @@ export function shouldClearAccessRevokedOnContextReturn(options: {
   list: PlaceList;
   userId: string | undefined;
 }): boolean {
-  return !options.hadListFromContext && userCanReadList(options.list, options.userId);
+  if (options.hadListFromContext || !userCanReadList(options.list, options.userId)) {
+    return false;
+  }
+  // Saved private rows may be stale Firestore cache after revocation; only owned/collaborator
+  // query rows (isSavedList unset) indicate live membership was restored.
+  if (options.list.isSavedList && !options.list.isPublic) {
+    return false;
+  }
+  return true;
 }

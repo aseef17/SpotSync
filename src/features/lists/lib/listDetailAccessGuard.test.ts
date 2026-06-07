@@ -135,4 +135,24 @@ describe('shouldClearAccessRevokedOnContextReturn', () => {
       })
     ).toBe(false);
   });
+
+  it('does not clear revocation when a saved private list re-enters from stale cache', () => {
+    expect(
+      shouldClearAccessRevokedOnContextReturn({
+        hadListFromContext: false,
+        list: list({ isSavedList: true }),
+        userId: 'collab-b',
+      })
+    ).toBe(false);
+  });
+
+  it('still clears revocation when a public saved list re-enters context', () => {
+    expect(
+      shouldClearAccessRevokedOnContextReturn({
+        hadListFromContext: false,
+        list: list({ isPublic: true, isSavedList: true, collaboratorIds: [] }),
+        userId: 'user-c',
+      })
+    ).toBe(true);
+  });
 });
