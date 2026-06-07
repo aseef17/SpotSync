@@ -20,7 +20,7 @@ export async function fetchSavedListsByIds(
   }
 
   const fetched: PlaceList[] = [];
-  let resolved = false;
+  let allChunksResolved = true;
   const { documentId } = await import('firebase/firestore');
 
   for (let i = 0; i < idsToFetch.length; i += 10) {
@@ -30,11 +30,12 @@ export async function fetchSavedListsByIds(
       where(documentId(), 'in', chunk)
     );
 
+    let chunkResolved = false;
     try {
       const savedSnap = isBrowserOnline()
         ? await getDocs(savedQuery)
         : await getDocsFromCache(savedQuery);
-      resolved = true;
+      chunkResolved = true;
       savedSnap.forEach((docSnap) => {
         fetched.push({ ...docSnap.data(), isSavedList: true } as PlaceList);
       });
@@ -42,7 +43,7 @@ export async function fetchSavedListsByIds(
       logger.error('Error fetching saved lists:', networkError);
       try {
         const cachedSnap = await getDocsFromCache(savedQuery);
-        resolved = true;
+        chunkResolved = true;
         cachedSnap.forEach((docSnap) => {
           fetched.push({ ...docSnap.data(), isSavedList: true } as PlaceList);
         });
@@ -50,7 +51,11 @@ export async function fetchSavedListsByIds(
         logger.error('Error fetching saved lists from cache:', cacheError);
       }
     }
+
+    if (!chunkResolved) {
+      allChunksResolved = false;
+    }
   }
 
-  return { lists: fetched, resolved };
+  return { lists: fetched, resolved: allChunksResolved };
 }
