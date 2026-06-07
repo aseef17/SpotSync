@@ -28,6 +28,15 @@ export function toPlaceListAccessQuery(
   };
 }
 
+/** Stable key for place-query subscriptions; ignores list metadata like the places array. */
+export function getPlaceListAccessKey(
+  listId: string,
+  userId: string,
+  list: Pick<PlaceList, 'ownerId' | 'isPublic'>
+): string {
+  return `${listId}:${userId}:${list.ownerId}:${list.isPublic === true}`;
+}
+
 export function getPlaceListAccessFields(
   list: Pick<PlaceList, 'ownerId' | 'isPublic' | 'collaboratorIds'>
 ): PlaceListAccessFields {

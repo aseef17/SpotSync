@@ -6,7 +6,10 @@ import {
   PLACES_SUBSCRIPTION_LIMIT,
 } from '@/features/places/api/placeService';
 import { subscribeToListPlacesShared } from '@/features/places/api/placeListSubscriptionStore';
-import { toPlaceListAccessQuery } from '@/features/places/utils/placeAccess';
+import {
+  getPlaceListAccessKey,
+  toPlaceListAccessQuery,
+} from '@/features/places/utils/placeAccess';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { useListsContext } from '@/features/lists/context/useListsContext';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
@@ -42,12 +45,19 @@ export const useListDetails = (listId: string | undefined) => {
   const extraPlacesRef = useRef<Place[]>([]);
   const listsRef = useRef(lists);
   listsRef.current = lists;
+  const listAccessKey = useMemo(() => {
+    if (!listId || !user?.id || !list) {
+      return null;
+    }
+    return getPlaceListAccessKey(listId, user.id, list);
+  }, [listId, user?.id, list?.ownerId, list?.isPublic]);
+
   const placeAccessQuery = useMemo(() => {
     if (!listId || !user?.id || !list) {
       return null;
     }
     return toPlaceListAccessQuery(listId, user.id, list);
-  }, [listId, user?.id, list]);
+  }, [listId, user?.id, list?.ownerId, list?.isPublic]);
   const loadTrackingRef = useRef({
     listLoaded: false,
     hasCachedData: false,
@@ -158,16 +168,17 @@ export const useListDetails = (listId: string | undefined) => {
   }, [listId, listFromContext, flushPendingPlacesSnapshot]);
 
   useEffect(() => {
-    if (!listId || !placeAccessQuery) {
+    if (!listId || !listAccessKey || !placeAccessQuery) {
       return;
     }
 
     let cancelled = false;
+    const contextList = listsRef.current.find((entry) => entry.id === listId) ?? null;
     pendingPlacesSnapshotRef.current = undefined;
     applyPendingPlacesRef.current = null;
-    listAccessibleRef.current = !!listFromContext || !!list;
-    loadTrackingRef.current.listLoaded = !!listFromContext || !!list;
-    loadTrackingRef.current.hasCachedData = !!listFromContext || !!list;
+    listAccessibleRef.current = !!contextList || !!list;
+    loadTrackingRef.current.listLoaded = !!contextList || !!list;
+    loadTrackingRef.current.hasCachedData = !!contextList || !!list;
     let listLoaded = loadTrackingRef.current.listLoaded;
     let placesLoaded = false;
     let hasCachedData = loadTrackingRef.current.hasCachedData;
@@ -292,7 +303,9 @@ export const useListDetails = (listId: string | undefined) => {
       window.clearTimeout(timeoutId);
       unsubscribePlaces();
     };
-  }, [listId, placeAccessQuery, listFromContext, list]);
+    // Re-subscribe when the viewed list or access fields change. List metadata syncs in effects above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- list metadata via listsRef; access via listAccessKey
+  }, [listId, user?.id, listAccessKey]);
 
   const loadMorePlaces = useCallback(async () => {
     if (!listId || loadingMore || !listAccessibleRef.current) return;
