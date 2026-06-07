@@ -1,116 +1,42 @@
-import {
-  collection,
-  query,
-  where,
-  orderBy,
-  limit,
-  startAfter,
-  getDocs,
-  getDocsFromCache,
-  doc,
-  getDoc,
-  setDoc,
-  deleteDoc,
-  updateDoc,
-  writeBatch,
-  arrayUnion,
-  arrayRemove,
-  onSnapshot,
-} from 'firebase/firestore';
-import type {
-  FirestoreDataConverter,
-  QueryDocumentSnapshot,
-  SnapshotOptions,
-  DocumentData,
-} from 'firebase/firestore';
+import { collection, doc, writeBatch, arrayUnion } from 'firebase/firestore';
+import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  patchCachedPlace,
+  queueOfflineMutation,
+  removeCachedPlace,
+  upsertCachedPlace,
+} from '@/lib/localDb';
+import { listRepository } from '@/lib/localDb/repositories/listRepository';
+import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
+import { PLACES_PAGE_SIZE } from '@/features/places/api/placeFirestore';
 import type { Place, PlaceStatus } from '@/features/places/types/place';
+import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { logger } from '@/utils/logger';
-import { toMilliseconds } from '@/utils/date';
 import { omit } from '@/utils/objectUtils';
 import {
   getPlaceListAccessFields,
   getPrimaryPhotoUrl,
   trimPhotoUrlsForStorage,
   type PlaceListAccessFields,
-  type PlaceListAccessQuery,
 } from '@/features/places/utils/placeAccess';
 import imageCompression from 'browser-image-compression';
 
-export const PLACES_PAGE_SIZE = 100;
-export const PLACES_SUBSCRIPTION_LIMIT = 500;
+export {
+  PLACES_PAGE_SIZE,
+  PLACES_SUBSCRIPTION_LIMIT,
+  placeConverter,
+} from '@/features/places/api/placeFirestore';
 /** Firestore allows 500 ops per batch; bulk create also updates the parent list doc. */
 export const BULK_CREATE_BATCH_SIZE = 499;
 
-export const placeConverter: FirestoreDataConverter<Place> = {
-  toFirestore(place: Place): DocumentData {
-    return omit(place, ['id']);
-  },
-  fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): Place {
-    const data = snapshot.data(options);
-
-    const validStatuses: PlaceStatus[] = ['not_visited', 'visited', 'not_going', 'custom'];
-    const status =
-      typeof data.status === 'string' && validStatuses.includes(data.status as PlaceStatus)
-        ? data.status
-        : 'not_visited';
-
-    return {
-      ...data,
-      id: snapshot.id,
-      name: typeof data.name === 'string' ? data.name : 'Unknown',
-      address: typeof data.address === 'string' ? data.address : '',
-      status: status,
-      addedAt: data.addedAt?.toDate ? data.addedAt.toDate() : new Date(),
-      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
-    } as Place;
-  },
-};
-
-function buildListPlacesQuery(access: PlaceListAccessQuery, subscriptionLimit: number) {
-  const base = collection(db, 'places').withConverter(placeConverter);
-
-  if (access.userId === access.ownerId) {
-    return query(
-      base,
-      where('listId', '==', access.listId),
-      where('listOwnerId', '==', access.ownerId),
-      orderBy('addedAt', 'desc'),
-      limit(subscriptionLimit)
-    );
-  }
-
-  if (access.isPublic) {
-    return query(
-      base,
-      where('listId', '==', access.listId),
-      where('listIsPublic', '==', true),
-      orderBy('addedAt', 'desc'),
-      limit(subscriptionLimit)
-    );
-  }
-
-  return query(
-    base,
-    where('listId', '==', access.listId),
-    where('listCollaboratorIds', 'array-contains', access.userId),
-    orderBy('addedAt', 'desc'),
-    limit(subscriptionLimit)
-  );
-}
-
 export class PlaceService {
   private static async fetchListAccessFields(listId: string): Promise<PlaceListAccessFields> {
-    const listDoc = await getDoc(doc(db, 'lists', listId));
-    if (!listDoc.exists()) {
+    const list = await listRepository.getById(listId);
+    if (!list) {
       throw new Error('List not found');
     }
-    const data = listDoc.data();
-    return getPlaceListAccessFields({
-      ownerId: data.ownerId,
-      isPublic: data.isPublic === true,
-      collaboratorIds: data.collaboratorIds ?? [data.ownerId],
-    });
+    return getPlaceListAccessFields(list);
   }
 
   private static enrichPlaceWrite(
@@ -132,34 +58,50 @@ export class PlaceService {
     };
   }
 
+  private static async resolveListAccessFields(listId: string): Promise<PlaceListAccessFields> {
+    const cachedList = await listRepository.getById(listId);
+    if (cachedList) {
+      return getPlaceListAccessFields(cachedList);
+    }
+
+    return this.fetchListAccessFields(listId);
+  }
+
   static async createPlace(
     listId: string,
     placeData: Omit<Place, 'id' | 'addedAt' | 'updatedAt'>
   ): Promise<string> {
     try {
-      if (placeData.plusCode || placeData.googlePlaceId) {
+      if (isBrowserOnline() && (placeData.plusCode || placeData.googlePlaceId)) {
         const existingPlace = await this.findDuplicatePlace(listId, placeData);
         if (existingPlace) {
           throw new Error('Place already exists in this list');
         }
       }
 
-      const accessFields = await this.fetchListAccessFields(listId);
+      const accessFields = await this.resolveListAccessFields(listId);
       const placeRef = doc(collection(db, 'places'));
       const newPlace = this.enrichPlaceWrite({ ...placeData, listId }, accessFields);
-      const placeWithTimestamps: Omit<Place, 'id'> = {
+      const placeId = placeRef.id;
+      const placeWithTimestamps: Place = {
         ...newPlace,
+        id: placeId,
         addedAt: new Date(),
         updatedAt: new Date(),
       };
 
-      await setDoc(placeRef, placeWithTimestamps);
-      const placeId = placeRef.id;
-
-      await updateDoc(doc(db, 'lists', listId), {
-        places: arrayUnion(placeId),
-        updatedAt: new Date(),
-      });
+      await queueOfflineMutation(
+        'createPlace',
+        placeId,
+        {
+          placeId,
+          listId,
+          place: omit(placeWithTimestamps, ['id']),
+        },
+        async () => {
+          await upsertCachedPlace(placeWithTimestamps);
+        }
+      );
 
       return placeId;
     } catch (error) {
@@ -243,93 +185,6 @@ export class PlaceService {
     }
   }
 
-  static async getPlace(placeId: string): Promise<Place | null> {
-    try {
-      const placeDoc = await getDoc(doc(db, 'places', placeId).withConverter(placeConverter));
-      if (placeDoc.exists()) {
-        return placeDoc.data();
-      }
-      return null;
-    } catch (error) {
-      logger.error('Error getting place:', error);
-      throw error;
-    }
-  }
-
-  static async getListPlaces(
-    listId: string,
-    pageSize: number = PLACES_PAGE_SIZE
-  ): Promise<Place[]> {
-    try {
-      const result = await this.getListPlacesPage(listId, pageSize);
-      return result.places;
-    } catch (error) {
-      logger.error('Error getting list places:', error);
-      throw error;
-    }
-  }
-
-  /** Paginate through every place in a list (used for import duplicate detection). */
-  static async getAllListPlaces(listId: string): Promise<Place[]> {
-    try {
-      const allPlaces: Place[] = [];
-      let cursor: QueryDocumentSnapshot<DocumentData> | undefined;
-      let hasMore = true;
-
-      while (hasMore) {
-        const page = await this.getListPlacesPage(listId, PLACES_PAGE_SIZE, cursor);
-        allPlaces.push(...page.places);
-        hasMore = page.hasMore;
-        cursor = page.lastDoc ?? undefined;
-      }
-
-      return allPlaces;
-    } catch (error) {
-      logger.error('Error getting all list places:', error);
-      throw error;
-    }
-  }
-
-  static async getListPlacesPage(
-    listId: string,
-    pageSize: number = PLACES_PAGE_SIZE,
-    cursor?: QueryDocumentSnapshot<DocumentData>
-  ): Promise<{
-    places: Place[];
-    hasMore: boolean;
-    lastDoc: QueryDocumentSnapshot<DocumentData> | null;
-  }> {
-    try {
-      const baseConstraints = [where('listId', '==', listId), orderBy('addedAt', 'desc')];
-      const q = cursor
-        ? query(
-            collection(db, 'places').withConverter(placeConverter),
-            ...baseConstraints,
-            startAfter(cursor),
-            limit(pageSize + 1)
-          )
-        : query(
-            collection(db, 'places').withConverter(placeConverter),
-            ...baseConstraints,
-            limit(pageSize + 1)
-          );
-      const querySnapshot = await getDocs(q);
-      const docs = querySnapshot.docs;
-      const hasMore = docs.length > pageSize;
-      const pageDocs = hasMore ? docs.slice(0, pageSize) : docs;
-      const places = pageDocs.map((docSnap) => docSnap.data());
-
-      return {
-        places,
-        hasMore,
-        lastDoc: pageDocs.length > 0 ? pageDocs[pageDocs.length - 1] : null,
-      };
-    } catch (error) {
-      logger.error('Error getting list places page:', error);
-      throw error;
-    }
-  }
-
   static async updatePlace(
     placeId: string,
     updates: Partial<Place>,
@@ -345,7 +200,14 @@ export class PlaceService {
         updateData.updatedBy = userId;
       }
 
-      await updateDoc(doc(db, 'places', placeId), updateData);
+      await queueOfflineMutation(
+        'updatePlace',
+        placeId,
+        { placeId, updates: updateData },
+        async () => {
+          await patchCachedPlace(placeId, updateData);
+        }
+      );
     } catch (error) {
       logger.error('Error updating place:', error);
       throw error;
@@ -354,19 +216,9 @@ export class PlaceService {
 
   static async deletePlace(placeId: string, listId: string, userId?: string): Promise<void> {
     try {
-      if (userId) {
-        await updateDoc(doc(db, 'places', placeId), {
-          deletedBy: userId,
-          deletedAt: new Date(),
-        });
-      }
-
-      await updateDoc(doc(db, 'lists', listId), {
-        places: arrayRemove(placeId),
-        updatedAt: new Date(),
+      await queueOfflineMutation('deletePlace', placeId, { placeId, listId, userId }, async () => {
+        await removeCachedPlace(placeId);
       });
-
-      await deleteDoc(doc(db, 'places', placeId));
     } catch (error) {
       logger.error('Error deleting place:', error);
       throw error;
@@ -380,22 +232,30 @@ export class PlaceService {
     customValue?: string
   ): Promise<void> {
     try {
-      const updates: Partial<Place> & { updatedAt: Date; updatedBy?: string } = {
+      const updatedAt = new Date();
+      const cachePatch: Partial<Place> = {
         status,
-        updatedAt: new Date(),
+        updatedAt,
       };
 
-      // Only include customStatus if it's provided, otherwise omit it
       if (customValue !== undefined) {
-        updates.customStatus = customValue;
+        cachePatch.customStatus = customValue;
+      } else if (status !== 'custom') {
+        cachePatch.customStatus = undefined;
       }
 
-      // Only include updatedBy if userId is provided
       if (userId) {
-        updates.updatedBy = userId;
+        cachePatch.updatedBy = userId;
       }
 
-      await updateDoc(doc(db, 'places', placeId), updates);
+      await queueOfflineMutation(
+        'updatePlaceStatus',
+        placeId,
+        { placeId, status, userId, customValue },
+        async () => {
+          await patchCachedPlace(placeId, cachePatch);
+        }
+      );
     } catch (error) {
       logger.error('Error updating place status:', error);
       throw error;
@@ -407,43 +267,7 @@ export class PlaceService {
     placeData: Partial<Place>
   ): Promise<Place | null> {
     try {
-      let q;
-
-      // Try to find by plus code first (most reliable)
-      if (placeData.plusCode) {
-        q = query(
-          collection(db, 'places').withConverter(placeConverter),
-          where('listId', '==', listId),
-          where('plusCode', '==', placeData.plusCode)
-        );
-      } else if (placeData.googlePlaceId) {
-        // Fallback to Google Place ID
-        q = query(
-          collection(db, 'places').withConverter(placeConverter),
-          where('listId', '==', listId),
-          where('googlePlaceId', '==', placeData.googlePlaceId)
-        );
-      } else {
-        // Fallback to name and address similarity (less reliable)
-        const places = await this.fetchAllListPlaces(listId);
-        return (
-          places.find(
-            (p) =>
-              p.name.toLowerCase() === placeData.name?.toLowerCase() &&
-              p.address.toLowerCase() === placeData.address?.toLowerCase()
-          ) || null
-        );
-      }
-
-      if (q) {
-        const querySnapshot = await getDocs(q);
-        if (!querySnapshot.empty) {
-          const doc = querySnapshot.docs[0];
-          return doc.data();
-        }
-      }
-
-      return null;
+      return placeRepository.findDuplicateInList(listId, placeData);
     } catch (error) {
       logger.error('Error finding duplicate place:', error);
       throw error;
@@ -468,24 +292,9 @@ export class PlaceService {
     }
   }
 
-  private static async fetchAllListPlaces(listId: string): Promise<Place[]> {
-    const all: Place[] = [];
-    let cursor: QueryDocumentSnapshot<DocumentData> | undefined;
-    let hasMore = true;
-
-    while (hasMore) {
-      const page = await this.getListPlacesPage(listId, PLACES_PAGE_SIZE, cursor);
-      all.push(...page.places);
-      hasMore = page.hasMore;
-      cursor = page.lastDoc ?? undefined;
-    }
-
-    return all;
-  }
-
   static async searchPlaces(listId: string, searchTerm: string): Promise<Place[]> {
     try {
-      const places = await this.fetchAllListPlaces(listId);
+      const places = await placeRepository.getAllForList(listId);
       const lowercaseSearch = searchTerm.toLowerCase();
 
       return places.filter(
@@ -512,7 +321,7 @@ export class PlaceService {
     }
   ): Promise<Place[]> {
     try {
-      let places = await this.fetchAllListPlaces(listId);
+      let places = await placeRepository.getAllForList(listId);
 
       if (filters.status) {
         places = places.filter((p) => p.status === filters.status);
@@ -849,7 +658,7 @@ export class PlaceService {
       let hasMore = true;
 
       while (hasMore) {
-        const page = await this.getListPlacesPage(listId, PLACES_PAGE_SIZE, cursor);
+        const page = await placeRepository.fetchPage(listId, PLACES_PAGE_SIZE, cursor);
         hasMore = page.hasMore;
         cursor = page.lastDoc ?? undefined;
 
@@ -877,49 +686,5 @@ export class PlaceService {
       logger.error('Error syncing list photos:', error);
       throw error;
     }
-  }
-
-  static async getListPlacesFromCache(access: PlaceListAccessQuery): Promise<Place[] | null> {
-    try {
-      const q = buildListPlacesQuery(access, PLACES_SUBSCRIPTION_LIMIT);
-      const querySnapshot = await getDocsFromCache(q);
-      const places = querySnapshot.docs.map((docSnap) => docSnap.data());
-      return places.sort((a, b) => toMilliseconds(b.addedAt) - toMilliseconds(a.addedAt));
-    } catch {
-      return null;
-    }
-  }
-
-  static subscribeToListPlaces(
-    access: PlaceListAccessQuery,
-    onUpdate: (places: Place[]) => void,
-    onError: (error: Error) => void,
-    subscriptionLimit: number = PLACES_SUBSCRIPTION_LIMIT
-  ): () => void {
-    const q = buildListPlacesQuery(access, subscriptionLimit);
-
-    return onSnapshot(
-      q,
-      (querySnapshot) => {
-        const places = querySnapshot.docs.map((docSnap) => docSnap.data());
-        onUpdate(places);
-      },
-      (err) => {
-        logger.error('Error subscribing to list places:', err);
-        onError(err);
-      }
-    );
-  }
-
-  static async loadMoreListPlaces(
-    listId: string,
-    cursor: QueryDocumentSnapshot<DocumentData>,
-    pageSize: number = PLACES_PAGE_SIZE
-  ): Promise<{
-    places: Place[];
-    hasMore: boolean;
-    lastDoc: QueryDocumentSnapshot<DocumentData> | null;
-  }> {
-    return this.getListPlacesPage(listId, pageSize, cursor);
   }
 }

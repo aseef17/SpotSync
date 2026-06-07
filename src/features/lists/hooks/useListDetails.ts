@@ -1,10 +1,8 @@
 import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { ListService } from '@/features/lists/api/listService';
-import {
-  PlaceService,
-  PLACES_PAGE_SIZE,
-  PLACES_SUBSCRIPTION_LIMIT,
-} from '@/features/places/api/placeService';
+import { listRepository } from '@/lib/localDb/repositories/listRepository';
+import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
+import { PLACES_PAGE_SIZE, PLACES_SUBSCRIPTION_LIMIT } from '@/features/places/api/placeFirestore';
 import { subscribeToListPlacesShared } from '@/features/places/api/placeListSubscriptionStore';
 import { getPlaceListAccessKey, toPlaceListAccessQuery } from '@/features/places/utils/placeAccess';
 import { useAuth } from '@/features/auth/context/AuthContext';
@@ -36,6 +34,11 @@ import {
   resolvePlacesSnapshot,
   type PendingPlacesSnapshot,
 } from '@/features/lists/lib/listPlacesSnapshot';
+import {
+  applyPendingMutationsToPlaces,
+  getPendingMutations,
+  subscribeLocalDataChanges,
+} from '@/lib/localDb';
 import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
@@ -52,7 +55,8 @@ export const useListDetails = (listId: string | undefined) => {
   const [places, setPlaces] = useState<Place[]>([]);
   const [hasMorePlaces, setHasMorePlaces] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [loading, setLoading] = useState(!!listId);
+  const [listLoading, setListLoading] = useState(() => !!listId && !listFromContext);
+  const [placesLoading, setPlacesLoading] = useState(() => !!listId);
   const [error, setError] = useState<string | null>(listId ? null : 'No list ID provided');
   const [accessRevokedRevision, setAccessRevokedRevision] = useState(0);
   const setAccessRevoked = useCallback(
@@ -102,6 +106,7 @@ export const useListDetails = (listId: string | undefined) => {
   const pendingPlacesSnapshotRef = useRef<PendingPlacesSnapshot>(undefined);
   const applyPendingPlacesRef = useRef<((placesData: Place[]) => void) | null>(null);
   const hadListFromContextRef = useRef(!!listFromContext);
+  const placesPublishCountRef = useRef(0);
   const privateAccessConfirmKeyRef = useRef<string | null>(null);
   const listIdRef = useRef(listId);
   listIdRef.current = listId;
@@ -163,7 +168,11 @@ export const useListDetails = (listId: string | undefined) => {
     accessRevokedRef.current = readPersistedListAccessRevoked(user?.id, listId);
     privateListServerVerifiedRef.current = false;
     savedPrivateDeniedRef.current = readPersistedListSavedPrivateDenied(user?.id, listId);
-  }, [listId, user?.id]);
+    placesPublishCountRef.current = 0;
+    const contextList = listId ? lists.find((entry) => entry.id === listId) : undefined;
+    setListLoading(!!listId && !contextList);
+    setPlacesLoading(!!listId);
+  }, [listId, user?.id, lists]);
 
   useEffect(() => {
     const hadListFromContext = hadListFromContextRef.current;
@@ -283,7 +292,7 @@ export const useListDetails = (listId: string | undefined) => {
     loadTrackingRef.current.hasCachedData = false;
     loadTrackingRef.current.onProgress?.();
 
-    const unsubscribeList = ListService.subscribeToList(
+    const unsubscribeList = listRepository.subscribeToList(
       listId,
       (listData, meta) => {
         if (cancelled) return;
@@ -384,6 +393,7 @@ export const useListDetails = (listId: string | undefined) => {
     const contextList = listsRef.current.find((entry) => entry.id === listId) ?? null;
     pendingPlacesSnapshotRef.current = undefined;
     applyPendingPlacesRef.current = null;
+    placesPublishCountRef.current = 0;
     if (
       contextList &&
       shouldHydrateCachedListSnapshot({
@@ -404,8 +414,14 @@ export const useListDetails = (listId: string | undefined) => {
     extraPlacesRef.current = [];
 
     const finishLoading = () => {
-      if (!cancelled && listLoaded && placesLoaded) {
-        setLoading(false);
+      if (cancelled) {
+        return;
+      }
+      if (listLoaded) {
+        setListLoading(false);
+      }
+      if (placesLoaded) {
+        setPlacesLoading(false);
       }
     };
 
@@ -439,8 +455,8 @@ export const useListDetails = (listId: string | undefined) => {
       }
 
       const [cachedList, cachedPlaces] = await Promise.all([
-        contextList ? Promise.resolve(null) : ListService.getListFromCache(listId),
-        PlaceService.getListPlacesFromCache(placeAccessQuery),
+        contextList ? Promise.resolve(null) : listRepository.getById(listId),
+        placeRepository.getForList(placeAccessQuery.listId),
       ]);
 
       if (!shouldApplyCachedListDetails(listAccessibleRef.current, cancelled)) {
@@ -471,7 +487,7 @@ export const useListDetails = (listId: string | undefined) => {
 
       const listForPlacesAccess = contextList ?? cachedList ?? null;
       if (
-        cachedPlaces &&
+        cachedPlaces.length > 0 &&
         shouldHydrateCachedListSnapshot({
           list: listForPlacesAccess,
           userId: user?.id,
@@ -483,13 +499,9 @@ export const useListDetails = (listId: string | undefined) => {
         setHasMorePlaces(cachedPlaces.length >= PLACES_SUBSCRIPTION_LIMIT);
         placesLoaded = true;
         hasCachedData = true;
-        setLoading(false);
+        setPlacesLoading(false);
         finishLoading();
-        return;
       }
-
-      setPlaces([]);
-      setLoading(true);
     };
 
     void hydrateFromCache();
@@ -497,7 +509,8 @@ export const useListDetails = (listId: string | undefined) => {
     const timeoutId = window.setTimeout(
       () => {
         if (!cancelled && !hasCachedData && !loadTrackingRef.current.hasCachedData) {
-          setLoading(false);
+          setListLoading(false);
+          setPlacesLoading(false);
           if (!isBrowserOnline()) {
             setError('You appear to be offline and no cached data was found for this list.');
           } else {
@@ -509,6 +522,14 @@ export const useListDetails = (listId: string | undefined) => {
     );
 
     const applyPlacesSnapshot = (placesData: Place[]) => {
+      placesPublishCountRef.current += 1;
+      const isInitialEmptyCacheRead =
+        placesPublishCountRef.current === 1 && placesData.length === 0;
+
+      if (isInitialEmptyCacheRead) {
+        return;
+      }
+
       const deduped = mergeSubscribedPlaces(placesData, extraPlacesRef.current);
       setPlaces(deduped);
       setHasMorePlaces(
@@ -566,13 +587,28 @@ export const useListDetails = (listId: string | undefined) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- list metadata via listsRef; access via listAccessKey
   }, [listId, user?.id, listAccessKey, setAccessRevoked]);
 
+  useEffect(() => {
+    if (!listId) {
+      return;
+    }
+
+    return subscribeLocalDataChanges(() => {
+      void (async () => {
+        const pendingMutations = await getPendingMutations();
+        setPlaces((currentPlaces) =>
+          applyPendingMutationsToPlaces(currentPlaces, pendingMutations)
+        );
+      })();
+    });
+  }, [listId]);
+
   const loadMorePlaces = useCallback(async () => {
     if (!listId || loadingMore || !listAccessibleRef.current) return;
 
     setLoadingMore(true);
     try {
       if (!paginationCursorRef.current) {
-        const initialPage = await PlaceService.getListPlacesPage(listId, PLACES_SUBSCRIPTION_LIMIT);
+        const initialPage = await placeRepository.fetchPage(listId, PLACES_SUBSCRIPTION_LIMIT);
         paginationCursorRef.current = initialPage.lastDoc;
         if (!initialPage.hasMore) {
           setHasMorePlaces(false);
@@ -586,7 +622,7 @@ export const useListDetails = (listId: string | undefined) => {
         return;
       }
 
-      const page = await PlaceService.loadMoreListPlaces(listId, cursor, PLACES_PAGE_SIZE);
+      const page = await placeRepository.fetchPage(listId, PLACES_PAGE_SIZE, cursor);
 
       if (!shouldApplyCachedListDetails(listAccessibleRef.current, false)) {
         return;
@@ -609,7 +645,7 @@ export const useListDetails = (listId: string | undefined) => {
   }, [listId, loadingMore]);
 
   useEffect(() => {
-    if (!loading || !listId) return;
+    if ((!listLoading && !placesLoading) || !listId) return;
 
     const timeoutId = window.setTimeout(() => {
       setError(
@@ -619,11 +655,12 @@ export const useListDetails = (listId: string | undefined) => {
             ? 'Loading is taking longer than expected. Please try again.'
             : 'You appear to be offline. Reconnect to the internet to load this list.')
       );
-      setLoading(false);
+      setListLoading(false);
+      setPlacesLoading(false);
     }, 12000);
 
     return () => window.clearTimeout(timeoutId);
-  }, [loading, listId]);
+  }, [listLoading, placesLoading, listId]);
 
   const updateList = useCallback(
     async (targetListId: string, data: Partial<PlaceList>, userId?: string) => {
@@ -640,7 +677,8 @@ export const useListDetails = (listId: string | undefined) => {
   return {
     list,
     places,
-    loading,
+    loading: listLoading,
+    placesLoading,
     error,
     updateList,
     hasMorePlaces,

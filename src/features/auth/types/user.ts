@@ -8,6 +8,8 @@ export interface User {
   bio?: string;
   location?: string;
   savedLists?: string[];
+  fcmTokens?: string[];
+  notificationsDisabled?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

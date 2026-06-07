@@ -1,14 +1,8 @@
-import {
-  collection,
-  getDocs,
-  getDocsFromCache,
-  query,
-  where,
-  type FirestoreDataConverter,
-} from 'firebase/firestore';
+import { collection, getDocs, query, where, type FirestoreDataConverter } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { logger } from '@/utils/logger';
+import { getCachedList, upsertCachedList } from '@/lib/localDb';
 import type { PlaceList } from '@/features/lists/types/list';
 
 export async function fetchSavedListsByIds(
@@ -17,6 +11,17 @@ export async function fetchSavedListsByIds(
 ): Promise<{ lists: PlaceList[]; resolved: boolean }> {
   if (!idsToFetch.length) {
     return { lists: [], resolved: true };
+  }
+
+  if (!isBrowserOnline()) {
+    const fetched: PlaceList[] = [];
+    for (const listId of idsToFetch) {
+      const cached = await getCachedList(listId);
+      if (cached) {
+        fetched.push({ ...cached, isSavedList: true } as PlaceList);
+      }
+    }
+    return { lists: fetched, resolved: fetched.length === idsToFetch.length };
   }
 
   const fetched: PlaceList[] = [];
@@ -32,24 +37,24 @@ export async function fetchSavedListsByIds(
 
     let chunkResolved = false;
     try {
-      const savedSnap = isBrowserOnline()
-        ? await getDocs(savedQuery)
-        : await getDocsFromCache(savedQuery);
+      const savedSnap = await getDocs(savedQuery);
       chunkResolved = true;
       savedSnap.forEach((docSnap) => {
-        fetched.push({ ...docSnap.data(), isSavedList: true } as PlaceList);
+        const list = { ...docSnap.data(), isSavedList: true } as PlaceList;
+        fetched.push(list);
+        void upsertCachedList(list);
       });
     } catch (networkError) {
       logger.error('Error fetching saved lists:', networkError);
-      try {
-        const cachedSnap = await getDocsFromCache(savedQuery);
-        chunkResolved = true;
-        cachedSnap.forEach((docSnap) => {
-          fetched.push({ ...docSnap.data(), isSavedList: true } as PlaceList);
-        });
-      } catch (cacheError) {
-        logger.error('Error fetching saved lists from cache:', cacheError);
+      let foundInChunk = 0;
+      for (const listId of chunk) {
+        const cached = await getCachedList(listId);
+        if (cached) {
+          fetched.push({ ...cached, isSavedList: true } as PlaceList);
+          foundInChunk += 1;
+        }
       }
+      chunkResolved = foundInChunk === chunk.length;
     }
 
     if (!chunkResolved) {

@@ -1,42 +1,29 @@
 import {
   doc,
-  getDoc,
-  setDoc,
   updateDoc,
-  deleteDoc,
   collection,
   query,
   where,
-  or,
-  orderBy,
   getDocs,
-  getDocFromCache,
   getDocFromServer,
-  getDocsFromCache,
   arrayUnion,
   arrayRemove,
   writeBatch,
-  onSnapshot,
-} from 'firebase/firestore';
-import type {
-  FirestoreDataConverter,
-  QueryDocumentSnapshot,
-  SnapshotOptions,
-  DocumentData,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  queueOfflineMutation,
+  removeCachedList,
+  removeCachedPlacesForList,
+  removeCachedUserList,
+  upsertCachedList,
+  upsertCachedUserLists,
+} from '@/lib/localDb';
+import { listRepository } from '@/lib/localDb/repositories/listRepository';
 import type { PlaceList, Collaborator, Permission } from '@/features/lists/types/list';
 import { logger } from '@/utils/logger';
-import { subscribeToUserProfile } from '@/features/auth/api/userProfileStore';
 import { getPlaceListAccessFields } from '@/features/places/utils/placeAccess';
-import { toMilliseconds } from '@/utils/date';
-import { omit } from '@/utils/objectUtils';
-import { fetchSavedListsByIds } from '@/features/lists/api/savedListsFetch';
-import { reconcileSavedLists } from '@/features/lists/api/reconcileSavedLists';
-
-function getExpectedCollaboratorIds(list: PlaceList): string[] {
-  return Array.from(new Set([list.ownerId, ...(list.collaborators?.map((c) => c.userId) || [])]));
-}
+import { listConverter } from '@/features/lists/api/listFirestore';
 
 function getExpectedEditorIds(list: PlaceList): string[] {
   return Array.from(
@@ -48,43 +35,7 @@ function getExpectedEditorIds(list: PlaceList): string[] {
   );
 }
 
-function needsListPermissionSync(data: PlaceList): Partial<PlaceList> | null {
-  const updates: Partial<PlaceList> = {};
-  const expectedIds = getExpectedCollaboratorIds(data);
-  const collaboratorIdsMatch =
-    data.collaboratorIds &&
-    data.collaboratorIds.length === expectedIds.length &&
-    expectedIds.every((id) => data.collaboratorIds!.includes(id));
-  if (!collaboratorIdsMatch) {
-    updates.collaboratorIds = expectedIds;
-  }
-
-  const expectedEditorIds = getExpectedEditorIds(data);
-  const editorIdsMatch =
-    data.editorIds &&
-    data.editorIds.length === expectedEditorIds.length &&
-    expectedEditorIds.every((id) => data.editorIds!.includes(id));
-  if (!editorIdsMatch) {
-    updates.editorIds = expectedEditorIds;
-  }
-
-  return Object.keys(updates).length > 0 ? updates : null;
-}
-
-export const listConverter: FirestoreDataConverter<PlaceList> = {
-  toFirestore(list: PlaceList): DocumentData {
-    return omit(list, ['id']);
-  },
-  fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): PlaceList {
-    const data = snapshot.data(options);
-    return {
-      id: snapshot.id,
-      ...data,
-      createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
-      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
-    } as PlaceList;
-  },
-};
+export { listConverter };
 
 export class ListService {
   static async createList(
@@ -135,23 +86,17 @@ export class ListService {
         newList.description = description.trim();
       }
 
-      await setDoc(listRef, newList);
-      return listRef.id;
+      const listId = listRef.id;
+      const listWithId: PlaceList = { ...newList, id: listId };
+
+      await queueOfflineMutation('createList', listId, { listId, list: listWithId }, async () => {
+        await upsertCachedList(listWithId);
+        await upsertCachedUserLists(ownerId, [listWithId]);
+      });
+
+      return listId;
     } catch (error) {
       logger.error('Error creating list:', error);
-      throw error;
-    }
-  }
-
-  static async getList(listId: string): Promise<PlaceList | null> {
-    try {
-      const listDoc = await getDoc(doc(db, 'lists', listId).withConverter(listConverter));
-      if (listDoc.exists()) {
-        return listDoc.data();
-      }
-      return null;
-    } catch (error) {
-      logger.error('Error getting list:', error);
       throw error;
     }
   }
@@ -165,92 +110,6 @@ export class ListService {
       return null;
     } catch (error) {
       logger.error('Error getting list from server:', error);
-      throw error;
-    }
-  }
-
-  static async getUserLists(userId: string): Promise<PlaceList[]> {
-    try {
-      const lists: PlaceList[] = [];
-
-      // Get all lists where user is owner OR collaborator in a single query
-      // This will automatically find legacy lists (via ownerId) and shared lists (via collaboratorIds)
-      const { UserService } = await import('@/features/auth/api/userService');
-      const user = await UserService.getUser(userId);
-
-      const q = query(
-        collection(db, 'lists').withConverter(listConverter),
-        or(where('ownerId', '==', userId), where('collaboratorIds', 'array-contains', userId))
-      );
-
-      const snapshot = await getDocs(q);
-      const batch = writeBatch(db);
-      let updatesNeeded = false;
-
-      snapshot.forEach((snapDoc) => {
-        const data = snapDoc.data();
-        const list = { ...data };
-        lists.push(list);
-
-        const permissionUpdates = needsListPermissionSync(data);
-        if (permissionUpdates) {
-          batch.update(snapDoc.ref, permissionUpdates);
-          updatesNeeded = true;
-        }
-      });
-
-      if (updatesNeeded) {
-        batch.commit().catch((err) => logger.error('Error in list self-healing:', err));
-      }
-
-      // Fetch saved lists
-      if (user?.savedLists && user.savedLists.length > 0) {
-        const { documentId } = await import('firebase/firestore');
-        const uniqueIds = Array.from(new Set(user.savedLists));
-        // Remove ids we already fetched
-        const existingIds = new Set(lists.map((l) => l.id));
-        const idsToFetch = uniqueIds.filter((id) => !existingIds.has(id));
-
-        if (idsToFetch.length > 0) {
-          const chunks: string[][] = [];
-          for (let i = 0; i < idsToFetch.length; i += 10) {
-            chunks.push(idsToFetch.slice(i, i + 10));
-          }
-
-          for (const chunk of chunks) {
-            const savedQuery = query(
-              collection(db, 'lists').withConverter(listConverter),
-              where(documentId(), 'in', chunk)
-            );
-            const savedSnap = await getDocs(savedQuery);
-            savedSnap.forEach((docSnap) => {
-              lists.push({ ...docSnap.data(), isSavedList: true } as PlaceList & {
-                isSavedList: boolean;
-              });
-            });
-          }
-        }
-      }
-
-      // Sort client-side by updatedAt descending
-      return lists.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
-    } catch (error) {
-      logger.error('Error getting user lists:', error);
-      throw error;
-    }
-  }
-
-  static async getPublicLists(): Promise<PlaceList[]> {
-    try {
-      const q = query(
-        collection(db, 'lists').withConverter(listConverter),
-        where('isPublic', '==', true),
-        orderBy('updatedAt', 'desc')
-      );
-      const querySnapshot = await getDocs(q);
-      return querySnapshot.docs.map((doc) => doc.data());
-    } catch (error) {
-      logger.error('Error getting public lists:', error);
       throw error;
     }
   }
@@ -276,7 +135,7 @@ export class ListService {
 
   static async syncPlaceAccessFields(listId: string): Promise<void> {
     try {
-      const list = await this.getList(listId);
+      const list = await listRepository.getById(listId);
       if (!list) return;
 
       const accessFields = getPlaceListAccessFields(list);
@@ -315,43 +174,32 @@ export class ListService {
         updateData.updatedBy = userId;
       }
 
-      await updateDoc(doc(db, 'lists', listId), updateData);
+      await queueOfflineMutation(
+        'updateList',
+        listId,
+        { listId, updates: updateData },
+        async () => {
+          const cached = await listRepository.getById(listId);
+          if (cached) {
+            await upsertCachedList({ ...cached, ...updateData });
+          }
+        }
+      );
     } catch (error) {
       logger.error('Error updating list:', error);
       throw error;
     }
   }
 
-  static async deleteList(listId: string): Promise<void> {
+  static async deleteList(listId: string, userId?: string): Promise<void> {
     try {
-      // 1. Find all places in the list
-      const placesQuery = query(collection(db, 'places'), where('listId', '==', listId));
-      const placesSnapshot = await getDocs(placesQuery);
-
-      const places = placesSnapshot.docs;
-
-      if (places.length === 0) {
-        await deleteDoc(doc(db, 'lists', listId));
-        return;
-      }
-
-      const BATCH_SIZE = 499;
-
-      for (let i = 0; i < places.length; i += BATCH_SIZE) {
-        const batch = writeBatch(db);
-        const chunk = places.slice(i, i + BATCH_SIZE);
-
-        chunk.forEach((placeDoc) => {
-          batch.delete(placeDoc.ref);
-        });
-
-        // If this is the last chunk, OR the only chunk, include the list deletion in this batch
-        if (i + BATCH_SIZE >= places.length) {
-          batch.delete(doc(db, 'lists', listId));
+      await queueOfflineMutation('deleteList', listId, { listId }, async () => {
+        await removeCachedPlacesForList(listId);
+        await removeCachedList(listId);
+        if (userId) {
+          await removeCachedUserList(userId, listId);
         }
-
-        await batch.commit();
-      }
+      });
     } catch (error) {
       logger.error('Error deleting list:', error);
       throw error;
@@ -391,7 +239,7 @@ export class ListService {
 
   static async removeCollaborator(listId: string, userId: string): Promise<void> {
     try {
-      const list = await this.getList(listId);
+      const list = await listRepository.getById(listId);
       if (!list) throw new Error('List not found');
 
       const collaboratorToRemove = list.collaborators.find((c) => c.userId === userId);
@@ -415,7 +263,7 @@ export class ListService {
     permission: Permission
   ): Promise<void> {
     try {
-      const list = await this.getList(listId);
+      const list = await listRepository.getById(listId);
       if (!list) throw new Error('List not found');
 
       const updatedCollaborators = list.collaborators.map((c) =>
@@ -476,189 +324,5 @@ export class ListService {
       logger.error('Error removing custom status:', error);
       throw error;
     }
-  }
-
-  static subscribeToUserLists(
-    userId: string,
-    onUpdate: (lists: PlaceList[]) => void,
-    onError: (error: Error) => void
-  ): () => void {
-    let ownedLists: PlaceList[] = [];
-    let savedLists: PlaceList[] = [];
-    let savedListIds: string[] = [];
-    let lastSavedListIdsKey = '';
-    let fetchSavedListsSeq = 0;
-
-    const emit = () => {
-      const existingIds = new Set(ownedLists.map((list) => list.id));
-      const merged = [...ownedLists, ...savedLists.filter((list) => !existingIds.has(list.id))];
-      merged.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
-      onUpdate(merged);
-    };
-
-    const fetchSavedLists = async (ids: string[]) => {
-      const seq = ++fetchSavedListsSeq;
-
-      if (!ids.length) {
-        savedLists = [];
-        if (seq === fetchSavedListsSeq) {
-          emit();
-        }
-        return;
-      }
-
-      try {
-        const existingIds = new Set(ownedLists.map((list) => list.id));
-        const idsToFetch = Array.from(new Set(ids)).filter((id) => !existingIds.has(id));
-
-        if (!idsToFetch.length) {
-          savedLists = [];
-          if (seq === fetchSavedListsSeq) {
-            emit();
-          }
-          return;
-        }
-
-        const { lists: fetched, resolved } = await fetchSavedListsByIds(idsToFetch, listConverter);
-
-        if (seq === fetchSavedListsSeq) {
-          savedLists = reconcileSavedLists({
-            profileIds: ids,
-            ownedIds: existingIds,
-            previousSavedLists: savedLists,
-            fetched,
-            resolved,
-          });
-          emit();
-        }
-      } catch (err) {
-        logger.error('Error fetching saved lists:', err);
-      }
-    };
-
-    const listsQuery = query(
-      collection(db, 'lists').withConverter(listConverter),
-      or(where('ownerId', '==', userId), where('collaboratorIds', 'array-contains', userId))
-    );
-
-    const unsubscribeLists = onSnapshot(
-      listsQuery,
-      (snapshot) => {
-        const lists: PlaceList[] = [];
-        const batch = writeBatch(db);
-        let updatesNeeded = false;
-
-        snapshot.forEach((snapDoc) => {
-          const data = snapDoc.data();
-          lists.push({ ...data });
-
-          const permissionUpdates = needsListPermissionSync(data);
-          if (permissionUpdates) {
-            batch.update(snapDoc.ref, permissionUpdates);
-            updatesNeeded = true;
-          }
-        });
-
-        if (updatesNeeded) {
-          batch.commit().catch((err) => logger.error('Error in list self-healing:', err));
-        }
-
-        ownedLists = lists;
-        emit();
-      },
-      (err) => {
-        logger.error('Error subscribing to user lists:', err);
-        onError(err);
-      }
-    );
-
-    const unsubscribeUser = subscribeToUserProfile(userId, (profile) => {
-      const ids = profile?.savedLists ?? [];
-      const idsKey = ids.join('|');
-      if (idsKey !== lastSavedListIdsKey) {
-        lastSavedListIdsKey = idsKey;
-        savedListIds = ids;
-        void fetchSavedLists(savedListIds);
-      }
-    });
-
-    return () => {
-      unsubscribeLists();
-      unsubscribeUser();
-    };
-  }
-
-  static async getListFromCache(listId: string): Promise<PlaceList | null> {
-    try {
-      const listRef = doc(db, 'lists', listId).withConverter(listConverter);
-      const listSnap = await getDocFromCache(listRef);
-      return listSnap.exists() ? listSnap.data() : null;
-    } catch {
-      return null;
-    }
-  }
-
-  static async getUserListsFromCache(userId: string): Promise<PlaceList[]> {
-    try {
-      const listsQuery = query(
-        collection(db, 'lists').withConverter(listConverter),
-        or(where('ownerId', '==', userId), where('collaboratorIds', 'array-contains', userId))
-      );
-      const ownedSnapshot = await getDocsFromCache(listsQuery);
-      const ownedLists = ownedSnapshot.docs.map((listDoc) => listDoc.data());
-
-      let savedLists: PlaceList[] = [];
-      try {
-        const userSnap = await getDocFromCache(doc(db, 'users', userId));
-        const savedListIds = (userSnap.data()?.savedLists as string[] | undefined) || [];
-        const existingIds = new Set(ownedLists.map((list) => list.id));
-        const idsToFetch = Array.from(new Set(savedListIds)).filter((id) => !existingIds.has(id));
-        const { documentId } = await import('firebase/firestore');
-
-        for (let i = 0; i < idsToFetch.length; i += 10) {
-          const chunk = idsToFetch.slice(i, i + 10);
-          const savedQuery = query(
-            collection(db, 'lists').withConverter(listConverter),
-            where(documentId(), 'in', chunk)
-          );
-          const savedSnapshot = await getDocsFromCache(savedQuery);
-          savedSnapshot.forEach((listDoc) => {
-            savedLists.push({ ...listDoc.data(), isSavedList: true } as PlaceList);
-          });
-        }
-      } catch {
-        savedLists = [];
-      }
-
-      const mergedIds = new Set(ownedLists.map((list) => list.id));
-      const merged = [...ownedLists, ...savedLists.filter((list) => !mergedIds.has(list.id))];
-      merged.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
-      return merged;
-    } catch {
-      return [];
-    }
-  }
-
-  static subscribeToList(
-    listId: string,
-    onUpdate: (list: PlaceList | null, meta: { fromCache: boolean }) => void,
-    onError: (error: Error) => void
-  ): () => void {
-    const listRef = doc(db, 'lists', listId).withConverter(listConverter);
-    return onSnapshot(
-      listRef,
-      (docSnap) => {
-        const meta = { fromCache: docSnap.metadata.fromCache };
-        if (docSnap.exists()) {
-          onUpdate(docSnap.data(), meta);
-        } else {
-          onUpdate(null, meta);
-        }
-      },
-      (err) => {
-        logger.error('Error subscribing to list:', err);
-        onError(err);
-      }
-    );
   }
 }

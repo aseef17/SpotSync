@@ -56,8 +56,17 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const { list, places, loading, error, updateList, hasMorePlaces, loadingMore, loadMorePlaces } =
-    useListDetails(listId);
+  const {
+    list,
+    places,
+    loading,
+    placesLoading,
+    error,
+    updateList,
+    hasMorePlaces,
+    loadingMore,
+    loadMorePlaces,
+  } = useListDetails(listId);
   const isMobile = useIsMobile();
 
   const [showAddPlacesModal, setShowAddPlacesModal] = useState(false);
@@ -513,6 +522,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
           <MobileListView
             list={displayedList}
             places={visiblePlaces}
+            placesLoading={placesLoading}
             filteredPlaces={filteredPlaces}
             filters={filters}
             onFiltersChange={setFilters}
@@ -875,26 +885,41 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                   )}
 
                   {places.length === 0 ? (
-                    <div
-                      className={`${themeColors.background.card} rounded-lg shadow-sm border p-12`}
-                    >
-                      <div className="text-center">
-                        <MapIcon className={`mx-auto h-12 w-12 ${themeColors.text.secondary}`} />
-                        <h3 className={`mt-2 text-lg font-medium ${themeColors.text.primary}`}>
-                          No places yet
-                        </h3>
-                        <p className={`mt-1 ${themeColors.text.secondary}`}>
-                          Get started by adding some places to your list.
-                        </p>
-                        <button
-                          onClick={() => setShowAddPlacesModal(true)}
-                          className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.primary} transition-colors`}
-                        >
-                          <Plus className="h-4 w-4 mr-2" />
-                          Add Your First Place
-                        </button>
+                    placesLoading ? (
+                      <div
+                        className={`${themeColors.background.card} rounded-lg shadow-sm border p-12`}
+                      >
+                        <div className="text-center py-6">
+                          <div
+                            className={`mx-auto h-8 w-8 animate-spin rounded-full border-2 border-blue-500 border-t-transparent`}
+                          />
+                          <p className={`mt-4 text-sm ${themeColors.text.secondary}`}>
+                            Loading places...
+                          </p>
+                        </div>
                       </div>
-                    </div>
+                    ) : (
+                      <div
+                        className={`${themeColors.background.card} rounded-lg shadow-sm border p-12`}
+                      >
+                        <div className="text-center">
+                          <MapIcon className={`mx-auto h-12 w-12 ${themeColors.text.secondary}`} />
+                          <h3 className={`mt-2 text-lg font-medium ${themeColors.text.primary}`}>
+                            No places yet
+                          </h3>
+                          <p className={`mt-1 ${themeColors.text.secondary}`}>
+                            Get started by adding some places to your list.
+                          </p>
+                          <button
+                            onClick={() => setShowAddPlacesModal(true)}
+                            className={`mt-4 inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md ${themeColors.button.primary} transition-colors`}
+                          >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Add Your First Place
+                          </button>
+                        </div>
+                      </div>
+                    )
                   ) : (
                     <AnimatePresence mode="popLayout">
                       <motion.div

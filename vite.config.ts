@@ -5,6 +5,11 @@ import path from 'path';
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  assetsInclude: ['**/*.wasm'],
+  optimizeDeps: {
+    // Pre-bundle the explicit wasm entry so CJS default interop works in dev.
+    include: ['sql.js/dist/sql-wasm.js'],
+  },
   test: {
     environment: 'node',
   },

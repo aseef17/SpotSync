@@ -17,7 +17,8 @@ import { ListIcon } from '@/features/lists/components/ListIcon';
 import { useNotifications } from '@/features/notifications/hooks/useNotifications';
 import { logger } from '@/utils/logger';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
-import { CollaborationService } from '@/features/lists/api/collaborationService';
+import { subscribeToRecipientInvitationsShared } from '@/features/lists/api/invitationRecipientSubscriptionStore';
+import { prefetchListView } from '@/features/lists/lib/prefetchListView';
 
 const isPendingOptimisticList = (
   list: PlaceList,
@@ -58,6 +59,14 @@ export const Dashboard: React.FunctionComponent = () => {
   const { trigger: triggerAction } = useDeferredAction();
   const [removedListIds, setRemovedListIds] = useState<Set<string>>(() => new Set());
   const prevListIdsRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    prefetchListView();
+  }, []);
+
+  const prefetchListRoute = useCallback(() => {
+    prefetchListView();
+  }, []);
 
   // Drop optimistic entries once Firestore confirms the list by id or clientId
   const activeOptimisticLists = useMemo(() => {
@@ -120,20 +129,21 @@ export const Dashboard: React.FunctionComponent = () => {
   const myLists = useMemo(() => displayedLists.filter((l) => !l.isSavedList), [displayedLists]);
   const savedLists = useMemo(() => displayedLists.filter((l) => l.isSavedList), [displayedLists]);
 
+  const canTrackInvitations = Boolean(user?.email || user?.username);
+  const displayedPendingInvitationCount = canTrackInvitations ? pendingInvitationCount : 0;
+
   useEffect(() => {
-    if (!user?.id) return;
+    if (!canTrackInvitations) {
+      return;
+    }
 
-    const loadPendingCount = async () => {
-      try {
-        const invitations = await CollaborationService.getPendingInvitations(user.id);
-        setPendingInvitationCount(invitations.length);
-      } catch (err) {
-        logger.error('Failed to load pending invitations count', err);
-      }
-    };
-
-    void loadPendingCount();
-  }, [user?.id]);
+    return subscribeToRecipientInvitationsShared(
+      user?.email,
+      user?.username,
+      (invitations) => setPendingInvitationCount(invitations.length),
+      (err) => logger.error('Failed to sync pending invitations', err)
+    );
+  }, [canTrackInvitations, user?.email, user?.username]);
 
   const resetForm = () => {
     setEditingList(null);
@@ -422,9 +432,9 @@ export const Dashboard: React.FunctionComponent = () => {
                   </p>
                 </div>
               </div>
-              {pendingInvitationCount > 0 && (
+              {displayedPendingInvitationCount > 0 && (
                 <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-red-500 px-2 text-xs font-bold text-white">
-                  {pendingInvitationCount}
+                  {displayedPendingInvitationCount}
                 </span>
               )}
             </div>
@@ -515,6 +525,8 @@ export const Dashboard: React.FunctionComponent = () => {
                       >
                         <Link
                           to={list.id.startsWith('temp-') ? '#' : `/list/${list.id}`}
+                          onMouseEnter={prefetchListRoute}
+                          onFocus={prefetchListRoute}
                           onClick={(e) => {
                             if (list.id.startsWith('temp-')) {
                               e.preventDefault();
@@ -618,6 +630,8 @@ export const Dashboard: React.FunctionComponent = () => {
                         >
                           <Link
                             to={`/list/${list.id}`}
+                            onMouseEnter={prefetchListRoute}
+                            onFocus={prefetchListRoute}
                             className={`${themeColors.background.card} border rounded-lg p-4 hover:shadow-md transition-shadow cursor-pointer block h-full`}
                           >
                             <div className="flex items-start justify-between">

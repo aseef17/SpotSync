@@ -1,5 +1,10 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useLocation } from 'react-router-dom';
 import { ListService } from '@/features/lists/api/listService';
+import { listRepository } from '@/lib/localDb/repositories/listRepository';
+import { changeTopics, subscribeToChanges } from '@/lib/localDb/changeBus';
+import { getLocalDatabase, subscribeLocalDataChanges } from '@/lib/localDb';
+import { prefetchListView } from '@/features/lists/lib/prefetchListView';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
@@ -16,6 +21,8 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
   userId,
   children,
 }) => {
+  const location = useLocation();
+  const isDashboard = location.pathname === '/dashboard';
   const [lists, setLists] = useState<PlaceList[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -30,6 +37,9 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
       return;
     }
 
+    prefetchListView();
+    void getLocalDatabase();
+
     let cancelled = false;
     let hasCachedData = false;
 
@@ -37,7 +47,7 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
     setIsOfflineView(!isBrowserOnline());
 
     const hydrateFromCache = async () => {
-      const cachedLists = await ListService.getUserListsFromCache(userId);
+      const cachedLists = await listRepository.getForUser(userId);
       if (cancelled || cachedLists.length === 0) {
         return;
       }
@@ -62,25 +72,36 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
       isBrowserOnline() ? OFFLINE_LOAD_TIMEOUT_MS : 3000
     );
 
-    const unsubscribe = ListService.subscribeToUserLists(
-      userId,
-      (updatedLists) => {
-        if (cancelled) return;
-        hasCachedData = updatedLists.length > 0;
-        setLists(updatedLists);
-        setLoading(false);
-        setError(null);
-        setIsOfflineView(!isBrowserOnline());
-      },
-      (err) => {
-        if (cancelled) return;
-        logger.error('Error in lists subscription:', err);
-        if (!hasCachedData) {
-          setError('Failed to load lists');
-        }
-        setLoading(false);
+    const handleUpdate = (updatedLists: PlaceList[]) => {
+      if (cancelled) return;
+      hasCachedData = updatedLists.length > 0;
+      setLists(updatedLists);
+      setLoading(false);
+      setError(null);
+      setIsOfflineView(!isBrowserOnline());
+    };
+
+    const handleError = (err: Error) => {
+      if (cancelled) return;
+      logger.error('Error in lists subscription:', err);
+      if (!hasCachedData) {
+        setError('Failed to load lists');
       }
-    );
+      setLoading(false);
+    };
+
+    let unsubscribe = () => {};
+    if (isDashboard) {
+      unsubscribe = listRepository.subscribeToUserLists(userId, handleUpdate, handleError, {
+        enableSync: true,
+        includeProfileSync: true,
+      });
+    } else {
+      const unsubscribeChanges = subscribeToChanges(changeTopics.userLists(userId), () => {
+        void hydrateFromCache();
+      });
+      unsubscribe = unsubscribeChanges;
+    }
 
     const handleOnline = () => setIsOfflineView(false);
     const handleOffline = () => setIsOfflineView(true);
@@ -94,6 +115,23 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
       window.removeEventListener('offline', handleOffline);
       unsubscribe();
     };
+  }, [userId, isDashboard]);
+
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    return subscribeLocalDataChanges(() => {
+      void (async () => {
+        const cachedLists = await listRepository.getForUser(userId);
+        if (cachedLists.length > 0) {
+          setLists(cachedLists);
+          setLoading(false);
+          setError(null);
+        }
+      })();
+    });
   }, [userId]);
 
   useEffect(() => {
@@ -165,14 +203,17 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
     []
   );
 
-  const deleteList = useCallback(async (listId: string) => {
-    try {
-      await ListService.deleteList(listId);
-    } catch (err) {
-      logger.error('Error deleting list:', err);
-      throw err;
-    }
-  }, []);
+  const deleteList = useCallback(
+    async (listId: string) => {
+      try {
+        await ListService.deleteList(listId, userId);
+      } catch (err) {
+        logger.error('Error deleting list:', err);
+        throw err;
+      }
+    },
+    [userId]
+  );
 
   const value = useMemo<ListsContextValue>(
     () => ({

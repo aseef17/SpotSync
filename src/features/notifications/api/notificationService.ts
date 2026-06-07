@@ -1,7 +1,9 @@
 import { getToken, onMessage, type Messaging } from 'firebase/messaging';
 import { logger } from '@/utils/logger';
 import { ensureFirebaseMessaging, db } from '@/lib/firebase';
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { getCachedUser, patchCachedUser, queueOfflineMutation } from '@/lib/localDb';
+import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 
 export interface NotificationPayload {
   notification?: {
@@ -11,8 +13,35 @@ export interface NotificationPayload {
   data?: Record<string, string>;
 }
 
+let serviceWorkerRegistrationPromise: Promise<ServiceWorkerRegistration> | null = null;
+let tokenOperationChain: Promise<unknown> = Promise.resolve();
+let cachedFcmToken: string | null = null;
+
+function isIndexedDbClosingError(error: unknown): boolean {
+  return (
+    error instanceof DOMException &&
+    (error.name === 'InvalidStateError' || error.message.includes('database connection is closing'))
+  );
+}
+
+function enqueueTokenOperation<T>(operation: () => Promise<T>): Promise<T> {
+  const result = tokenOperationChain.then(operation, operation);
+  tokenOperationChain = result.then(
+    () => undefined,
+    () => undefined
+  );
+  return result;
+}
+
 export class NotificationService {
-  static async requestPermission(userId: string): Promise<boolean> {
+  static getCachedToken(): string | null {
+    return cachedFcmToken;
+  }
+
+  static async requestPermission(
+    userId: string,
+    options?: { enableNotifications?: boolean }
+  ): Promise<boolean> {
     const messaging = await ensureFirebaseMessaging();
     if (!messaging) {
       logger.warn('Firebase Messaging not supported');
@@ -21,24 +50,70 @@ export class NotificationService {
 
     try {
       const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
-        const token = await this.getFCMToken(messaging);
-        if (token) {
-          await this.saveTokenToUser(userId, token);
-          return true;
-        }
+      if (permission !== 'granted') {
+        return false;
       }
-      return false;
+
+      const token = await this.getFCMToken(messaging);
+      if (!token) {
+        return false;
+      }
+
+      return await this.saveTokenToUser(userId, token, options);
     } catch (error) {
       logger.error('Error requesting notification permission:', error);
       return false;
     }
   }
 
-  static async getFCMToken(messaging: Messaging): Promise<string | null> {
+  private static resetServiceWorkerRegistration(): void {
+    serviceWorkerRegistrationPromise = null;
+  }
+
+  private static async getServiceWorkerRegistration(): Promise<ServiceWorkerRegistration | null> {
+    if (!('serviceWorker' in navigator)) {
+      return null;
+    }
+
+    if (!serviceWorkerRegistrationPromise) {
+      serviceWorkerRegistrationPromise = navigator.serviceWorker
+        .register('/firebase-messaging-sw.js')
+        .then(async (registration) => {
+          await navigator.serviceWorker.ready;
+          return registration;
+        })
+        .catch((error) => {
+          this.resetServiceWorkerRegistration();
+          throw error;
+        });
+    }
+
     try {
-      if ('serviceWorker' in navigator) {
-        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+      return await serviceWorkerRegistrationPromise;
+    } catch (error) {
+      logger.error('Service worker registration failed:', error);
+      return null;
+    }
+  }
+
+  static async getFCMToken(messaging: Messaging): Promise<string | null> {
+    return enqueueTokenOperation(() => this.getFCMTokenInternal(messaging));
+  }
+
+  private static async getFCMTokenInternal(messaging: Messaging): Promise<string | null> {
+    if (!import.meta.env.VITE_FIREBASE_VAPID_KEY) {
+      logger.error('VITE_FIREBASE_VAPID_KEY is not configured');
+      return null;
+    }
+
+    const maxAttempts = 3;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      try {
+        const registration = await this.getServiceWorkerRegistration();
+        if (!registration) {
+          return null;
+        }
 
         const token = await getToken(messaging, {
           vapidKey: import.meta.env.VITE_FIREBASE_VAPID_KEY,
@@ -46,39 +121,71 @@ export class NotificationService {
         });
 
         if (token) {
+          cachedFcmToken = token;
           logger.info('FCM Token successfully retrieved:', token);
           return token;
-        } else {
-          logger.warn(
-            'FCM Token retrieval returned null. Check VAPID key and messaging permissions.'
-          );
-          return null;
         }
-      } else {
-        logger.error('Service Workers are not supported in this browser environment.');
+
+        logger.warn(
+          'FCM Token retrieval returned null. Check VAPID key and messaging permissions.'
+        );
+        return null;
+      } catch (error) {
+        if (isIndexedDbClosingError(error) && attempt < maxAttempts) {
+          logger.warn(
+            `[notifications] FCM IndexedDB busy, retrying (${attempt}/${maxAttempts - 1})...`
+          );
+          this.resetServiceWorkerRegistration();
+          await new Promise((resolve) => window.setTimeout(resolve, 400 * attempt));
+          continue;
+        }
+
+        logger.error('FCM Token Error: An error occurred while retrieving token:', error);
         return null;
       }
-    } catch (error) {
-      logger.error('FCM Token Error: An error occurred while retrieving token:', error);
-      return null;
     }
+
+    return null;
   }
 
-  static async saveTokenToUser(userId: string, token: string): Promise<void> {
+  static async saveTokenToUser(
+    userId: string,
+    token: string,
+    options?: { enableNotifications?: boolean }
+  ): Promise<boolean> {
     try {
       const userRef = doc(db, 'users', userId);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.data()?.notificationsDisabled === true) {
-        logger.info(`Skipping FCM token save for users/${userId} — notifications disabled`);
-        return;
+      const updates: Record<string, unknown> = {
+        fcmTokens: arrayUnion(token),
+      };
+
+      if (options?.enableNotifications) {
+        updates.notificationsDisabled = false;
       }
 
-      await updateDoc(userRef, {
-        fcmTokens: arrayUnion(token),
+      await updateDoc(userRef, updates);
+
+      const cached = await getCachedUser(userId);
+      const existingTokens = cached?.fcmTokens ?? [];
+      const mergedTokens = existingTokens.includes(token)
+        ? existingTokens
+        : [...existingTokens, token];
+
+      await patchCachedUser(userId, {
+        fcmTokens: mergedTokens,
+        ...(options?.enableNotifications ? { notificationsDisabled: false } : {}),
+        updatedAt: new Date(),
       });
-      logger.info(`FCM Token successfully synced to users/${userId}`);
+      emitChange(changeTopics.user(userId));
+
+      cachedFcmToken = token;
+      logger.info(
+        `FCM Token successfully synced to users/${userId}${options?.enableNotifications ? ' (notifications enabled)' : ''}`
+      );
+      return true;
     } catch (error) {
       logger.error(`FCM Sync Error: Failed to save token to users/${userId}:`, error);
+      return false;
     }
   }
 
@@ -88,31 +195,33 @@ export class NotificationService {
       await updateDoc(userRef, {
         fcmTokens: arrayRemove(token),
       });
+
+      await patchCachedUser(userId, {
+        fcmTokens: [],
+        updatedAt: new Date(),
+      });
+      emitChange(changeTopics.user(userId));
+
+      if (cachedFcmToken === token) {
+        cachedFcmToken = null;
+      }
       logger.info(`FCM Token removed from users/${userId}`);
     } catch (error) {
       logger.error(`FCM Removal Error: Failed to remove token from users/${userId}:`, error);
     }
   }
 
-  static async removeTokenFromUser(userId: string): Promise<void> {
-    try {
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        fcmTokens: [],
-        notificationsDisabled: true,
-      });
-      logger.info(`FCM Tokens successfully removed from users/${userId}`);
-    } catch (error) {
-      logger.error(`FCM Removal Error: Failed to remove tokens from users/${userId}:`, error);
-    }
-  }
-
   static async setNotificationsDisabled(userId: string, disabled: boolean): Promise<void> {
     try {
-      const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        notificationsDisabled: disabled,
-      });
+      await queueOfflineMutation(
+        'setNotificationsDisabled',
+        userId,
+        { userId, disabled },
+        async () => {
+          await patchCachedUser(userId, { notificationsDisabled: disabled, updatedAt: new Date() });
+          emitChange(changeTopics.user(userId));
+        }
+      );
       logger.info(`Notifications global status set to ${disabled} for users/${userId}`);
     } catch (error) {
       logger.error(`Failed to set notifications status to ${disabled} for users/${userId}:`, error);

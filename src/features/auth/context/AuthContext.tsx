@@ -13,14 +13,7 @@ import {
   type User as FirebaseUser,
   type UserCredential,
 } from 'firebase/auth';
-import {
-  doc,
-  setDoc,
-  getDoc,
-  getDocFromCache,
-  getDocFromServer,
-  runTransaction,
-} from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocFromServer, runTransaction } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import type { User } from '@/features/auth/types/user';
@@ -80,27 +73,19 @@ const loadUserProfile = async (uid: string): Promise<User | null> => {
   let profile: User | null = null;
 
   try {
-    const cached = await getDocFromCache(doc(db, 'users', uid));
-    if (cached.exists()) {
-      profile = cached.data() as User;
-    }
-  } catch {
-    // Not in local cache yet.
-  }
+    const { readUserProfileFromCache, waitForCachedUserProfile } =
+      await import('@/features/auth/api/userProfileBootstrap');
+    profile = await readUserProfileFromCache(uid);
 
-  if (!profile) {
-    if (!isBrowserOnline()) {
-      return null;
-    }
-
-    try {
-      const userDoc = await getDoc(doc(db, 'users', uid));
-      if (userDoc.exists()) {
-        profile = userDoc.data() as User;
+    if (!profile) {
+      if (!isBrowserOnline()) {
+        return resolveProfileUnlessDeletionPending(uid, null);
       }
-    } catch (error) {
-      logger.error('Failed to load user profile:', error);
+
+      profile = await waitForCachedUserProfile(uid);
     }
+  } catch (error) {
+    logger.error('Failed to load user profile:', error);
   }
 
   return resolveProfileUnlessDeletionPending(uid, profile);
@@ -232,6 +217,8 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
   const [googleMapsConnected, setGoogleMapsConnected] = useState(false);
 
   useEffect(() => {
+    let lastAuthenticatedUid: string | null = null;
+
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       const handlerGeneration = beginAuthStateHandler();
 
@@ -240,6 +227,14 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
             return;
           }
+
+          const { initLocalDataStore, resetLocalDataRuntime } = await import('@/lib/localDb');
+          if (lastAuthenticatedUid && lastAuthenticatedUid !== fbUser.uid) {
+            await resetLocalDataRuntime();
+          }
+          lastAuthenticatedUid = fbUser.uid;
+          await initLocalDataStore();
+
           setFirebaseUser(fbUser);
           setUser((prev) => (shouldRetainUserOnAuthChange(prev?.id, fbUser.uid) ? prev : null));
 
@@ -360,6 +355,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
             return;
           }
+          lastAuthenticatedUid = null;
+          const { resetLocalDataRuntime } = await import('@/lib/localDb');
+          await resetLocalDataRuntime();
           setFirebaseUser(null);
           setUser(null);
         }
@@ -531,6 +529,8 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
   }, []);
 
   const logout = useCallback(async () => {
+    const { resetLocalDataRuntime } = await import('@/lib/localDb');
+    await resetLocalDataRuntime();
     await signOut(auth);
   }, []);
 

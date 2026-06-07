@@ -1,8 +1,13 @@
-import React, { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { logger } from '@/utils/logger';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { NotificationService } from '@/features/notifications/api/notificationService';
-import { subscribeToUserProfile } from '@/features/auth/api/userProfileStore';
+import {
+  subscribeToUserProfile,
+  subscribeToUserProfileCacheOnly,
+  type UserProfileSnapshot,
+} from '@/features/auth/api/userProfileStore';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { useToastContext } from '@/hooks/useToastContext';
 import { NotificationContext } from './NotificationContext';
@@ -11,65 +16,106 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
   children,
 }) => {
   const { user, requiresEmailVerification } = useAuth();
+  const location = useLocation();
   const canSyncNotifications = !!user && !requiresEmailVerification;
+  const isDashboard = location.pathname === '/dashboard';
+  const isSettings = location.pathname === '/settings';
+  // Live profile sync only on dashboard (ListsProvider also uses profile sync there; registry dedupes).
+  const shouldSyncProfile = canSyncNotifications && isDashboard;
+  const shouldReadProfileCache = canSyncNotifications && isSettings;
+  const shouldAttemptFcmSync =
+    canSyncNotifications &&
+    typeof Notification !== 'undefined' &&
+    Notification.permission === 'granted';
   const { addToast } = useToastContext();
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [tokenSynced, setTokenSynced] = useState(false);
   const [notificationsDisabled, setNotificationsDisabled] = useState(false);
   const [preferencesLoaded, setPreferencesLoaded] = useState(false);
+  const syncInFlightRef = useRef(false);
 
   useEffect(() => {
     if ('Notification' in window) {
-      // Check once on mount
-      const checkPermission = () => {
-        const isGranted = Notification.permission === 'granted';
-        setPermissionGranted(isGranted);
-
-        // Wait for Firestore preferences before auto-syncing to avoid re-adding tokens
-        // for users who explicitly disabled notifications.
-        if (!preferencesLoaded) return;
-
-        // DO NOT auto-sync if notifications are explicitly disabled by the user
-        if (isGranted && canSyncNotifications && !notificationsDisabled) {
-          // Check if we need to sync (if not synced or if last check was a while ago)
-          const lastCheck = sessionStorage.getItem(`fcm_sync_${user.id}`);
-          const isRecentlyChecked = lastCheck && Date.now() - parseInt(lastCheck) < 600000; // 10 mins
-
-          if (!tokenSynced || !isRecentlyChecked) {
-            NotificationService.requestPermission(user.id)
-              .then(() => sessionStorage.setItem(`fcm_sync_${user.id}`, Date.now().toString()))
-              .catch((err) => logger.error('Failed to sync notification token on mount:', err));
-          }
-        }
-      };
-
-      checkPermission();
+      setPermissionGranted(Notification.permission === 'granted');
     }
-  }, [canSyncNotifications, user, tokenSynced, notificationsDisabled, preferencesLoaded]);
+  }, []);
 
-  // Live listener for user's FCM tokens status
   useEffect(() => {
-    if (!canSyncNotifications || !user?.id) {
+    if (
+      !('Notification' in window) ||
+      !preferencesLoaded ||
+      !canSyncNotifications ||
+      !user?.id ||
+      notificationsDisabled ||
+      tokenSynced ||
+      syncInFlightRef.current ||
+      !shouldAttemptFcmSync
+    ) {
+      return;
+    }
+
+    if (Notification.permission !== 'granted') {
+      return;
+    }
+
+    const lastCheck = sessionStorage.getItem(`fcm_sync_${user.id}`);
+    const isRecentlyChecked = lastCheck && Date.now() - parseInt(lastCheck, 10) < 600000;
+    if (isRecentlyChecked) {
+      return;
+    }
+
+    syncInFlightRef.current = true;
+    void NotificationService.requestPermission(user.id)
+      .then((granted) => {
+        sessionStorage.setItem(`fcm_sync_${user.id}`, Date.now().toString());
+        if (granted) {
+          setTokenSynced(true);
+        }
+      })
+      .catch((err) => logger.error('Failed to sync notification token on mount:', err))
+      .finally(() => {
+        syncInFlightRef.current = false;
+      });
+  }, [
+    canSyncNotifications,
+    notificationsDisabled,
+    preferencesLoaded,
+    shouldAttemptFcmSync,
+    tokenSynced,
+    user?.id,
+  ]);
+
+  useEffect(() => {
+    if ((!shouldSyncProfile && !shouldReadProfileCache) || !user?.id) {
       setPreferencesLoaded(false);
       setTokenSynced(false);
       setNotificationsDisabled(false);
       return;
     }
 
-    setPreferencesLoaded(false);
-
     let cancelled = false;
 
-    const unsubscribe = subscribeToUserProfile(user.id, (profile) => {
+    const applyProfile = (profile: UserProfileSnapshot | null) => {
+      if (cancelled) return;
+
       if (profile) {
-        setTokenSynced(profile.fcmTokens.length > 0);
+        if (profile.fcmTokens.length > 0) {
+          setTokenSynced(true);
+        } else if (profile.notificationsDisabled) {
+          setTokenSynced(false);
+        }
         setNotificationsDisabled(profile.notificationsDisabled);
       } else {
         setTokenSynced(false);
         setNotificationsDisabled(false);
       }
+
       setPreferencesLoaded(true);
-    });
+    };
+
+    const unsubscribe = shouldSyncProfile
+      ? subscribeToUserProfile(user.id, applyProfile)
+      : subscribeToUserProfileCacheOnly(user.id, applyProfile);
 
     const timeoutId = window.setTimeout(
       () => {
@@ -85,36 +131,45 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
       window.clearTimeout(timeoutId);
       unsubscribe();
     };
-  }, [canSyncNotifications, user?.id]);
+  }, [shouldSyncProfile, shouldReadProfileCache, user?.id]);
 
   const requestPermission = useCallback(async () => {
     if (!user || requiresEmailVerification) return false;
-    const granted = await NotificationService.requestPermission(user.id);
-    if (granted) {
-      await NotificationService.setNotificationsDisabled(user.id, false);
+
+    while (syncInFlightRef.current) {
+      await new Promise((resolve) => window.setTimeout(resolve, 100));
     }
-    setPermissionGranted(granted);
-    return granted;
+
+    syncInFlightRef.current = true;
+    setNotificationsDisabled(false);
+
+    try {
+      const granted = await NotificationService.requestPermission(user.id, {
+        enableNotifications: true,
+      });
+      setPermissionGranted(granted || Notification.permission === 'granted');
+      if (granted) {
+        setTokenSynced(true);
+        sessionStorage.setItem(`fcm_sync_${user.id}`, Date.now().toString());
+      }
+      return granted;
+    } finally {
+      syncInFlightRef.current = false;
+    }
   }, [user, requiresEmailVerification]);
 
   const disableNotifications = useCallback(async () => {
     if (!user || requiresEmailVerification) return;
 
-    // Set global flag first so UI updates immediately
+    setNotificationsDisabled(true);
+    setTokenSynced(false);
+    sessionStorage.removeItem(`fcm_sync_${user.id}`);
+
     await NotificationService.setNotificationsDisabled(user.id, true);
 
-    // Try to get current token to remove only this device from the active tokens list
-    try {
-      const { ensureFirebaseMessaging } = await import('@/lib/firebase');
-      const fbMessaging = await ensureFirebaseMessaging();
-      if (fbMessaging) {
-        const token = await NotificationService.getFCMToken(fbMessaging);
-        if (token) {
-          await NotificationService.removeDeviceToken(user.id, token);
-        }
-      }
-    } catch (err) {
-      logger.warn('Failed to remove specific device token during disable', err);
+    const cachedToken = NotificationService.getCachedToken();
+    if (cachedToken) {
+      await NotificationService.removeDeviceToken(user.id, cachedToken);
     }
   }, [user, requiresEmailVerification]);
 
@@ -136,7 +191,6 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
     ]
   );
 
-  // Listen for FCM Messages (Foreground)
   useEffect(() => {
     if (!permissionGranted || notificationsDisabled) return;
 

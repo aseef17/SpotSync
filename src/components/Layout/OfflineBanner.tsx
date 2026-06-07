@@ -1,14 +1,18 @@
 import React, { useState } from 'react';
-import { WifiOff, RefreshCw } from 'lucide-react';
+import { CloudUpload, WifiOff, RefreshCw } from 'lucide-react';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { usePendingSyncCount } from '@/hooks/usePendingSyncCount';
 import { retryConnection } from '@/utils/retryConnection';
 import { themeColors } from '@/styles/colors';
 
 export const OfflineBanner: React.FunctionComponent = () => {
   const isOnline = useNetworkStatus();
+  const pendingSyncCount = usePendingSyncCount();
   const [isChecking, setIsChecking] = useState(false);
 
-  if (isOnline) return null;
+  if (isOnline && pendingSyncCount === 0) {
+    return null;
+  }
 
   const handleRetry = async () => {
     setIsChecking(true);
@@ -27,10 +31,15 @@ export const OfflineBanner: React.FunctionComponent = () => {
     >
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
         <div className="flex min-w-0 items-center gap-2.5">
-          <WifiOff className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+          {isOnline ? (
+            <CloudUpload className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+          ) : (
+            <WifiOff className="h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" />
+          )}
           <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-            You are offline. Cached data may still be available, but new changes will not be synced
-            until you reconnect.
+            {isOnline
+              ? `${pendingSyncCount} change${pendingSyncCount === 1 ? '' : 's'} waiting to sync.`
+              : `You are offline. ${pendingSyncCount > 0 ? `${pendingSyncCount} change${pendingSyncCount === 1 ? '' : 's'} saved locally and ` : ''}cached data is available until you reconnect.`}
           </p>
         </div>
         <button

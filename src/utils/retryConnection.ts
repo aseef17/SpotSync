@@ -1,5 +1,6 @@
 import { toast } from 'sonner';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
+import { flushPendingMutations } from '@/lib/localDb';
 
 const CONNECTIVITY_PROBE_TIMEOUT_MS = 4000;
 
@@ -30,6 +31,7 @@ export async function retryConnection(): Promise<boolean> {
   const isReachable = await probeNetwork();
 
   if (isReachable) {
+    await flushPendingMutations();
     window.location.reload();
     return true;
   }

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { PlaceService } from '@/features/places/api/placeService';
+import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
 import { ListService } from '@/features/lists/api/listService';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { parseTakeoutJson, type ParsedPlace } from '@/utils/googleTakeoutParser';
@@ -82,7 +83,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       if (targetListId && targetListId !== 'new') {
         const placeId = extractPlaceIdFromUrl(importUrl);
         if (placeId) {
-          const existingPlaces = await PlaceService.getAllListPlaces(targetListId);
+          const existingPlaces = await placeRepository.getAllForList(targetListId);
           if (existingPlaces.some((p) => p.googlePlaceId === placeId || p.id === placeId)) {
             toast.info('This place is already in the list.');
             return;
@@ -149,7 +150,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       }
 
       logger.info(`Checking for duplicates in list ${listId}...`);
-      const listPlaces = await PlaceService.getAllListPlaces(listId);
+      const listPlaces = await placeRepository.getAllForList(listId);
       const existingMap = new Map<string, boolean>();
 
       const batchMap = new Set<string>();
