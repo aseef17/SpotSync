@@ -73,6 +73,17 @@ export function shouldApplyServerConfirmedPrivateAccess(options: {
   return userCanReadList(options.confirmedList, options.userId);
 }
 
+/** Saved-list rows may retain stale isPublic after server confirmation cleared revocation. */
+export function shouldApplyContextListSnapshot(options: {
+  listFromContext: PlaceList;
+  serverVerifiedPrivateAccess: boolean;
+}): boolean {
+  if (options.serverVerifiedPrivateAccess && options.listFromContext.isSavedList) {
+    return false;
+  }
+  return true;
+}
+
 /** Re-check server access for trusted owned/collaborator rows while revocation is sticky. */
 export function shouldConfirmPrivateAccessFromTrustedContext(options: {
   list: PlaceList;
