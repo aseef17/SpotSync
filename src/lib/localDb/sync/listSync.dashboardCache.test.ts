@@ -69,11 +69,12 @@ vi.mock('@/lib/localDb/userListsCache', () => ({
 }));
 
 vi.mock('@/lib/localDb/listCache', () => ({
+  getCachedList: vi.fn(),
   upsertCachedList: vi.fn(),
   removeCachedList: vi.fn(),
 }));
 
-import { upsertCachedList } from '@/lib/localDb/listCache';
+import { getCachedList, upsertCachedList } from '@/lib/localDb/listCache';
 
 vi.mock('@/lib/localDb/changeBus', () => ({
   changeTopics: {
@@ -109,7 +110,14 @@ import {
 } from '@/lib/localDb/sync/listSync';
 
 const getCachedUserMock = vi.mocked(getCachedUser);
+const getCachedListMock = vi.mocked(getCachedList);
 const upsertCachedListMock = vi.mocked(upsertCachedList);
+
+async function flushAsyncWork(): Promise<void> {
+  for (let i = 0; i < 8; i += 1) {
+    await Promise.resolve();
+  }
+}
 
 const ownedList = {
   id: 'owned-1',
@@ -146,6 +154,8 @@ describe('dashboard cache publish gating', () => {
     getCachedUserListsMock.mockResolvedValue(null);
     fetchSavedListsByIdsMock.mockReset();
     getCachedUserMock.mockReset();
+    getCachedListMock.mockReset();
+    getCachedListMock.mockResolvedValue(null);
     upsertCachedListMock.mockReset();
     ownedListsSnapshotHandler = undefined;
     ownedListsSyncCreateCount = 0;
@@ -403,8 +413,7 @@ describe('dashboard cache publish gating', () => {
 
     acquireUserOwnedListsSync('user-1');
     setUserSavedListIds('user-1', []);
-    await Promise.resolve();
-    await Promise.resolve();
+    await flushAsyncWork();
 
     expect(syncCachedUserListsMock).toHaveBeenCalledWith('user-1', [ownedList]);
   });
@@ -432,6 +441,48 @@ describe('dashboard cache publish gating', () => {
     await Promise.resolve();
 
     expect(upsertCachedListMock).toHaveBeenCalledWith(updatedOwnedList);
+  });
+
+  it('prefers fresher list cache over stale user_lists when hydrating during grace resubscribe', async () => {
+    const updatedOwnedList = {
+      ...ownedList,
+      name: 'Updated during grace',
+      updatedAt: new Date('2024-06-01'),
+    } as PlaceList;
+    const staleOwnedList = {
+      ...ownedList,
+      updatedAt: new Date('2024-01-01'),
+    } as PlaceList;
+
+    acquireUserOwnedListsSync('user-1');
+    clearUserListsSyncState('user-1');
+
+    ownedListsSnapshotHandler?.({
+      docs: [{ data: () => updatedOwnedList }],
+      docChanges: () => [
+        {
+          type: 'modified',
+          doc: { id: updatedOwnedList.id, data: () => updatedOwnedList, ref: {} },
+        },
+      ],
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(upsertCachedListMock).toHaveBeenCalledWith(updatedOwnedList);
+
+    releaseOwnedListsSync?.();
+    upsertCachedUserListsMock.mockClear();
+    getCachedUserListsMock.mockResolvedValue([staleOwnedList]);
+    getCachedListMock.mockImplementation(async (listId: string) =>
+      listId === ownedList.id ? updatedOwnedList : null
+    );
+
+    acquireUserOwnedListsSync('user-1');
+    await flushAsyncWork();
+
+    const lastUpsertCall = upsertCachedUserListsMock.mock.calls.at(-1);
+    expect(lastUpsertCall?.[1]).toEqual([updatedOwnedList]);
   });
 
   it('does not let stale owned-list cache hydrate overwrite fresher snapshot during grace resubscribe', async () => {

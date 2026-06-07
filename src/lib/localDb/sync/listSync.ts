@@ -3,7 +3,8 @@ import { db } from '@/lib/firebase';
 import { logger } from '@/utils/logger';
 import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { acquireSubscription, hasSubscriptionEntry } from '@/lib/localDb/subscriptionRegistry';
-import { removeCachedList, upsertCachedList } from '@/lib/localDb/listCache';
+import { getCachedList, removeCachedList, upsertCachedList } from '@/lib/localDb/listCache';
+import { isIncomingCacheUpdateNewer } from '@/lib/localDb/cacheFreshness';
 import { enqueueSnapshotTask } from '@/lib/localDb/snapshotQueue';
 import { getCachedUser } from '@/lib/localDb/userCache';
 import {
@@ -73,6 +74,20 @@ const pendingSavedListIds = new Map<string, string[]>();
 const ownedListsSnapshotChains = new Map<string, Promise<void>>();
 const listSnapshotChains = new Map<string, Promise<void>>();
 
+async function resolveOwnedListsFromDashboardCache(cachedLists: PlaceList[]): Promise<PlaceList[]> {
+  const ownedLists = cachedLists.filter((list) => list.isSavedList !== true);
+
+  return Promise.all(
+    ownedLists.map(async (list) => {
+      const fromListCache = await getCachedList(list.id);
+      if (fromListCache && isIncomingCacheUpdateNewer(list, fromListCache)) {
+        return fromListCache;
+      }
+      return list;
+    })
+  );
+}
+
 async function hydrateOwnedListsFromCache(userId: string): Promise<void> {
   const state = userListsState.get(userId);
   if (!state || state.ownedListsHydrated) {
@@ -89,7 +104,7 @@ async function hydrateOwnedListsFromCache(userId: string): Promise<void> {
     return;
   }
 
-  stateAfterCacheRead.ownedLists = cachedLists.filter((list) => list.isSavedList !== true);
+  stateAfterCacheRead.ownedLists = await resolveOwnedListsFromDashboardCache(cachedLists);
   stateAfterCacheRead.ownedListsHydrated = true;
   await publishUserLists(userId);
 }

@@ -2,15 +2,38 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PlaceList } from '@/features/lists/types/list';
 
 const runs: Array<{ sql: string; params: unknown[] }> = [];
+const listRows = new Map<string, string>();
+
+function createMockDb() {
+  let bindParams: unknown[] = [];
+
+  return {
+    run: (sql: string, params: unknown[] = []) => {
+      runs.push({ sql, params });
+      if (sql.includes('INSERT INTO lists')) {
+        listRows.set(String(params[0]), String(params[1]));
+      }
+    },
+    prepare: (sql: string) => ({
+      bind: (params: unknown[]) => {
+        bindParams = params;
+      },
+      step: () => {
+        if (sql.includes('FROM lists WHERE id = ?')) {
+          return listRows.has(String(bindParams[0]));
+        }
+        return false;
+      },
+      getAsObject: () => ({ data: listRows.get(String(bindParams[0])) }),
+      free: () => {},
+    }),
+  };
+}
 
 vi.mock('@/lib/localDb/database', () => ({
   runWriteAsync: vi.fn(
-    async (callback: (db: { run: (sql: string, params?: unknown[]) => void }) => void) => {
-      callback({
-        run: (sql: string, params: unknown[] = []) => {
-          runs.push({ sql, params });
-        },
-      });
+    async (callback: (db: ReturnType<typeof createMockDb>) => void) => {
+      callback(createMockDb());
     }
   ),
 }));
@@ -44,6 +67,7 @@ const list = {
 describe('syncCachedUserLists', () => {
   beforeEach(() => {
     runs.length = 0;
+    listRows.clear();
   });
 
   it('prunes dashboard rows that are no longer in the merged set', async () => {
@@ -66,6 +90,7 @@ describe('syncCachedUserLists', () => {
 describe('writeUserListsForDashboard', () => {
   beforeEach(() => {
     runs.length = 0;
+    listRows.clear();
   });
 
   it('upserts without pruning before saved lists are hydrated', async () => {
@@ -79,6 +104,27 @@ describe('writeUserListsForDashboard', () => {
     await writeUserListsForDashboard('user-1', [list], true);
 
     expect(runs[0]?.sql).toContain('DELETE FROM user_lists WHERE user_id = ? AND list_id NOT IN');
+  });
+
+  it('skips overwriting a fresher shared list cache row during dashboard upsert', async () => {
+    const staleList = {
+      ...list,
+      name: 'Stale dashboard copy',
+      updatedAt: new Date('2024-01-01'),
+    } as PlaceList;
+    const freshList = {
+      ...list,
+      name: 'Fresh shared cache copy',
+      updatedAt: new Date('2024-06-01'),
+    } as PlaceList;
+
+    await writeUserListsForDashboard('user-1', [freshList], false);
+
+    runs.length = 0;
+    await writeUserListsForDashboard('user-1', [staleList], false);
+
+    expect(runs.some((entry) => entry.sql.includes('INSERT INTO user_lists'))).toBe(true);
+    expect(runs.some((entry) => entry.sql.includes('INSERT INTO lists'))).toBe(false);
   });
 });
 
