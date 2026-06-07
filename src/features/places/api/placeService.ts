@@ -2,6 +2,9 @@ import {
   collection,
   query,
   where,
+  orderBy,
+  limit,
+  startAfter,
   getDocs,
   doc,
   getDoc,
@@ -13,7 +16,6 @@ import {
   arrayRemove,
   onSnapshot,
 } from 'firebase/firestore';
-import imageCompression from 'browser-image-compression';
 import type {
   FirestoreDataConverter,
   QueryDocumentSnapshot,
@@ -23,8 +25,17 @@ import type {
 import { db } from '@/lib/firebase';
 import type { Place, PlaceStatus } from '@/features/places/types/place';
 import { logger } from '@/utils/logger';
-import { toMilliseconds } from '@/utils/date';
 import { omit } from '@/utils/objectUtils';
+import {
+  getPlaceListAccessFields,
+  getPrimaryPhotoUrl,
+  trimPhotoUrlsForStorage,
+  type PlaceListAccessFields,
+} from '@/features/places/utils/placeAccess';
+import imageCompression from 'browser-image-compression';
+
+export const PLACES_PAGE_SIZE = 100;
+export const PLACES_SUBSCRIPTION_LIMIT = 500;
 
 export const placeConverter: FirestoreDataConverter<Place> = {
   toFirestore(place: Place): DocumentData {
@@ -52,6 +63,38 @@ export const placeConverter: FirestoreDataConverter<Place> = {
 };
 
 export class PlaceService {
+  private static async fetchListAccessFields(listId: string): Promise<PlaceListAccessFields> {
+    const listDoc = await getDoc(doc(db, 'lists', listId));
+    if (!listDoc.exists()) {
+      throw new Error('List not found');
+    }
+    const data = listDoc.data();
+    return getPlaceListAccessFields({
+      ownerId: data.ownerId,
+      isPublic: data.isPublic === true,
+      collaboratorIds: data.collaboratorIds ?? [data.ownerId],
+    });
+  }
+
+  private static enrichPlaceWrite(
+    placeData: Omit<Place, 'id' | 'addedAt' | 'updatedAt'>,
+    accessFields: PlaceListAccessFields,
+    options?: { suppressNotifications?: boolean }
+  ): Omit<Place, 'id' | 'addedAt' | 'updatedAt'> {
+    const trimmedPhotos = trimPhotoUrlsForStorage(placeData.photoUrls);
+    const thumbnailUrl = placeData.thumbnailUrl ?? getPrimaryPhotoUrl(trimmedPhotos);
+    const photoCount = placeData.photoUrls?.length ?? trimmedPhotos?.length;
+
+    return {
+      ...placeData,
+      ...accessFields,
+      ...(trimmedPhotos ? { photoUrls: trimmedPhotos } : {}),
+      ...(thumbnailUrl ? { thumbnailUrl } : {}),
+      ...(photoCount !== undefined ? { photoCount } : {}),
+      ...(options?.suppressNotifications ? { suppressNotifications: true } : {}),
+    };
+  }
+
   static async createPlace(
     listId: string,
     placeData: Omit<Place, 'id' | 'addedAt' | 'updatedAt'>
@@ -64,15 +107,16 @@ export class PlaceService {
         }
       }
 
+      const accessFields = await this.fetchListAccessFields(listId);
       const placeRef = doc(collection(db, 'places'));
-      const newPlace: Omit<Place, 'id'> = {
-        ...placeData,
-        listId,
+      const newPlace = this.enrichPlaceWrite({ ...placeData, listId }, accessFields);
+      const placeWithTimestamps: Omit<Place, 'id'> = {
+        ...newPlace,
         addedAt: new Date(),
         updatedAt: new Date(),
       };
 
-      await setDoc(placeRef, newPlace);
+      await setDoc(placeRef, placeWithTimestamps);
       const placeId = placeRef.id;
 
       await updateDoc(doc(db, 'lists', listId), {
@@ -94,7 +138,8 @@ export class PlaceService {
    */
   static async bulkCreatePlaces(
     listId: string,
-    placesData: Array<Omit<Place, 'id' | 'addedAt' | 'updatedAt'>>
+    placesData: Array<Omit<Place, 'id' | 'addedAt' | 'updatedAt'>>,
+    options?: { suppressNotifications?: boolean }
   ): Promise<{
     successCount: number;
     failedCount: number;
@@ -106,6 +151,9 @@ export class PlaceService {
     const errors: Array<{ index: number; error: string }> = [];
 
     try {
+      const accessFields = await this.fetchListAccessFields(listId);
+      const suppressNotifications = options?.suppressNotifications ?? false;
+
       // Process in chunks of 500
       for (let i = 0; i < placesData.length; i += BATCH_SIZE) {
         const chunk = placesData.slice(i, Math.min(i + BATCH_SIZE, placesData.length));
@@ -115,9 +163,11 @@ export class PlaceService {
         for (let j = 0; j < chunk.length; j++) {
           const placeData = chunk[j];
           const placeRef = doc(collection(db, 'places'));
+          const enriched = this.enrichPlaceWrite({ ...placeData, listId }, accessFields, {
+            suppressNotifications,
+          });
           const newPlace: Omit<Place, 'id'> = {
-            ...placeData,
-            listId,
+            ...enriched,
             addedAt: new Date(),
             updatedAt: new Date(),
           };
@@ -169,22 +219,55 @@ export class PlaceService {
     }
   }
 
-  static async getListPlaces(listId: string): Promise<Place[]> {
+  static async getListPlaces(
+    listId: string,
+    pageSize: number = PLACES_PAGE_SIZE
+  ): Promise<Place[]> {
     try {
-      const q = query(
-        collection(db, 'places').withConverter(placeConverter),
-        where('listId', '==', listId)
-      );
-      const querySnapshot = await getDocs(q);
-      const places = querySnapshot.docs.map((doc) => doc.data());
-      // Sort client-side desc
-      return places.sort((a, b) => {
-        const aTime = toMilliseconds(a.addedAt);
-        const bTime = toMilliseconds(b.addedAt);
-        return bTime - aTime;
-      });
+      const result = await this.getListPlacesPage(listId, pageSize);
+      return result.places;
     } catch (error) {
       logger.error('Error getting list places:', error);
+      throw error;
+    }
+  }
+
+  static async getListPlacesPage(
+    listId: string,
+    pageSize: number = PLACES_PAGE_SIZE,
+    cursor?: QueryDocumentSnapshot<DocumentData>
+  ): Promise<{
+    places: Place[];
+    hasMore: boolean;
+    lastDoc: QueryDocumentSnapshot<DocumentData> | null;
+  }> {
+    try {
+      const baseConstraints = [where('listId', '==', listId), orderBy('addedAt', 'desc')];
+      const q = cursor
+        ? query(
+            collection(db, 'places').withConverter(placeConverter),
+            ...baseConstraints,
+            startAfter(cursor),
+            limit(pageSize + 1)
+          )
+        : query(
+            collection(db, 'places').withConverter(placeConverter),
+            ...baseConstraints,
+            limit(pageSize + 1)
+          );
+      const querySnapshot = await getDocs(q);
+      const docs = querySnapshot.docs;
+      const hasMore = docs.length > pageSize;
+      const pageDocs = hasMore ? docs.slice(0, pageSize) : docs;
+      const places = pageDocs.map((docSnap) => docSnap.data());
+
+      return {
+        places,
+        hasMore,
+        lastDoc: pageDocs.length > 0 ? pageDocs[pageDocs.length - 1] : null,
+      };
+    } catch (error) {
+      logger.error('Error getting list places page:', error);
       throw error;
     }
   }
@@ -284,7 +367,7 @@ export class PlaceService {
         );
       } else {
         // Fallback to name and address similarity (less reliable)
-        const places = await this.getListPlaces(listId);
+        const places = await this.fetchAllListPlaces(listId);
         return (
           places.find(
             (p) =>
@@ -327,9 +410,24 @@ export class PlaceService {
     }
   }
 
+  private static async fetchAllListPlaces(listId: string): Promise<Place[]> {
+    const all: Place[] = [];
+    let cursor: QueryDocumentSnapshot<DocumentData> | undefined;
+    let hasMore = true;
+
+    while (hasMore) {
+      const page = await this.getListPlacesPage(listId, PLACES_PAGE_SIZE, cursor);
+      all.push(...page.places);
+      hasMore = page.hasMore;
+      cursor = page.lastDoc ?? undefined;
+    }
+
+    return all;
+  }
+
   static async searchPlaces(listId: string, searchTerm: string): Promise<Place[]> {
     try {
-      const places = await this.getListPlaces(listId);
+      const places = await this.fetchAllListPlaces(listId);
       const lowercaseSearch = searchTerm.toLowerCase();
 
       return places.filter(
@@ -356,7 +454,7 @@ export class PlaceService {
     }
   ): Promise<Place[]> {
     try {
-      let places = await this.getListPlaces(listId);
+      let places = await this.fetchAllListPlaces(listId);
 
       if (filters.status) {
         places = places.filter((p) => p.status === filters.status);
@@ -481,17 +579,38 @@ export class PlaceService {
     }
   }
 
-  static async askList(listId: string, query: string): Promise<{ placeIds: string[] }> {
+  static async askList(
+    listId: string,
+    queryText: string,
+    placesSummary?: Array<{
+      id: string;
+      name: string;
+      notes?: string;
+      category?: string;
+      status?: string;
+      address?: string;
+    }>
+  ): Promise<{ placeIds: string[] }> {
     try {
-      // Lazy import to avoid circular dependencies if any
       const { httpsCallable } = await import('firebase/functions');
       const { functions } = await import('@/lib/firebase');
 
-      const askListFn = httpsCallable<{ listId: string; query: string }, { placeIds: string[] }>(
-        functions,
-        'askList'
-      );
-      const result = await askListFn({ listId, query });
+      const askListFn = httpsCallable<
+        {
+          listId: string;
+          query: string;
+          placesSummary?: Array<{
+            id: string;
+            name: string;
+            notes?: string;
+            category?: string;
+            status?: string;
+            address?: string;
+          }>;
+        },
+        { placeIds: string[] }
+      >(functions, 'askList');
+      const result = await askListFn({ listId, query: queryText, placesSummary });
       return result.data;
     } catch (error) {
       logger.error('Error asking list:', error);
@@ -517,138 +636,184 @@ export class PlaceService {
     return Math.abs(hash).toString(36);
   }
 
+  private static async runWithConcurrency<T>(
+    items: T[],
+    concurrency: number,
+    worker: (item: T, index: number) => Promise<void>
+  ): Promise<void> {
+    if (items.length === 0) return;
+
+    let nextIndex = 0;
+    const runWorker = async () => {
+      while (nextIndex < items.length) {
+        const currentIndex = nextIndex;
+        nextIndex += 1;
+        await worker(items[currentIndex], currentIndex);
+      }
+    };
+
+    const workerCount = Math.min(concurrency, items.length);
+    await Promise.all(Array.from({ length: workerCount }, () => runWorker()));
+  }
+
+  private static async openPhotoCache(): Promise<Cache | null> {
+    try {
+      return await caches.open('places-photo-cache');
+    } catch (error) {
+      logger.warn('Cache API not available', error);
+      return null;
+    }
+  }
+
+  private static resolvePhotoFetchUrl(
+    rawUrl: string,
+    GoogleMapsService: typeof import('@/features/places/api/googleMapsService').GoogleMapsService
+  ): string {
+    return rawUrl.startsWith('places/')
+      ? GoogleMapsService.getPhotoUrl(rawUrl, 1200, 1200)
+      : rawUrl;
+  }
+
+  private static async syncPlacePhotos(
+    place: Place,
+    photoCache: Cache | null,
+    PhotoService: typeof import('@/features/places/api/photoService').PhotoService,
+    GoogleMapsService: typeof import('@/features/places/api/googleMapsService').GoogleMapsService
+  ): Promise<string[] | null> {
+    if (!place.photoUrls || place.photoUrls.length === 0) {
+      return null;
+    }
+
+    const maxPhotos = Math.min(10, place.photoUrls.length);
+    const updatedPhotoUrls = [...place.photoUrls];
+    const photoIndexes = Array.from({ length: maxPhotos }, (_, index) => index);
+    let hasUpdates = false;
+
+    await this.runWithConcurrency(photoIndexes, 10, async (photoIndex) => {
+      let rawUrl = updatedPhotoUrls[photoIndex];
+      if (!rawUrl) return;
+
+      if (rawUrl.includes('firebasestorage.googleapis.com')) {
+        return;
+      }
+
+      const googlePlaceId = place.googlePlaceId || place.id;
+      const photoHash = this.getPhotoHash(rawUrl);
+      let fetchUrl = this.resolvePhotoFetchUrl(rawUrl, GoogleMapsService);
+
+      const urlLoads = await PhotoService.remotePhotoUrlLoads(fetchUrl, photoCache);
+      if (urlLoads) {
+        logger.info(`Photo ${photoHash} for place ${place.id} loads — skipping sync`);
+        return;
+      }
+
+      try {
+        const probe = await fetch(fetchUrl);
+        if (probe.status === 400) {
+          logger.warn(`Photo token might be expired for place ${place.id}, refreshing details...`);
+          const freshDetails = await GoogleMapsService.getPlaceDetails(googlePlaceId);
+          if (freshDetails?.photos && freshDetails.photos.length > photoIndex) {
+            const photoUrlObj = freshDetails.photos[photoIndex].getUrl;
+            const freshPhotoName =
+              typeof photoUrlObj === 'function'
+                ? photoUrlObj({ maxWidth: 1200, maxHeight: 1200 })
+                : photoUrlObj;
+            rawUrl = freshPhotoName;
+            fetchUrl = GoogleMapsService.getPhotoUrl(freshPhotoName, 1200, 1200);
+
+            if (await PhotoService.remotePhotoUrlLoads(fetchUrl, photoCache)) {
+              updatedPhotoUrls[photoIndex] = rawUrl;
+              hasUpdates = true;
+              return;
+            }
+          }
+        }
+      } catch {
+        // Continue to shared-storage fallback and upload path.
+      }
+
+      const existingFirebaseUrl = await PhotoService.getSharedPlacePhotoUrl(
+        googlePlaceId,
+        photoHash
+      );
+      if (existingFirebaseUrl) {
+        updatedPhotoUrls[photoIndex] = existingFirebaseUrl;
+        hasUpdates = true;
+        logger.info(`Reused existing globally synced photo ${photoHash} for place ${place.id}`);
+        return;
+      }
+
+      try {
+        const blob = await PhotoService.fetchPhotoBlob(fetchUrl, photoCache);
+        if (!blob) {
+          throw new Error('Unable to fetch photo bytes for upload');
+        }
+
+        let fileToUpload = new File([blob], `photo_${googlePlaceId}_${photoHash}.jpg`, {
+          type: blob.type || 'image/jpeg',
+        });
+
+        try {
+          fileToUpload = await imageCompression(fileToUpload, {
+            maxSizeMB: 1,
+            maxWidthOrHeight: 1200,
+            useWebWorker: true,
+            fileType: 'image/webp',
+          });
+        } catch (err) {
+          logger.warn('Image compression failed, uploading original', err);
+        }
+
+        const firebasePhotoUrl = await PhotoService.uploadSharedPlacePhoto(
+          fileToUpload,
+          googlePlaceId,
+          photoHash
+        );
+
+        updatedPhotoUrls[photoIndex] = firebasePhotoUrl;
+        hasUpdates = true;
+        logger.info(`Synced photo ${photoHash} for place ${place.id}`);
+      } catch (photoErr) {
+        logger.error(`Failed to sync photo ${photoHash} for place ${place.id}`, photoErr);
+      }
+    });
+
+    return hasUpdates ? updatedPhotoUrls : null;
+  }
+
   static async syncListPhotos(listId: string): Promise<void> {
     try {
       const { PhotoService } = await import('@/features/places/api/photoService');
       const { GoogleMapsService } = await import('@/features/places/api/googleMapsService');
-      const places = await this.getListPlaces(listId);
+      const photoCache = await this.openPhotoCache();
 
-      for (const place of places) {
-        if (!place.photoUrls || place.photoUrls.length === 0) continue;
+      let cursor: QueryDocumentSnapshot<DocumentData> | undefined;
+      let hasMore = true;
 
-        const maxPhotos = Math.min(10, place.photoUrls.length); // Fetch max 10 photos
-        const updatedPhotoUrls = [...place.photoUrls];
-        let hasUpdates = false;
+      while (hasMore) {
+        const page = await this.getListPlacesPage(listId, PLACES_PAGE_SIZE, cursor);
+        hasMore = page.hasMore;
+        cursor = page.lastDoc ?? undefined;
 
-        let photoCache: Cache | null = null;
-        try {
-          photoCache = await caches.open('places-photo-cache');
-        } catch (e) {
-          logger.warn('Cache API not available', e);
-        }
+        const placesWithPhotos = page.places.filter((place) => (place.photoUrls?.length ?? 0) > 0);
 
-        for (let i = 0; i < maxPhotos; i++) {
-          let rawUrl = updatedPhotoUrls[i];
-
-          if (!rawUrl) continue;
-
-          // Skip if already stored in Firebase
-          if (rawUrl.includes('firebasestorage.googleapis.com')) continue;
-
-          const googlePlaceId = place.googlePlaceId || place.id;
-          const photoHash = this.getPhotoHash(rawUrl);
-
-          // Check if another list has already uploaded this place's photo to Firebase
-          const existingFirebaseUrl = await PhotoService.getSharedPlacePhotoUrl(
-            googlePlaceId,
-            photoHash
+        await this.runWithConcurrency(placesWithPhotos, 10, async (place) => {
+          const updatedPhotoUrls = await this.syncPlacePhotos(
+            place,
+            photoCache,
+            PhotoService,
+            GoogleMapsService
           );
-          if (existingFirebaseUrl) {
-            updatedPhotoUrls[i] = existingFirebaseUrl;
-            hasUpdates = true;
-            logger.info(`Reused existing globally synced photo ${photoHash} for place ${place.id}`);
-            continue;
-          }
 
-          try {
-            let fetchUrl = rawUrl.startsWith('places/')
-              ? GoogleMapsService.getPhotoUrl(rawUrl, 1200, 1200)
-              : rawUrl;
-
-            let response: Response | undefined;
-            if (photoCache) {
-              response = await photoCache.match(fetchUrl);
-            }
-
-            if (!response) {
-              response = await fetch(fetchUrl);
-              if (response.ok && photoCache) {
-                photoCache.put(fetchUrl, response.clone());
-              }
-            }
-
-            // If token expired (400 Bad Request), try fetching fresh place details to get a new photo token
-            if (!response.ok && response.status === 400) {
-              logger.warn(
-                `Photo token might be expired for place ${place.id}, refreshing details...`
-              );
-              const freshDetails = await GoogleMapsService.getPlaceDetails(googlePlaceId);
-
-              if (freshDetails && freshDetails.photos && freshDetails.photos.length > i) {
-                const photoUrlObj = freshDetails.photos[i].getUrl;
-                const freshPhotoName =
-                  typeof photoUrlObj === 'function'
-                    ? photoUrlObj({
-                        maxWidth: 1200,
-                        maxHeight: 1200,
-                      })
-                    : photoUrlObj;
-                fetchUrl = GoogleMapsService.getPhotoUrl(freshPhotoName, 1200, 1200);
-
-                if (photoCache) {
-                  response = await photoCache.match(fetchUrl);
-                }
-                if (!response) {
-                  response = await fetch(fetchUrl);
-                  if (response.ok && photoCache) {
-                    photoCache.put(fetchUrl, response.clone());
-                  }
-                }
-
-                if (response.ok) {
-                  rawUrl = freshPhotoName;
-                }
-              }
-            }
-
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-
-            const blob = await response.blob();
-            let fileToUpload = new File([blob], `photo_${googlePlaceId}_${photoHash}.jpg`, {
-              type: blob.type || 'image/jpeg',
+          if (updatedPhotoUrls) {
+            const trimmed = trimPhotoUrlsForStorage(updatedPhotoUrls) ?? updatedPhotoUrls;
+            await this.updatePlace(place.id, {
+              photoUrls: trimmed,
+              thumbnailUrl: getPrimaryPhotoUrl(trimmed),
+              photoCount: updatedPhotoUrls.length,
             });
-
-            try {
-              const options = {
-                maxSizeMB: 1,
-                maxWidthOrHeight: 1200,
-                useWebWorker: true,
-                fileType: 'image/webp',
-              };
-              fileToUpload = await imageCompression(fileToUpload, options);
-            } catch (err) {
-              logger.warn('Image compression failed, uploading original', err);
-            }
-
-            const firebasePhotoUrl = await PhotoService.uploadSharedPlacePhoto(
-              fileToUpload,
-              googlePlaceId,
-              photoHash
-            );
-
-            updatedPhotoUrls[i] = firebasePhotoUrl;
-            hasUpdates = true;
-            logger.info(`Synced photo ${photoHash} for place ${place.id}`);
-          } catch (photoErr) {
-            logger.error(`Failed to sync photo ${photoHash} for place ${place.id}`, photoErr);
           }
-        }
-
-        if (hasUpdates) {
-          await this.updatePlace(place.id, {
-            photoUrls: updatedPhotoUrls,
-          });
-        }
+        });
       }
     } catch (error) {
       logger.error('Error syncing list photos:', error);
@@ -659,29 +824,38 @@ export class PlaceService {
   static subscribeToListPlaces(
     listId: string,
     onUpdate: (places: Place[]) => void,
-    onError: (error: Error) => void
+    onError: (error: Error) => void,
+    subscriptionLimit: number = PLACES_SUBSCRIPTION_LIMIT
   ): () => void {
     const q = query(
       collection(db, 'places').withConverter(placeConverter),
-      where('listId', '==', listId)
+      where('listId', '==', listId),
+      orderBy('addedAt', 'desc'),
+      limit(subscriptionLimit)
     );
 
     return onSnapshot(
       q,
       (querySnapshot) => {
-        const places = querySnapshot.docs.map((doc) => doc.data());
-        // Sort client-side desc
-        const sortedPlaces = places.sort((a, b) => {
-          const aTime = toMilliseconds(a.addedAt);
-          const bTime = toMilliseconds(b.addedAt);
-          return bTime - aTime;
-        });
-        onUpdate(sortedPlaces);
+        const places = querySnapshot.docs.map((docSnap) => docSnap.data());
+        onUpdate(places);
       },
       (err) => {
         logger.error('Error subscribing to list places:', err);
         onError(err);
       }
     );
+  }
+
+  static async loadMoreListPlaces(
+    listId: string,
+    cursor: QueryDocumentSnapshot<DocumentData>,
+    pageSize: number = PLACES_PAGE_SIZE
+  ): Promise<{
+    places: Place[];
+    hasMore: boolean;
+    lastDoc: QueryDocumentSnapshot<DocumentData> | null;
+  }> {
+    return this.getListPlacesPage(listId, pageSize, cursor);
   }
 }
