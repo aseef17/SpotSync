@@ -14,7 +14,11 @@ import {
   isFirestorePermissionDenied,
   shouldClearStaleListView,
 } from '@/features/lists/hooks/listViewAccess';
-import { shouldApplyCachedListDetails } from '@/features/lists/lib/listDetailAccessGuard';
+import {
+  resolveListFromContextAccess,
+  shouldApplyCachedListDetails,
+  shouldHydrateCachedListSnapshot,
+} from '@/features/lists/lib/listDetailAccessGuard';
 import { shouldGrantListAccess } from '@/features/lists/lib/listAccessFromSnapshot';
 import {
   mergeSubscribedPlaces,
@@ -95,7 +99,26 @@ export const useListDetails = (listId: string | undefined) => {
     hadListFromContextRef.current = !!listFromContext;
 
     if (listFromContext) {
-      accessRevokedRef.current = false;
+      const contextAccess = resolveListFromContextAccess({
+        list: listFromContext,
+        userId: user?.id,
+        accessRevoked: accessRevokedRef.current,
+      });
+
+      if (contextAccess !== 'grant') {
+        if (contextAccess === 'deny-no-access') {
+          accessRevokedRef.current = true;
+        }
+        denyListAccess();
+        setList(null);
+        setPlaces([]);
+        setError('List not found');
+        loadTrackingRef.current.listLoaded = true;
+        loadTrackingRef.current.hasCachedData = false;
+        loadTrackingRef.current.onProgress?.();
+        return;
+      }
+
       listAccessibleRef.current = true;
       flushPendingPlacesSnapshot();
       setList(listFromContext);
@@ -122,7 +145,7 @@ export const useListDetails = (listId: string | undefined) => {
       loadTrackingRef.current.hasCachedData = false;
       loadTrackingRef.current.onProgress?.();
     }
-  }, [listFromContext, listId, flushPendingPlacesSnapshot, denyListAccess]);
+  }, [listFromContext, listId, user?.id, flushPendingPlacesSnapshot, denyListAccess]);
 
   useEffect(() => {
     if (!listId || listFromContext) {
@@ -200,7 +223,14 @@ export const useListDetails = (listId: string | undefined) => {
     const contextList = listsRef.current.find((entry) => entry.id === listId) ?? null;
     pendingPlacesSnapshotRef.current = undefined;
     applyPendingPlacesRef.current = null;
-    if (contextList) {
+    if (
+      contextList &&
+      shouldHydrateCachedListSnapshot({
+        list: contextList,
+        userId: user?.id,
+        accessRevoked: accessRevokedRef.current,
+      })
+    ) {
       listAccessibleRef.current = true;
       loadTrackingRef.current.listLoaded = true;
       loadTrackingRef.current.hasCachedData = true;
@@ -225,7 +255,15 @@ export const useListDetails = (listId: string | undefined) => {
 
     const hydrateFromCache = async () => {
       const contextList = listsRef.current.find((entry) => entry.id === listId) ?? null;
-      if (contextList && shouldApplyCachedListDetails(listAccessibleRef.current, cancelled)) {
+      if (
+        contextList &&
+        shouldApplyCachedListDetails(listAccessibleRef.current, cancelled) &&
+        shouldHydrateCachedListSnapshot({
+          list: contextList,
+          userId: user?.id,
+          accessRevoked: accessRevokedRef.current,
+        })
+      ) {
         setList(contextList);
         setError(null);
         listLoaded = true;
@@ -259,7 +297,15 @@ export const useListDetails = (listId: string | undefined) => {
         finishLoading();
       }
 
-      if (cachedPlaces) {
+      const listForPlacesAccess = contextList ?? cachedList ?? null;
+      if (
+        cachedPlaces &&
+        shouldHydrateCachedListSnapshot({
+          list: listForPlacesAccess,
+          userId: user?.id,
+          accessRevoked: accessRevokedRef.current,
+        })
+      ) {
         setPlaces(cachedPlaces);
         setHasMorePlaces(cachedPlaces.length >= PLACES_SUBSCRIPTION_LIMIT);
         placesLoaded = true;
