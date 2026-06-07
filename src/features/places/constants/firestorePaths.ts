@@ -8,6 +8,16 @@ export const LIST_PLACES_COLLECTION = 'listPlaces';
 export const LIST_PLACE_IDS_FIELD = 'placeIds';
 
 /**
+ * Strips the Places API resource prefix (`places/ChIJ…`) so IDs are safe as
+ * Firestore document segments. Photo resource names (`places/ChIJ…/photos/…`)
+ * are left unchanged.
+ */
+export function normalizeGooglePlaceId(googlePlaceId: string): string {
+  const match = googlePlaceId.match(/^places\/([^/]+)$/);
+  return match ? match[1] : googlePlaceId;
+}
+
+/**
  * Builds the composite document ID for a list place membership.
  * Format: `{listId}_{googlePlaceId}`
  */

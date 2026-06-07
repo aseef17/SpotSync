@@ -7,6 +7,7 @@ import {
 } from '@/constants/placeCategories';
 import { getDoc, setDoc } from 'firebase/firestore';
 import { googlePlaceDocRef } from '@/features/places/api/googlePlaceFirestore';
+import { normalizeGooglePlaceId } from '@/features/places/constants/firestorePaths';
 import type { GooglePlace as CanonicalGooglePlace } from '@/features/places/types/googlePlace';
 import { normalizeOpeningHours } from '@/features/places/utils/openingHoursUtils';
 import { buildGooglePlacePayload } from '@/features/places/utils/placeWriteSplit';
@@ -202,8 +203,10 @@ export class GoogleMapsService {
   }
 
   private static async readCachedPlaceDetails(placeId: string): Promise<LegacyGooglePlace | null> {
+    const normalizedPlaceId = normalizeGooglePlaceId(placeId);
+
     try {
-      const cacheSnap = await getDoc(googlePlaceDocRef(placeId));
+      const cacheSnap = await getDoc(googlePlaceDocRef(normalizedPlaceId));
       if (!cacheSnap.exists()) {
         return null;
       }
@@ -211,7 +214,7 @@ export class GoogleMapsService {
       const cachedData = cacheSnap.data();
       const fetchedAt = cachedData.detailsFetchedAt ?? cachedData.updatedAt;
       if (fetchedAt && Date.now() - fetchedAt.getTime() < 30 * 24 * 60 * 60 * 1000) {
-        logger.info(`Using cached place details for ${placeId}`);
+        logger.info(`Using cached place details for ${normalizedPlaceId}`);
         return this.canonicalGooglePlaceToLegacy(cachedData);
       }
     } catch (e) {
@@ -283,8 +286,10 @@ export class GoogleMapsService {
       throw new Error('Missing Google Maps API key for Places API.');
     }
 
+    const normalizedPlaceId = normalizeGooglePlaceId(placeId);
+
     if (!options?.skipCache) {
-      const cached = await this.readCachedPlaceDetails(placeId);
+      const cached = await this.readCachedPlaceDetails(normalizedPlaceId);
       if (cached) {
         return cached;
       }
@@ -292,7 +297,7 @@ export class GoogleMapsService {
 
     try {
       const response = await fetch(
-        `https://places.googleapis.com/v1/places/${placeId}?fields=id,displayName,formattedAddress,location,rating,userRatingCount,priceLevel,photos,types,primaryType,nationalPhoneNumber,websiteUri,googleMapsUri,businessStatus,currentOpeningHours,timeZone,delivery,dineIn,takeout,curbsidePickup,reservable,servesBeer,servesWine,servesVegetarianFood,servesBreakfast,servesLunch,servesDinner,servesBrunch,accessibilityOptions&key=${this.apiKey}`
+        `https://places.googleapis.com/v1/places/${normalizedPlaceId}?fields=id,displayName,formattedAddress,location,rating,userRatingCount,priceLevel,photos,types,primaryType,nationalPhoneNumber,websiteUri,googleMapsUri,businessStatus,currentOpeningHours,timeZone,delivery,dineIn,takeout,curbsidePickup,reservable,servesBeer,servesWine,servesVegetarianFood,servesBreakfast,servesLunch,servesDinner,servesBrunch,accessibilityOptions&key=${this.apiKey}`
       );
 
       if (!response.ok) {
@@ -304,7 +309,7 @@ export class GoogleMapsService {
 
       // Normalize to legacy-like shape for consistency
       const legacyPlace: LegacyGooglePlace = {
-        place_id: data.id,
+        place_id: normalizeGooglePlaceId(data.id),
         name: data.displayName?.text,
         formatted_address: data.formattedAddress,
         rating: data.rating,
@@ -355,11 +360,11 @@ export class GoogleMapsService {
         const placeFields = this.convertGooglePlaceToPlace(legacyPlace, '');
         const canonicalPlace = buildGooglePlacePayload(
           { ...placeFields, status: 'not_visited', addedAt: now, updatedAt: now },
-          placeId,
+          normalizedPlaceId,
           { createdAt: now, updatedAt: now }
         );
         await setDoc(
-          googlePlaceDocRef(placeId),
+          googlePlaceDocRef(normalizedPlaceId),
           { ...canonicalPlace, detailsFetchedAt: now },
           { merge: true }
         );
@@ -434,7 +439,7 @@ export class GoogleMapsService {
 
       // Normalize to legacy-like shape expected by convertGooglePlaceToPlace
       return places.map((p) => ({
-        place_id: p.id,
+        place_id: normalizeGooglePlaceId(p.id),
         name: p.displayName?.text,
         formatted_address: p.formattedAddress,
         rating: p.rating,
