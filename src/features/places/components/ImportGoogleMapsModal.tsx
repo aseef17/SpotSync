@@ -113,6 +113,9 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
   ]);
 
   const handleReset = () => {
+    if (resolving) {
+      return;
+    }
     successNotified.current = false;
     if (autoCloseTimeoutRef.current) {
       clearTimeout(autoCloseTimeoutRef.current);
@@ -315,7 +318,12 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
                     </span>
                     <button
                       onClick={handleReset}
-                      className="text-sm text-red-500 hover:text-red-600 font-medium"
+                      disabled={resolving}
+                      className={`text-sm font-medium ${
+                        resolving
+                          ? 'text-gray-400 cursor-not-allowed'
+                          : 'text-red-500 hover:text-red-600'
+                      }`}
                     >
                       {activeTab === 'link' ? 'Change Link' : 'Change File'}
                     </button>
