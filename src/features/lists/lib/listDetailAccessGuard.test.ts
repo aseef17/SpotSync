@@ -143,6 +143,16 @@ describe('resolveListFromContextAccess', () => {
       })
     ).toBe('deny-revoked');
   });
+
+  it('denies saved context with stale isPublic after permission-denied revocation', () => {
+    expect(
+      resolveListFromContextAccess({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        userId: 'user-c',
+        accessRevoked: true,
+      })
+    ).toBe('deny-revoked');
+  });
 });
 
 describe('shouldClearAccessRevokedOnContextReturn', () => {

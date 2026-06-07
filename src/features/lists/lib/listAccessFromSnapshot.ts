@@ -23,9 +23,12 @@ export function shouldGrantListAccess(options: {
     return false;
   }
   // Private lists may linger in persistent cache after revocation or account switch.
-  // Public lists stay readable per Firestore rules even when removed from saved lists.
-  if (options.accessRevoked && options.fromCache && !options.list.isPublic) {
-    return false;
+  // Public lists stay readable per Firestore rules even when removed from saved lists,
+  // but saved-list rows may carry stale isPublic after visibility changes.
+  if (options.accessRevoked && options.fromCache) {
+    if (!options.list.isPublic || options.list.isSavedList) {
+      return false;
+    }
   }
   return true;
 }
