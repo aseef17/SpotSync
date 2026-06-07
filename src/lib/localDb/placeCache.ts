@@ -1,8 +1,15 @@
 import type { Database } from 'sql.js';
 import type { Place } from '@/features/places/types/place';
 import { isIncomingCacheUpdateNewer } from '@/lib/localDb/cacheFreshness';
+import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { getLocalDatabase, runWriteAsync } from '@/lib/localDb/database';
+import {
+  didPlacePhotoFieldsChange,
+  invalidatePlacePhotos,
+  warmPlaceThumbnailCache,
+} from '@/lib/localDb/placePhotoCache';
 import { deserializeRecord, serializeRecord } from '@/lib/localDb/serialization';
+import { getPlaceThumbnail } from '@/features/places/utils/placeHelpers';
 import { toMilliseconds } from '@/utils/date';
 
 function readPlacesFromDb(db: Database, listId: string): Place[] {
@@ -71,13 +78,28 @@ export async function getCachedPlacesForList(listId: string): Promise<Place[] | 
 }
 
 export async function upsertCachedPlace(place: Place): Promise<void> {
-  await runWriteAsync((db) => {
-    const existing = readPlaceFromDb(db, place.id);
+  const db = await getLocalDatabase();
+  const existingBeforeWrite = db ? readPlaceFromDb(db, place.id) : null;
+  let didWrite = false;
+
+  await runWriteAsync((innerDb) => {
+    const existing = readPlaceFromDb(innerDb, place.id);
     if (!isIncomingCacheUpdateNewer(existing, place)) {
       return;
     }
-    upsertPlaceInDb(db, place);
+    upsertPlaceInDb(innerDb, place);
+    didWrite = true;
   });
+
+  if (!didWrite) {
+    return;
+  }
+
+  if (didPlacePhotoFieldsChange(existingBeforeWrite, place)) {
+    await invalidatePlacePhotos(place.id);
+  }
+
+  warmPlaceThumbnailCache(place.id, getPlaceThumbnail(place));
 }
 
 export async function upsertCachedPlaces(places: Place[]): Promise<void> {
@@ -85,26 +107,58 @@ export async function upsertCachedPlaces(places: Place[]): Promise<void> {
     return;
   }
 
-  await runWriteAsync((db) => {
+  const db = await getLocalDatabase();
+  const existingById = new Map(
+    places.map((place) => [place.id, db ? readPlaceFromDb(db, place.id) : null] as const)
+  );
+
+  const wroteIds = new Set<string>();
+
+  await runWriteAsync((innerDb) => {
     for (const place of places) {
-      const existing = readPlaceFromDb(db, place.id);
+      const existing = readPlaceFromDb(innerDb, place.id);
       if (!isIncomingCacheUpdateNewer(existing, place)) {
         continue;
       }
-      upsertPlaceInDb(db, place);
+      upsertPlaceInDb(innerDb, place);
+      wroteIds.add(place.id);
     }
   });
+
+  for (const place of places) {
+    if (!wroteIds.has(place.id)) {
+      continue;
+    }
+    if (didPlacePhotoFieldsChange(existingById.get(place.id) ?? null, place)) {
+      await invalidatePlacePhotos(place.id);
+    }
+    warmPlaceThumbnailCache(place.id, getPlaceThumbnail(place));
+  }
 }
 
 export async function removeCachedPlace(placeId: string): Promise<void> {
+  await invalidatePlacePhotos(placeId);
   await runWriteAsync((db) => {
     db.run('DELETE FROM places WHERE id = ?', [placeId]);
   });
 }
 
 export async function removeCachedPlacesForList(listId: string): Promise<void> {
-  await runWriteAsync((db) => {
-    db.run('DELETE FROM places WHERE list_id = ?', [listId]);
+  const db = await getLocalDatabase();
+  if (db) {
+    const statement = db.prepare('SELECT id FROM places WHERE list_id = ?');
+    statement.bind([listId]);
+    while (statement.step()) {
+      const row = statement.getAsObject() as { id?: string };
+      if (typeof row.id === 'string') {
+        await invalidatePlacePhotos(row.id);
+      }
+    }
+    statement.free();
+  }
+
+  await runWriteAsync((innerDb) => {
+    innerDb.run('DELETE FROM places WHERE list_id = ?', [listId]);
   });
 }
 
@@ -122,6 +176,10 @@ export async function patchCachedPlace(
     return null;
   }
 
+  if (didPlacePhotoFieldsChange(existing, patch)) {
+    await invalidatePlacePhotos(placeId);
+  }
+
   const updated: Place = {
     ...existing,
     ...patch,
@@ -133,6 +191,11 @@ export async function patchCachedPlace(
   await runWriteAsync((innerDb) => {
     upsertPlaceInDb(innerDb, updated);
   });
+
+  emitChange(changeTopics.place(placeId));
+  emitChange(changeTopics.placesForList(updated.listId));
+
+  warmPlaceThumbnailCache(updated.id, getPlaceThumbnail(updated));
 
   return updated;
 }

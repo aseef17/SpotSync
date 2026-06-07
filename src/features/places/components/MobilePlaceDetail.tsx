@@ -18,10 +18,11 @@ import {
   Check,
   Utensils,
   Plus,
+  RefreshCw,
 } from 'lucide-react';
 import { themeColors } from '@/styles/colors';
 import type { Place, PlaceStatus } from '@/features/places/types/place';
-import { GoogleMapsService } from '@/features/places/api/googleMapsService';
+import { CachedPlacePhoto } from '@/features/places/components/CachedPlacePhoto';
 import { formatCategoryName } from '@/constants/placeCategories';
 import { calculateDistance } from '@/utils/geo';
 import {
@@ -53,6 +54,7 @@ interface MobilePlaceDetailHeaderProps {
   currentUserId?: string;
   customStatuses?: string[];
   onAddExternalPlace?: (place: Partial<Place>) => void;
+  canEdit?: boolean;
 }
 
 export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailHeaderProps> = ({
@@ -63,9 +65,11 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
   currentUserId,
   customStatuses = [],
   onAddExternalPlace,
+  canEdit = false,
 }) => {
   const { toast } = useToast();
   const [isStatusOpen, setIsStatusOpen] = useState(false);
+  const [isSyncingFromGoogle, setIsSyncingFromGoogle] = useState(false);
 
   const handleDirections = () => {
     if (!place.location) return;
@@ -75,6 +79,37 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
 
   const handleStart = () => {
     handleDirections();
+  };
+
+  const handleSyncFromGoogle = async () => {
+    if (!place.googlePlaceId) {
+      toast.error('This place has no Google Place ID.');
+      return;
+    }
+
+    setIsSyncingFromGoogle(true);
+    toast.info('Syncing place from Google...');
+    try {
+      const { place: updated, photoFailures } = await PlaceService.syncPlaceFromGoogle(
+        place.id,
+        currentUserId
+      );
+      if (updated) {
+        onPlaceUpdated(updated);
+      } else {
+        onPlaceUpdated();
+      }
+      if (photoFailures > 0) {
+        toast.warning('Place details updated, but some photos could not be synced.');
+      } else {
+        toast.success('Place synced from Google.');
+      }
+    } catch (error) {
+      logger.error('Failed to sync place from Google:', error);
+      toast.error('Failed to sync place from Google.');
+    } finally {
+      setIsSyncingFromGoogle(false);
+    }
   };
 
   const handleShare = () => {
@@ -157,9 +192,17 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
       transition={{ duration: 0.3 }}
       className="space-y-4 pb-2"
     >
-      {/* Top Row: Name + Close */}
-      <div className="flex justify-between items-start">
-        <div className="flex-1 mr-4">
+      {/* Top Row: Back + Name */}
+      <div className="flex items-start gap-3">
+        <button
+          type="button"
+          onClick={onClose}
+          className={`shrink-0 p-2 rounded-lg bg-gray-100 dark:bg-gray-800 ${themeColors.text.secondary} hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors`}
+          aria-label="Back to list"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <div className="flex-1 min-w-0">
           <h2 className={`text-xl font-bold ${themeColors.text.primary} line-clamp-2`}>
             {place.name}
           </h2>
@@ -204,14 +247,6 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
             )}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          className={`p-2 rounded-lg bg-gray-100 dark:bg-gray-800 ${themeColors.text.secondary} hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors`}
-          aria-label="Back to list"
-        >
-          <ArrowLeft className="h-5 w-5" />
-        </button>
       </div>
 
       {/* Add to List Button for Previews */}
@@ -264,6 +299,19 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
             <Share2 className="h-3.5 w-3.5" />
             Share
           </button>
+          {canEdit && !place.isPreview && place.googlePlaceId && (
+            <button
+              type="button"
+              onClick={() => void handleSyncFromGoogle()}
+              disabled={isSyncingFromGoogle}
+              className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border ${themeColors.border.default} ${themeColors.text.primary} text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50`}
+            >
+              <RefreshCw
+                className={`h-3.5 w-3.5 ${isSyncingFromGoogle ? 'animate-spin' : ''}`}
+              />
+              {isSyncingFromGoogle ? 'Syncing...' : 'Sync'}
+            </button>
+          )}
           {!place.isPreview && (
             <button
               type="button"
@@ -462,11 +510,14 @@ export const MobilePlaceDetailContent: React.FunctionComponent<MobilePlaceDetail
                 key={i}
                 className="flex-shrink-0 w-60 h-40 rounded-xl overflow-hidden bg-gray-100 dark:bg-gray-800 shadow-sm relative group"
               >
-                <img
-                  src={GoogleMapsService.getPhotoUrl(photo, 400)}
+                <CachedPlacePhoto
+                  placeId={place.id}
+                  photoRef={photo}
+                  photoIndex={i}
                   alt={`Place photo ${i + 1}`}
+                  maxWidth={400}
+                  maxHeight={400}
                   className="w-full h-full object-cover"
-                  loading="lazy"
                 />
               </div>
             ))}

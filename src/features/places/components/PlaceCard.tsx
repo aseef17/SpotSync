@@ -1,9 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { MapIcon, Star, Edit3 } from 'lucide-react';
-import { GoogleMapsService } from '@/features/places/api/googleMapsService';
+import { CachedPlacePhoto } from '@/features/places/components/CachedPlacePhoto';
 import { PlaceStatusSelector } from '@/features/places/components/PlaceStatusSelector';
-import { formatPrice, getTodayHoursText, isPlaceOpen } from '@/features/places/utils/placeHelpers';
+import {
+  formatPrice,
+  getPlaceThumbnail,
+  getTodayHoursText,
+  isPlaceOpen,
+} from '@/features/places/utils/placeHelpers';
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList } from '@/features/lists/types/list';
 import { themeColors } from '@/styles/colors';
@@ -112,13 +117,15 @@ export const PlaceCard = React.memo<PlaceCardProps>(
 
         <div className="w-[100px] h-[100px] shrink-0 relative flex-col flex items-end">
           <div className="w-full h-full bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden border border-gray-200 dark:border-gray-800/50">
-            {place.photoUrls && place.photoUrls.length > 0 ? (
-              <img
-                src={GoogleMapsService.getPhotoUrl(place.photoUrls[0], 200, 200)}
+            {getPlaceThumbnail(place) ? (
+              <CachedPlacePhoto
+                placeId={place.id}
+                photoRef={getPlaceThumbnail(place)}
+                photoIndex={0}
                 alt={place.name}
+                maxWidth={200}
+                maxHeight={200}
                 className="w-full h-full object-cover"
-                loading="lazy"
-                decoding="async"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
                 }}

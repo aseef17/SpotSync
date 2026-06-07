@@ -1,16 +1,32 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { CloudUpload, WifiOff, RefreshCw } from 'lucide-react';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePendingSyncCount } from '@/hooks/usePendingSyncCount';
 import { retryConnection } from '@/utils/retryConnection';
 import { themeColors } from '@/styles/colors';
 
+const PENDING_SYNC_BANNER_DELAY_MS = 750;
+
 export const OfflineBanner: React.FunctionComponent = () => {
   const isOnline = useNetworkStatus();
   const pendingSyncCount = usePendingSyncCount();
   const [isChecking, setIsChecking] = useState(false);
+  const [visiblePendingCount, setVisiblePendingCount] = useState(0);
 
-  if (isOnline && pendingSyncCount === 0) {
+  useEffect(() => {
+    if (pendingSyncCount === 0) {
+      setVisiblePendingCount(0);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      setVisiblePendingCount(pendingSyncCount);
+    }, PENDING_SYNC_BANNER_DELAY_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [pendingSyncCount]);
+
+  if (isOnline && visiblePendingCount === 0) {
     return null;
   }
 
@@ -38,7 +54,7 @@ export const OfflineBanner: React.FunctionComponent = () => {
           )}
           <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
             {isOnline
-              ? `${pendingSyncCount} change${pendingSyncCount === 1 ? '' : 's'} waiting to sync.`
+              ? `${visiblePendingCount} change${visiblePendingCount === 1 ? '' : 's'} waiting to sync.`
               : `You are offline. ${pendingSyncCount > 0 ? `${pendingSyncCount} change${pendingSyncCount === 1 ? '' : 's'} saved locally and ` : ''}cached data is available until you reconnect.`}
           </p>
         </div>

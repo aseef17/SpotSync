@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LoadingButton } from '@/components/Elements/Button/LoadingButton';
 import {
   Edit3,
@@ -10,7 +10,9 @@ import {
   Clock,
   ChevronDown,
   ExternalLink,
+  RefreshCw,
 } from 'lucide-react';
+import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
 import {
   getPlaceMapsUrl,
   getTodayDayName,
@@ -21,9 +23,9 @@ import {
 } from '@/features/places/utils/placeHelpers';
 import { PlaceService } from '@/features/places/api/placeService';
 import { logger } from '@/utils/logger';
-import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { ImageGalleryModal } from '@/features/places/components/ImageGalleryModal';
 import { PlacePhotoGallery } from '@/features/places/components/PlacePhotoGallery';
+import { useResolvedPlacePhotos } from '@/features/places/hooks/useResolvedPlacePhotos';
 import { ConfirmDialog } from '@/components/Elements/ConfirmationDialog/ConfirmationDialog';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import type { Place } from '@/features/places/types/place';
@@ -58,16 +60,6 @@ const formatDate = (date: unknown): string => {
   } catch {
     return 'Invalid date';
   }
-};
-
-const getImageUrl = (photoReference: string): string => {
-  if (photoReference.startsWith('http')) {
-    return photoReference;
-  }
-  if (photoReference && import.meta.env.VITE_GOOGLE_MAPS_API_KEY) {
-    return GoogleMapsService.getPhotoUrl(photoReference, 400);
-  }
-  return '';
 };
 
 const DetailSection: React.FunctionComponent<{
@@ -105,6 +97,7 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showGallery, setShowGallery] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
+  const [isSyncingFromGoogle, setIsSyncingFromGoogle] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const [hoursExpanded, setHoursExpanded] = useState(false);
@@ -113,11 +106,8 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
   const todayDayName = getTodayDayName();
   const todayHoursText = getTodayHoursText(place);
 
-  const photoImages = useMemo(
-    () =>
-      place.photoUrls?.map((url) => getImageUrl(url)).filter((url): url is string => !!url) || [],
-    [place.photoUrls]
-  );
+  const photoRefs = place.photoUrls ?? [];
+  const photoImages = useResolvedPlacePhotos(place.id, photoRefs, 800, 800);
 
   const hasServices = place.delivery || place.dineIn || place.takeout || place.reservable;
   const showStatusSection = place.businessStatus || place.openNow !== undefined || hasServices;
@@ -179,6 +169,38 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
   const openGallery = (index: number) => {
     setGalleryIndex(index);
     setShowGallery(true);
+  };
+
+  const handleSyncFromGoogle = async () => {
+    if (!place.googlePlaceId) {
+      toast.error('This place has no Google Place ID.');
+      return;
+    }
+
+    setIsSyncingFromGoogle(true);
+    toast.info('Syncing place from Google...');
+    try {
+      const { place: updated, photoFailures } = await PlaceService.syncPlaceFromGoogle(
+        place.id,
+        user?.id
+      );
+      if (updated) {
+        onPlaceUpdated(updated);
+      } else {
+        const cached = await placeRepository.getById(place.id);
+        onPlaceUpdated(cached ?? undefined);
+      }
+      if (photoFailures > 0) {
+        toast.warning('Place details updated, but some photos could not be synced.');
+      } else {
+        toast.success('Place synced from Google.');
+      }
+    } catch (error) {
+      logger.error('Failed to sync place from Google:', error);
+      toast.error('Failed to sync place from Google.');
+    } finally {
+      setIsSyncingFromGoogle(false);
+    }
   };
 
   const notesSection = (
@@ -256,10 +278,11 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
           compact ? 'space-y-3 p-3' : 'space-y-5 p-5 sm:p-6'
         }`}
       >
-        {photoImages.length > 0 && (
+        {photoRefs.length > 0 && (
           <PlacePhotoGallery
-            key={`${place.id}-${photoImages.length}`}
-            images={photoImages}
+            key={`${place.id}-${photoRefs.length}`}
+            placeId={place.id}
+            photoRefs={photoRefs}
             placeName={place.name}
             compact={compact}
             onOpenFullscreen={openGallery}
@@ -488,17 +511,28 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
           compact ? 'px-3 py-2.5' : 'p-4'
         }`}
       >
-        {canDelete ? (
-          <button
-            type="button"
-            onClick={() => setShowDeleteConfirm(true)}
-            className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
-          >
-            Delete Place
-          </button>
-        ) : (
-          <span />
-        )}
+        <div className="flex items-center gap-2">
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => setShowDeleteConfirm(true)}
+              className="whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium text-red-600 transition-colors hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
+            >
+              Delete Place
+            </button>
+          )}
+          {canEdit && place.googlePlaceId && (
+            <button
+              type="button"
+              onClick={() => void handleSyncFromGoogle()}
+              disabled={isSyncingFromGoogle}
+              className="light-border-default inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border bg-white px-3 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-gray-50 disabled:opacity-50 dark:bg-gray-800 dark:hover:bg-gray-700"
+            >
+              <RefreshCw className={`h-4 w-4 ${isSyncingFromGoogle ? 'animate-spin' : ''}`} />
+              {isSyncingFromGoogle ? 'Syncing...' : 'Sync from Google'}
+            </button>
+          )}
+        </div>
         <button
           type="button"
           onClick={onClose}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Star } from 'lucide-react';
+import { CachedPlacePhoto } from '@/features/places/components/CachedPlacePhoto';
 import { themeColors } from '@/styles/colors';
-import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { formatCategoryName } from '@/constants/placeCategories';
 import {
   formatPrice,
@@ -130,12 +130,14 @@ export const MobilePlaceCard = React.memo<MobilePlaceCardProps>(
                 key={i}
                 className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-lg bg-gray-100 dark:bg-gray-800"
               >
-                <img
-                  src={GoogleMapsService.getPhotoUrl(photo, 300, 300)}
+                <CachedPlacePhoto
+                  placeId={place.id}
+                  photoRef={photo}
+                  photoIndex={i}
                   alt={`${place.name} photo ${i + 1}`}
+                  maxWidth={300}
+                  maxHeight={300}
                   className="h-full w-full object-cover"
-                  loading="lazy"
-                  decoding="async"
                 />
               </div>
             ))}

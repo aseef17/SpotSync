@@ -130,29 +130,48 @@ export class GoogleMapsService {
     }
   }
 
-  static async getPlaceDetails(placeId: string): Promise<LegacyGooglePlace | null> {
+  static extractPhotoResourceNames(place: LegacyGooglePlace, limit = 10): string[] {
+    if (!place.photos?.length) {
+      return [];
+    }
+
+    return place.photos.slice(0, limit).map((photo) => {
+      const photoUrlObj = photo.getUrl;
+      if (typeof photoUrlObj === 'function') {
+        return photoUrlObj({ maxWidth: 1200, maxHeight: 1200 });
+      }
+      return String(photoUrlObj);
+    });
+  }
+
+  static async getPlaceDetails(
+    placeId: string,
+    options?: { skipCache?: boolean }
+  ): Promise<LegacyGooglePlace | null> {
     await this.initialize();
 
     if (!this.apiKey) {
       throw new Error('Missing Google Maps API key for Places API.');
     }
 
-    try {
-      const cacheRef = doc(db, 'places_cache', placeId);
-      const cacheSnap = await getDoc(cacheRef);
-      if (cacheSnap.exists()) {
-        const cachedData = cacheSnap.data() as LegacyGooglePlace & { cacheTimestamp?: number };
-        // Use cache if it's less than 30 days old
-        if (
-          !cachedData.cacheTimestamp ||
-          Date.now() - cachedData.cacheTimestamp < 30 * 24 * 60 * 60 * 1000
-        ) {
-          logger.info(`Using cached place details for ${placeId}`);
-          return cachedData;
+    if (!options?.skipCache) {
+      try {
+        const cacheRef = doc(db, 'places_cache', placeId);
+        const cacheSnap = await getDoc(cacheRef);
+        if (cacheSnap.exists()) {
+          const cachedData = cacheSnap.data() as LegacyGooglePlace & { cacheTimestamp?: number };
+          // Use cache if it's less than 30 days old
+          if (
+            !cachedData.cacheTimestamp ||
+            Date.now() - cachedData.cacheTimestamp < 30 * 24 * 60 * 60 * 1000
+          ) {
+            logger.info(`Using cached place details for ${placeId}`);
+            return cachedData;
+          }
         }
+      } catch (e) {
+        logger.error('Error reading from places_cache:', e);
       }
-    } catch (e) {
-      logger.error('Error reading from places_cache:', e);
     }
 
     try {
@@ -215,20 +234,19 @@ export class GoogleMapsService {
 
       try {
         const cacheRef = doc(db, 'places_cache', placeId);
-        // Serialize the object for Firestore (remove functions if any, but we used numbers for lat/lng)
-        const dataToCache = {
-          ...legacyPlace,
-          cacheTimestamp: Date.now(),
-        };
-        // Ensure photos array doesn't have functions
-        if (dataToCache.photos) {
-          dataToCache.photos = dataToCache.photos.map((p) => ({
-            getUrl:
-              typeof p.getUrl === 'function'
-                ? p.getUrl({ maxWidth: 1200, maxHeight: 1200 })
-                : p.getUrl,
-          }));
-        }
+        // Firestore rejects undefined at any depth; stringify drops omitted API fields.
+        const dataToCache = JSON.parse(
+          JSON.stringify({
+            ...legacyPlace,
+            cacheTimestamp: Date.now(),
+            photos: legacyPlace.photos?.map((p) => ({
+              getUrl:
+                typeof p.getUrl === 'function'
+                  ? p.getUrl({ maxWidth: 1200, maxHeight: 1200 })
+                  : p.getUrl,
+            })),
+          })
+        );
         await setDoc(cacheRef, dataToCache);
       } catch (e) {
         logger.error('Error writing to places_cache:', e);

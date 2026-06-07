@@ -1,0 +1,30 @@
+rules_version = '2';
+
+// Firebase Storage rules for SpotSync.
+//
+// Note: <img src="..."> requests are unauthenticated HTTP GETs. Security rules that
+// require request.auth only apply to Firebase SDK calls, not browser image loads.
+// Synced Google place photos use long-lived download URLs (token=...) from getDownloadURL().
+// Public read on places/shared/** allows direct URLs without tokens as a fallback.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Globally shared place photos (Sync Photos uploads here).
+    match /places/shared/{googlePlaceId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    // Legacy per-place uploads (older clients).
+    match /places/{placeOrGoogleId}/{userId}/{fileName} {
+      allow read: if true;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Profile photos — private to the signed-in user.
+    match /profiles/{userId}/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
