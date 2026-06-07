@@ -1,3 +1,38 @@
+import type { PlaceList } from '@/features/lists/types/list';
+import {
+  shouldGrantListAccess,
+  userCanReadList,
+} from '@/features/lists/lib/listAccessFromSnapshot';
+
 export function shouldApplyCachedListDetails(listAccessible: boolean, cancelled: boolean): boolean {
   return !cancelled && listAccessible;
+}
+
+export function shouldHydrateCachedListSnapshot(options: {
+  list: PlaceList | null;
+  userId: string | undefined;
+  accessRevoked: boolean;
+}): boolean {
+  return shouldGrantListAccess({
+    list: options.list,
+    userId: options.userId,
+    fromCache: true,
+    accessRevoked: options.accessRevoked,
+  });
+}
+
+export type ListFromContextAccess = 'grant' | 'deny-revoked' | 'deny-no-access';
+
+export function resolveListFromContextAccess(options: {
+  list: PlaceList;
+  userId: string | undefined;
+  accessRevoked: boolean;
+}): ListFromContextAccess {
+  if (!userCanReadList(options.list, options.userId)) {
+    return 'deny-no-access';
+  }
+  if (options.accessRevoked) {
+    return 'deny-revoked';
+  }
+  return 'grant';
 }

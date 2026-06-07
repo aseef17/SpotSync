@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { resolveListFromContextAccess } from '@/features/lists/lib/listDetailAccessGuard';
+import type { PlaceList } from '@/features/lists/types/list';
 
 /**
  * Regression guard for useListDetails effect ordering:
@@ -7,18 +9,41 @@ import { describe, expect, it } from 'vitest';
  * listAccessible back to false in that case, or pending snapshots never flush.
  */
 function applyPlacesEffectAccessBaseline(options: {
-  listFromContext: boolean;
+  listFromContext: PlaceList | null;
   listAccessibleAfterListSubscription: boolean;
+  userId: string | undefined;
+  accessRevoked: boolean;
 }): boolean {
   if (options.listFromContext) {
-    return true;
+    return (
+      resolveListFromContextAccess({
+        list: options.listFromContext,
+        userId: options.userId,
+        accessRevoked: options.accessRevoked,
+      }) === 'grant'
+    );
   }
   return options.listAccessibleAfterListSubscription;
 }
 
+const list = (): PlaceList =>
+  ({
+    id: 'list-1',
+    name: 'Test List',
+    isPublic: false,
+    ownerId: 'owner-a',
+    collaborators: [],
+    collaboratorIds: ['collab-b'],
+    places: [],
+    customStatuses: [],
+    tags: [],
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  }) as PlaceList;
+
 describe('places effect access baseline', () => {
   it('preserves access confirmed by the list subscription for deep-linked lists', () => {
-    const listFromContext = false;
+    const listFromContext = null;
 
     let listAccessible = true;
     listAccessible = false;
@@ -28,16 +53,31 @@ describe('places effect access baseline', () => {
       applyPlacesEffectAccessBaseline({
         listFromContext,
         listAccessibleAfterListSubscription: listAccessible,
+        userId: 'collab-b',
+        accessRevoked: false,
       })
     ).toBe(true);
   });
 
-  it('forces access when the list is already present in context', () => {
+  it('grants access when the list is present in context and access is valid', () => {
     expect(
       applyPlacesEffectAccessBaseline({
-        listFromContext: true,
+        listFromContext: list(),
         listAccessibleAfterListSubscription: false,
+        userId: 'collab-b',
+        accessRevoked: false,
       })
     ).toBe(true);
+  });
+
+  it('blocks stale context lists after collaborator access was revoked', () => {
+    expect(
+      applyPlacesEffectAccessBaseline({
+        listFromContext: list(),
+        listAccessibleAfterListSubscription: false,
+        userId: 'collab-b',
+        accessRevoked: true,
+      })
+    ).toBe(false);
   });
 });
