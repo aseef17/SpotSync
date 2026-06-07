@@ -248,7 +248,12 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           }
           if (profile) {
             setUser(profile);
-          } else if (isEmailPasswordUser(fbUser)) {
+          } else {
+            // loadUserProfile can return null while a tombstone exists even though
+            // shouldRetainUserOnAuthChange kept a cached profile above.
+            setUser((prev) => (prev?.id === fbUser.uid ? null : prev));
+
+            if (isEmailPasswordUser(fbUser)) {
             // Email/password registration creates the Firestore profile in register().
             // Wait for that transaction before recovering orphaned auth-only accounts.
             const registrationInProgress = isRegistrationInProgress(fbUser.uid);
@@ -320,26 +325,27 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
                 }
               }
             }
-          } else if (!isBrowserOnline()) {
-            setUser(buildFallbackUserFromAuth(fbUser));
-          } else if (await isAccountDeletionInProgress(fbUser.uid)) {
-            if (!isCurrentAuthStateHandler(handlerGeneration)) {
-              return;
-            }
-            setUser(buildFallbackUserFromAuth(fbUser));
-          } else {
-            await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
-            if (!isCurrentAuthStateHandler(handlerGeneration)) {
-              return;
-            }
-            const provisionedUserDoc = await getDocFromServer(doc(db, 'users', fbUser.uid));
-            if (!isCurrentAuthStateHandler(handlerGeneration)) {
-              return;
-            }
-            if (provisionedUserDoc.exists()) {
-              setUser(provisionedUserDoc.data() as User);
-            } else {
+            } else if (!isBrowserOnline()) {
               setUser(buildFallbackUserFromAuth(fbUser));
+            } else if (await isAccountDeletionInProgress(fbUser.uid)) {
+              if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                return;
+              }
+              setUser(buildFallbackUserFromAuth(fbUser));
+            } else {
+              await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
+              if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                return;
+              }
+              const provisionedUserDoc = await getDocFromServer(doc(db, 'users', fbUser.uid));
+              if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                return;
+              }
+              if (provisionedUserDoc.exists()) {
+                setUser(provisionedUserDoc.data() as User);
+              } else {
+                setUser(buildFallbackUserFromAuth(fbUser));
+              }
             }
           }
         } else {
