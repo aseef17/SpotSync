@@ -224,6 +224,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
       try {
         if (fbUser) {
+          if (!isCurrentAuthStateHandler(handlerGeneration)) {
+            return;
+          }
           setFirebaseUser(fbUser);
           setUser((prev) => (shouldRetainUserOnAuthChange(prev?.id, fbUser.uid) ? prev : null));
 
@@ -255,6 +258,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
               // until register() finishes so we do not race orphan recovery, but do not stop early
               // if the flag is refreshed between waitForCrossTabRegistration and this check.
               while (isRegistrationInProgress(fbUser.uid)) {
+                if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                  return;
+                }
                 profile = await waitForCrossTabRegistration(fbUser.uid);
                 if (profile) {
                   break;
@@ -287,6 +293,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
                   return;
                 }
                 const provisionedUserDoc = await getDocFromServer(doc(db, 'users', fbUser.uid));
+                if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                  return;
+                }
                 if (provisionedUserDoc.exists()) {
                   setUser(provisionedUserDoc.data() as User);
                 } else {
@@ -302,6 +311,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
               return;
             }
             const provisionedUserDoc = await getDocFromServer(doc(db, 'users', fbUser.uid));
+            if (!isCurrentAuthStateHandler(handlerGeneration)) {
+              return;
+            }
             if (provisionedUserDoc.exists()) {
               setUser(provisionedUserDoc.data() as User);
             } else {
@@ -309,6 +321,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             }
           }
         } else {
+          if (!isCurrentAuthStateHandler(handlerGeneration)) {
+            return;
+          }
           setFirebaseUser(null);
           setUser(null);
         }
