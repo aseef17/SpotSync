@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { MapIcon, Star, Edit3 } from 'lucide-react';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { PlaceStatusSelector } from '@/features/places/components/PlaceStatusSelector';
+import { getTodayHoursText, isPlaceOpen } from '@/features/places/utils/placeHelpers';
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList } from '@/features/lists/types/list';
 import { getPlaceThumbnail } from '@/features/places/utils/placeHelpers';
@@ -71,6 +72,30 @@ export const CompactPlaceCard = React.memo<CompactPlaceCardProps>(
           </div>
 
           <p className={`text-sm ${themeColors.text.secondary} truncate`}>{place.address}</p>
+
+          {(place.openNow !== undefined || getTodayHoursText(place)) && (
+            <div
+              className={`flex items-center gap-1.5 text-xs mt-0.5 ${themeColors.text.secondary}`}
+            >
+              {place.openNow !== undefined && (
+                <span
+                  className={
+                    isPlaceOpen(place)
+                      ? 'text-green-600 dark:text-green-400 font-medium'
+                      : 'text-red-600 dark:text-red-400 font-medium'
+                  }
+                >
+                  {isPlaceOpen(place) ? 'Open' : 'Closed'}
+                </span>
+              )}
+              {place.openNow !== undefined && getTodayHoursText(place) && (
+                <span className="text-gray-400">·</span>
+              )}
+              {getTodayHoursText(place) && (
+                <span className="truncate">{getTodayHoursText(place)}</span>
+              )}
+            </div>
+          )}
 
           <div className="flex items-center gap-3 text-xs text-gray-500 truncate mt-0.5">
             {place.category && (

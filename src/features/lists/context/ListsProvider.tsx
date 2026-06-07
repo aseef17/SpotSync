@@ -96,6 +96,23 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
     };
   }, [userId]);
 
+  useEffect(() => {
+    if (!loading || !userId) return;
+
+    const timeoutId = window.setTimeout(() => {
+      setError(
+        (prev) =>
+          prev ??
+          (isBrowserOnline()
+            ? 'Loading is taking longer than expected. Please try again.'
+            : 'You appear to be offline. Reconnect to the internet to load your lists.')
+      );
+      setLoading(false);
+    }, 12000);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [loading, userId]);
+
   const createList = useCallback(
     async (data: {
       name: string;

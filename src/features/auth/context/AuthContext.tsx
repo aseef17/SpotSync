@@ -24,6 +24,8 @@ import {
 import { auth, db } from '@/lib/firebase';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import type { User } from '@/features/auth/types/user';
+import { AccountService, checkUsernameExistsRemote } from '@/features/auth/api/accountService';
+import { getAuthActionCodeSettings } from '@/features/auth/lib/authActionSettings';
 import {
   beginAuthStateHandler,
   isCurrentAuthStateHandler,
@@ -56,6 +58,8 @@ interface AuthContextType {
   googleMapsConnected: boolean;
   logout: () => Promise<void>;
   sendVerificationEmail: () => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
+  requiresEmailVerification: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -343,7 +347,12 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
   }, []);
 
   const login = useCallback(async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password);
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    if (!credential.user.emailVerified) {
+      await sendEmailVerification(credential.user, getAuthActionCodeSettings());
+      await signOut(auth);
+      throw new Error('EMAIL_NOT_VERIFIED');
+    }
   }, []);
 
   const register = useCallback(
@@ -367,6 +376,10 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
         await updateProfile(userCredential.user, { displayName });
 
         const normalizedUsername = username.toLowerCase().trim();
+        if (await checkUsernameExistsRemote(normalizedUsername)) {
+          throw new Error('Username is not available');
+        }
+
         const newUser: User = {
           id: userCredential.user.uid,
           username: normalizedUsername,
@@ -425,7 +438,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           if (!shouldDeleteAuthUserOnRegistrationFailure(rollbackOptions)) {
             if (userDoc.exists()) {
               setUser(userDoc.data() as User);
-              await sendEmailVerification(userCredential.user);
+              await sendEmailVerification(userCredential.user, getAuthActionCodeSettings());
               return;
             }
 
@@ -437,7 +450,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
               const provisionedUserDoc = await getDocFromServer(userRef);
               if (provisionedUserDoc.exists()) {
                 setUser(provisionedUserDoc.data() as User);
-                await sendEmailVerification(userCredential.user);
+                await sendEmailVerification(userCredential.user, getAuthActionCodeSettings());
                 return;
               }
             }
@@ -462,7 +475,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           setUser(createdUserDoc.data() as User);
         }
 
-        await sendEmailVerification(userCredential.user);
+        await sendEmailVerification(userCredential.user, getAuthActionCodeSettings());
       } finally {
         window.clearInterval(heartbeat);
         const completedUid = heartbeatUid;
@@ -491,8 +504,17 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
   const sendVerificationEmail = useCallback(async () => {
     if (firebaseUser && !firebaseUser.emailVerified) {
-      await sendEmailVerification(firebaseUser);
+      await sendEmailVerification(firebaseUser, getAuthActionCodeSettings());
     }
+  }, [firebaseUser]);
+
+  const resetPassword = useCallback(async (email: string) => {
+    await AccountService.resetPassword(email);
+  }, []);
+
+  const requiresEmailVerification = React.useMemo(() => {
+    if (!firebaseUser) return false;
+    return isEmailPasswordUser(firebaseUser) && !firebaseUser.emailVerified;
   }, [firebaseUser]);
 
   const connectGoogleMaps = useCallback(async (): Promise<string> => {
@@ -537,6 +559,8 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
       googleMapsConnected,
       logout,
       sendVerificationEmail,
+      resetPassword,
+      requiresEmailVerification,
     }),
     [
       user,
@@ -549,6 +573,8 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
       googleMapsConnected,
       logout,
       sendVerificationEmail,
+      resetPassword,
+      requiresEmailVerification,
     ]
   );
 

@@ -19,7 +19,9 @@ service cloud.firestore {
     }
 
     function isCollaborator(listData) {
-      return isAuthenticated() && (request.auth.uid in listData.collaboratorIds);
+      return isAuthenticated() &&
+        listData.collaboratorIds != null &&
+        (request.auth.uid in listData.collaboratorIds);
     }
 
     function isEditor(listData) {
@@ -32,21 +34,10 @@ service cloud.firestore {
       return data.isPublic == true || isOwner(data) || isCollaborator(data);
     }
 
-    // Denorm fields optimize owner reads on private lists, but public/collaborator
-    // access must always be checked against the parent list to avoid stale denorm
-    // leaking data after access is revoked (e.g. public -> private).
+    // Always validate place reads against the parent list so listId queries
+    // (including empty lists) satisfy Firestore query security rules.
     function canReadPlace() {
-      if (!(resource.data.listOwnerId is string)) {
-        return canReadList(resource.data.listId);
-      }
-
-      if (resource.data.listIsPublic != true &&
-          isAuthenticated() &&
-          resource.data.listOwnerId == request.auth.uid) {
-        return true;
-      }
-
-      return canReadList(resource.data.listId);
+      return resource.data.listId is string && canReadList(resource.data.listId);
     }
 
     function canWriteList(listId) {
@@ -62,22 +53,17 @@ service cloud.firestore {
     function placeDenormMatchesList(listId) {
       let list = listData(listId);
       let data = request.resource.data;
-
-      if (!(data.listOwnerId is string)) {
-        return true;
-      }
-
-      return data.listOwnerId == list.ownerId &&
+      return !(data.listOwnerId is string) || (
+        data.listOwnerId == list.ownerId &&
         data.listIsPublic == (list.isPublic == true) &&
-        data.listCollaboratorIds == normalizedCollaboratorIds(list);
+        data.listCollaboratorIds == normalizedCollaboratorIds(list)
+      );
     }
 
     function placeDenormUpdateValid(listId) {
       let affected = request.resource.data.diff(resource.data).affectedKeys();
-      if (!affected.hasAny(['listOwnerId', 'listIsPublic', 'listCollaboratorIds'])) {
-        return true;
-      }
-      return placeDenormMatchesList(listId);
+      return !affected.hasAny(['listOwnerId', 'listIsPublic', 'listCollaboratorIds']) ||
+        placeDenormMatchesList(listId);
     }
 
     function currentUsername() {

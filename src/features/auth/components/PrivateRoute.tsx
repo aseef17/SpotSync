@@ -1,5 +1,6 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '@/features/auth/context/AuthContext';
+import { VerifyEmail } from '@/features/auth/routes/VerifyEmail';
 import { AppLoadingScreen } from '@/components/Layout/AppLoadingScreen';
 
 interface PrivateRouteProps {
@@ -7,7 +8,7 @@ interface PrivateRouteProps {
 }
 
 export const PrivateRoute: React.FunctionComponent<PrivateRouteProps> = ({ children }) => {
-  const { firebaseUser, loading } = useAuth();
+  const { firebaseUser, loading, requiresEmailVerification } = useAuth();
 
   if (loading && !firebaseUser) {
     return (
@@ -20,6 +21,10 @@ export const PrivateRoute: React.FunctionComponent<PrivateRouteProps> = ({ child
 
   if (!firebaseUser) {
     return <Navigate to="/login" replace />;
+  }
+
+  if (requiresEmailVerification) {
+    return <VerifyEmail />;
   }
 
   return children ? <>{children}</> : <Outlet />;

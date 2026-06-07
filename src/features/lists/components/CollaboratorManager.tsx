@@ -161,20 +161,20 @@ export const CollaboratorManager: React.FunctionComponent<CollaboratorManagerPro
   }, [list.id, loadPendingInvitations]);
 
   return (
-    <div className={`${themeColors.background.card} pt-2`}>
-      <div className="flex items-center gap-2 mb-8">
+    <div className={`${themeColors.background.card}`}>
+      <div className="flex items-center gap-2 mb-6">
         <Users className={`h-5 w-5 ${themeColors.text.primary}`} />
         <h3 className={`text-lg font-semibold ${themeColors.text.primary}`}>Collaborators</h3>
       </div>
 
       {/* Current Collaborators */}
-      <div className="space-y-4 mb-10">
+      <div className="space-y-3 mb-8">
         {list.collaborators.map((collaborator: Collaborator) => (
           <div
             key={collaborator.userId}
-            className={`flex items-center justify-between p-4 rounded-xl ${themeColors.background.app} border ${themeColors.border.default}`}
+            className={`flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 sm:p-5 rounded-xl ${themeColors.background.app} border ${themeColors.border.default}`}
           >
-            <div className="flex items-center gap-3 min-w-0 flex-1 mr-3">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
               <div
                 className={`flex-shrink-0 w-10 h-10 rounded-full ${themeColors.background.card} border ${themeColors.border.default} flex items-center justify-center`}
               >
@@ -193,7 +193,7 @@ export const CollaboratorManager: React.FunctionComponent<CollaboratorManagerPro
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 sm:flex-shrink-0 sm:ml-4">
               {/* Role Badge/Dropdown */}
               {isOwner && collaborator.permission !== 'owner' ? (
                 <CustomDropdown
@@ -205,7 +205,7 @@ export const CollaboratorManager: React.FunctionComponent<CollaboratorManagerPro
                   onChange={(value) =>
                     handleChangeRole(collaborator.userId, value as 'editor' | 'viewer')
                   }
-                  className="w-20"
+                  className="min-w-[7.5rem]"
                 />
               ) : (
                 <span
@@ -272,29 +272,42 @@ export const CollaboratorManager: React.FunctionComponent<CollaboratorManagerPro
       {/* Invite Form */}
       {(isOwner || currentUser?.permission === 'editor') && (
         <div className={`border-t ${themeColors.border.default} pt-8`}>
-          <h4 className={`text-base font-semibold ${themeColors.text.primary} mb-4`}>
+          <h4 className={`text-base font-semibold ${themeColors.text.primary} mb-5`}>
             Invite Collaborator
           </h4>
 
           {error && (
-            <div className="mb-3 p-3 bg-white dark:bg-gray-800 border-l-4 border-red-500 shadow-sm text-sm text-gray-900 dark:text-gray-100">
+            <div className="mb-4 p-3 bg-white dark:bg-gray-800 border-l-4 border-red-500 shadow-sm text-sm text-gray-900 dark:text-gray-100">
               {error}
             </div>
           )}
 
-          <form onSubmit={handleSendInvitation} className="space-y-4">
+          <form onSubmit={handleSendInvitation} className="space-y-5">
             <div>
+              <label
+                htmlFor="invitee-identifier"
+                className={`block text-sm font-medium ${themeColors.text.secondary} mb-2`}
+              >
+                Email or username
+              </label>
               <input
+                id="invitee-identifier"
                 type="text"
                 value={inviteeIdentifier}
                 onChange={(e) => setInviteeIdentifier(e.target.value)}
-                placeholder="Email or username"
+                placeholder="e.g. friend@email.com or username"
                 className={`w-full px-4 py-3 ${themeColors.form.input} rounded-xl border ${themeColors.border.default} shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500`}
                 disabled={loading}
               />
             </div>
 
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            <div>
+              <label
+                htmlFor="invite-role"
+                className={`block text-sm font-medium ${themeColors.text.secondary} mb-2`}
+              >
+                Permission level
+              </label>
               <CustomDropdown
                 value={inviteRole}
                 options={[
@@ -302,18 +315,18 @@ export const CollaboratorManager: React.FunctionComponent<CollaboratorManagerPro
                   { value: 'viewer', label: 'Viewer (read-only)' },
                 ]}
                 onChange={(value) => setInviteRole(value as 'editor' | 'viewer')}
-                className="flex-1"
+                className="w-full"
               />
-
-              <button
-                type="submit"
-                disabled={loading || !inviteeIdentifier.trim()}
-                className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold disabled:opacity-50 disabled:cursor-not-allowed transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20"
-              >
-                <Mail className="h-4 w-4" />
-                {loading ? 'Sending...' : 'Send Invite'}
-              </button>
             </div>
+
+            <button
+              type="submit"
+              disabled={loading || !inviteeIdentifier.trim()}
+              className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center gap-2"
+            >
+              <Mail className="h-4 w-4" />
+              {loading ? 'Sending...' : 'Send Invite'}
+            </button>
           </form>
         </div>
       )}

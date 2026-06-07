@@ -164,7 +164,7 @@ export const themeColors = {
   background: {
     app: 'light-bg-app',
     card: 'light-bg-card',
-    modalOverlay: 'bg-black/50 backdrop-blur-sm',
+    modalOverlay: 'bg-black/35 backdrop-blur-sm',
   },
 
   // Text colors

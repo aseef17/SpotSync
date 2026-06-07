@@ -10,7 +10,8 @@ import { NotificationContext } from './NotificationContext';
 export const NotificationProvider: React.FunctionComponent<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { user } = useAuth();
+  const { user, requiresEmailVerification } = useAuth();
+  const canSyncNotifications = !!user && !requiresEmailVerification;
   const { addToast } = useToastContext();
   const [permissionGranted, setPermissionGranted] = useState(false);
   const [tokenSynced, setTokenSynced] = useState(false);
@@ -29,7 +30,7 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
         if (!preferencesLoaded) return;
 
         // DO NOT auto-sync if notifications are explicitly disabled by the user
-        if (isGranted && user && !notificationsDisabled) {
+        if (isGranted && canSyncNotifications && !notificationsDisabled) {
           // Check if we need to sync (if not synced or if last check was a while ago)
           const lastCheck = sessionStorage.getItem(`fcm_sync_${user.id}`);
           const isRecentlyChecked = lastCheck && Date.now() - parseInt(lastCheck) < 600000; // 10 mins
@@ -44,11 +45,11 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
 
       checkPermission();
     }
-  }, [user, tokenSynced, notificationsDisabled, preferencesLoaded]);
+  }, [canSyncNotifications, user, tokenSynced, notificationsDisabled, preferencesLoaded]);
 
   // Live listener for user's FCM tokens status
   useEffect(() => {
-    if (!user?.id) {
+    if (!canSyncNotifications || !user?.id) {
       setPreferencesLoaded(false);
       setTokenSynced(false);
       setNotificationsDisabled(false);
@@ -84,20 +85,20 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
       window.clearTimeout(timeoutId);
       unsubscribe();
     };
-  }, [user?.id]);
+  }, [canSyncNotifications, user?.id]);
 
   const requestPermission = useCallback(async () => {
-    if (!user) return false;
+    if (!user || requiresEmailVerification) return false;
     const granted = await NotificationService.requestPermission(user.id);
     if (granted) {
       await NotificationService.setNotificationsDisabled(user.id, false);
     }
     setPermissionGranted(granted);
     return granted;
-  }, [user]);
+  }, [user, requiresEmailVerification]);
 
   const disableNotifications = useCallback(async () => {
-    if (!user) return;
+    if (!user || requiresEmailVerification) return;
 
     // Set global flag first so UI updates immediately
     await NotificationService.setNotificationsDisabled(user.id, true);
@@ -115,7 +116,7 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
     } catch (err) {
       logger.warn('Failed to remove specific device token during disable', err);
     }
-  }, [user]);
+  }, [user, requiresEmailVerification]);
 
   const contextValue = useMemo(
     () => ({

@@ -33,6 +33,7 @@ import {
   getPrimaryPhotoUrl,
   trimPhotoUrlsForStorage,
   type PlaceListAccessFields,
+  type PlaceListAccessQuery,
 } from '@/features/places/utils/placeAccess';
 import imageCompression from 'browser-image-compression';
 
@@ -65,6 +66,38 @@ export const placeConverter: FirestoreDataConverter<Place> = {
     } as Place;
   },
 };
+
+function buildListPlacesQuery(access: PlaceListAccessQuery, subscriptionLimit: number) {
+  const base = collection(db, 'places').withConverter(placeConverter);
+
+  if (access.userId === access.ownerId) {
+    return query(
+      base,
+      where('listId', '==', access.listId),
+      where('listOwnerId', '==', access.ownerId),
+      orderBy('addedAt', 'desc'),
+      limit(subscriptionLimit)
+    );
+  }
+
+  if (access.isPublic) {
+    return query(
+      base,
+      where('listId', '==', access.listId),
+      where('listIsPublic', '==', true),
+      orderBy('addedAt', 'desc'),
+      limit(subscriptionLimit)
+    );
+  }
+
+  return query(
+    base,
+    where('listId', '==', access.listId),
+    where('listCollaboratorIds', 'array-contains', access.userId),
+    orderBy('addedAt', 'desc'),
+    limit(subscriptionLimit)
+  );
+}
 
 export class PlaceService {
   private static async fetchListAccessFields(listId: string): Promise<PlaceListAccessFields> {
@@ -846,12 +879,9 @@ export class PlaceService {
     }
   }
 
-  static async getListPlacesFromCache(listId: string): Promise<Place[] | null> {
+  static async getListPlacesFromCache(access: PlaceListAccessQuery): Promise<Place[] | null> {
     try {
-      const q = query(
-        collection(db, 'places').withConverter(placeConverter),
-        where('listId', '==', listId)
-      );
+      const q = buildListPlacesQuery(access, PLACES_SUBSCRIPTION_LIMIT);
       const querySnapshot = await getDocsFromCache(q);
       const places = querySnapshot.docs.map((docSnap) => docSnap.data());
       return places.sort((a, b) => toMilliseconds(b.addedAt) - toMilliseconds(a.addedAt));
@@ -861,17 +891,12 @@ export class PlaceService {
   }
 
   static subscribeToListPlaces(
-    listId: string,
+    access: PlaceListAccessQuery,
     onUpdate: (places: Place[]) => void,
     onError: (error: Error) => void,
     subscriptionLimit: number = PLACES_SUBSCRIPTION_LIMIT
   ): () => void {
-    const q = query(
-      collection(db, 'places').withConverter(placeConverter),
-      where('listId', '==', listId),
-      orderBy('addedAt', 'desc'),
-      limit(subscriptionLimit)
-    );
+    const q = buildListPlacesQuery(access, subscriptionLimit);
 
     return onSnapshot(
       q,

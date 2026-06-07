@@ -7,6 +7,27 @@ export interface PlaceListAccessFields {
   listCollaboratorIds: string[];
 }
 
+/** Viewer + list metadata used to build security-rule-compatible place queries. */
+export interface PlaceListAccessQuery {
+  listId: string;
+  userId: string;
+  ownerId: string;
+  isPublic: boolean;
+}
+
+export function toPlaceListAccessQuery(
+  listId: string,
+  userId: string,
+  list: Pick<PlaceList, 'ownerId' | 'isPublic'>
+): PlaceListAccessQuery {
+  return {
+    listId,
+    userId,
+    ownerId: list.ownerId,
+    isPublic: list.isPublic === true,
+  };
+}
+
 export function getPlaceListAccessFields(
   list: Pick<PlaceList, 'ownerId' | 'isPublic' | 'collaboratorIds'>
 ): PlaceListAccessFields {
