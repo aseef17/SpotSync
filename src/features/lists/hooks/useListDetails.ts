@@ -21,7 +21,7 @@ import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
   shouldClearAccessRevokedOnContextReturn,
-  shouldConfirmPrivateAccessFromTrustedContext,
+  shouldConfirmListAccessFromServerWhenRevoked,
   shouldHydrateCachedListSnapshot,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import {
@@ -74,7 +74,8 @@ export const useListDetails = (listId: string | undefined) => {
           setAccessRevoked(false);
         })
         .catch(() => {
-          // Permission denied or offline — keep sticky revocation.
+          // Permission denied or offline — keep sticky revocation; allow retry on later effect runs.
+          privateAccessConfirmKeyRef.current = null;
         });
     },
     [setAccessRevoked]
@@ -150,7 +151,7 @@ export const useListDetails = (listId: string | undefined) => {
       } else if (
         listId &&
         user?.id &&
-        shouldConfirmPrivateAccessFromTrustedContext({
+        shouldConfirmListAccessFromServerWhenRevoked({
           list: listFromContext,
           userId: user.id,
           accessRevoked: accessRevokedRef.current,

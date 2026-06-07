@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveListFromContextAccess,
   shouldClearAccessRevokedOnContextReturn,
+  shouldConfirmListAccessFromServerWhenRevoked,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import type { PlaceList } from '@/features/lists/types/list';
 
@@ -108,6 +109,23 @@ describe('places effect access baseline', () => {
         accessRevoked,
       })
     ).toBe('deny-revoked');
+
+    expect(
+      shouldConfirmListAccessFromServerWhenRevoked({
+        list: staleSavedPublic,
+        userId: 'user-c',
+        accessRevoked,
+        isOnline: true,
+      })
+    ).toBe(true);
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPublic,
+        userId: 'user-c',
+        accessRevoked: false,
+      })
+    ).toBe('grant');
   });
 
   it('restores access when owned context replaces an untrusted saved-private row', () => {

@@ -55,8 +55,8 @@ export function resolveListFromContextAccess(options: {
   return 'grant';
 }
 
-/** Re-check server access for trusted owned/collaborator rows while revocation is sticky. */
-export function shouldConfirmPrivateAccessFromTrustedContext(options: {
+/** Re-check server access while revocation is sticky; saved rows and private trusted rows need it. */
+export function shouldConfirmListAccessFromServerWhenRevoked(options: {
   list: PlaceList;
   userId: string | undefined;
   accessRevoked: boolean;
@@ -65,8 +65,7 @@ export function shouldConfirmPrivateAccessFromTrustedContext(options: {
   return (
     options.accessRevoked &&
     options.isOnline &&
-    !options.list.isPublic &&
-    !options.list.isSavedList &&
+    (options.list.isSavedList || !options.list.isPublic) &&
     userCanReadList(options.list, options.userId)
   );
 }

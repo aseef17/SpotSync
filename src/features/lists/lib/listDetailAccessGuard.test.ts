@@ -3,7 +3,7 @@ import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
   shouldClearAccessRevokedOnContextReturn,
-  shouldConfirmPrivateAccessFromTrustedContext,
+  shouldConfirmListAccessFromServerWhenRevoked,
   shouldHydrateCachedListSnapshot,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import type { PlaceList } from '@/features/lists/types/list';
@@ -156,10 +156,10 @@ describe('resolveListFromContextAccess', () => {
   });
 });
 
-describe('shouldConfirmPrivateAccessFromTrustedContext', () => {
+describe('shouldConfirmListAccessFromServerWhenRevoked', () => {
   it('confirms server access when a trusted owned row appears after sticky revocation', () => {
     expect(
-      shouldConfirmPrivateAccessFromTrustedContext({
+      shouldConfirmListAccessFromServerWhenRevoked({
         list: list(),
         userId: 'collab-b',
         accessRevoked: true,
@@ -168,11 +168,33 @@ describe('shouldConfirmPrivateAccessFromTrustedContext', () => {
     ).toBe(true);
   });
 
-  it('does not confirm for untrusted saved private rows that may retain stale collaboratorIds', () => {
+  it('confirms server access for saved public rows after a false revocation during reload', () => {
     expect(
-      shouldConfirmPrivateAccessFromTrustedContext({
+      shouldConfirmListAccessFromServerWhenRevoked({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        userId: 'user-c',
+        accessRevoked: true,
+        isOnline: true,
+      })
+    ).toBe(true);
+  });
+
+  it('confirms server access for saved private rows that may retain stale collaboratorIds', () => {
+    expect(
+      shouldConfirmListAccessFromServerWhenRevoked({
         list: list({ isSavedList: true }),
         userId: 'collab-b',
+        accessRevoked: true,
+        isOnline: true,
+      })
+    ).toBe(true);
+  });
+
+  it('does not confirm for live public rows because context access already grants them', () => {
+    expect(
+      shouldConfirmListAccessFromServerWhenRevoked({
+        list: list({ isPublic: true, collaboratorIds: [] }),
+        userId: 'user-c',
         accessRevoked: true,
         isOnline: true,
       })
@@ -181,7 +203,7 @@ describe('shouldConfirmPrivateAccessFromTrustedContext', () => {
 
   it('does not confirm when revocation is already cleared', () => {
     expect(
-      shouldConfirmPrivateAccessFromTrustedContext({
+      shouldConfirmListAccessFromServerWhenRevoked({
         list: list(),
         userId: 'collab-b',
         accessRevoked: false,
@@ -192,7 +214,7 @@ describe('shouldConfirmPrivateAccessFromTrustedContext', () => {
 
   it('does not confirm while offline because server reads are unavailable', () => {
     expect(
-      shouldConfirmPrivateAccessFromTrustedContext({
+      shouldConfirmListAccessFromServerWhenRevoked({
         list: list(),
         userId: 'collab-b',
         accessRevoked: true,
