@@ -41,7 +41,7 @@ const OFFLINE_LOAD_TIMEOUT_MS = 8000;
 
 export const useListDetails = (listId: string | undefined) => {
   const { user } = useAuth();
-  const { lists } = useListsContext();
+  const { lists, loading: listsLoading } = useListsContext();
   const listFromContext = listId ? lists.find((entry) => entry.id === listId) : undefined;
 
   const [list, setList] = useState<PlaceList | null>(listFromContext ?? null);
@@ -191,6 +191,7 @@ export const useListDetails = (listId: string | undefined) => {
         listId,
         hadListFromContext,
         hasListFromContext: false,
+        listsLoading,
       })
     ) {
       setAccessRevoked(true);
@@ -211,6 +212,7 @@ export const useListDetails = (listId: string | undefined) => {
     accessRevokedRevision,
     confirmPrivateAccessFromServer,
     setAccessRevoked,
+    listsLoading,
   ]);
 
   useEffect(() => {
