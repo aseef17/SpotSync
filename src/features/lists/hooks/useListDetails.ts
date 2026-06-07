@@ -103,6 +103,7 @@ export const useListDetails = (listId: string | undefined) => {
         list: listFromContext,
         userId: user?.id,
         accessRevoked: accessRevokedRef.current,
+        hadListFromContext,
       });
 
       if (contextAccess !== 'grant') {
@@ -117,6 +118,10 @@ export const useListDetails = (listId: string | undefined) => {
         loadTrackingRef.current.hasCachedData = false;
         loadTrackingRef.current.onProgress?.();
         return;
+      }
+
+      if (accessRevokedRef.current) {
+        accessRevokedRef.current = false;
       }
 
       listAccessibleRef.current = true;

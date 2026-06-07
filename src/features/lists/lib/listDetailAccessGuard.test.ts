@@ -79,6 +79,7 @@ describe('resolveListFromContextAccess', () => {
         list: list(),
         userId: 'collab-b',
         accessRevoked: false,
+        hadListFromContext: true,
       })
     ).toBe('grant');
   });
@@ -89,8 +90,20 @@ describe('resolveListFromContextAccess', () => {
         list: list(),
         userId: 'collab-b',
         accessRevoked: true,
+        hadListFromContext: true,
       })
     ).toBe('deny-revoked');
+  });
+
+  it('re-grants access when a list returns to context after removal', () => {
+    expect(
+      resolveListFromContextAccess({
+        list: list(),
+        userId: 'collab-b',
+        accessRevoked: true,
+        hadListFromContext: false,
+      })
+    ).toBe('grant');
   });
 
   it('denies context when the user is no longer a collaborator', () => {
@@ -99,6 +112,7 @@ describe('resolveListFromContextAccess', () => {
         list: list({ collaboratorIds: ['someone-else'] }),
         userId: 'collab-b',
         accessRevoked: false,
+        hadListFromContext: true,
       })
     ).toBe('deny-no-access');
   });

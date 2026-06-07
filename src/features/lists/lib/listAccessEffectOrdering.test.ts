@@ -13,6 +13,7 @@ function applyPlacesEffectAccessBaseline(options: {
   listAccessibleAfterListSubscription: boolean;
   userId: string | undefined;
   accessRevoked: boolean;
+  hadListFromContext: boolean;
 }): boolean {
   if (options.listFromContext) {
     return (
@@ -20,6 +21,7 @@ function applyPlacesEffectAccessBaseline(options: {
         list: options.listFromContext,
         userId: options.userId,
         accessRevoked: options.accessRevoked,
+        hadListFromContext: options.hadListFromContext,
       }) === 'grant'
     );
   }
@@ -55,6 +57,7 @@ describe('places effect access baseline', () => {
         listAccessibleAfterListSubscription: listAccessible,
         userId: 'collab-b',
         accessRevoked: false,
+        hadListFromContext: false,
       })
     ).toBe(true);
   });
@@ -66,6 +69,7 @@ describe('places effect access baseline', () => {
         listAccessibleAfterListSubscription: false,
         userId: 'collab-b',
         accessRevoked: false,
+        hadListFromContext: true,
       })
     ).toBe(true);
   });
@@ -77,6 +81,7 @@ describe('places effect access baseline', () => {
         listAccessibleAfterListSubscription: false,
         userId: 'collab-b',
         accessRevoked: true,
+        hadListFromContext: true,
       })
     ).toBe(false);
   });

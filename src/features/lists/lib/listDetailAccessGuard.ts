@@ -27,9 +27,16 @@ export function resolveListFromContextAccess(options: {
   list: PlaceList;
   userId: string | undefined;
   accessRevoked: boolean;
+  hadListFromContext: boolean;
 }): ListFromContextAccess {
   if (!userCanReadList(options.list, options.userId)) {
     return 'deny-no-access';
+  }
+  // The list disappeared from context (revocation or transient loss) and came back with
+  // live authorization. Clear stale revocation without reopening the window where a list
+  // that never left context could be re-granted from stale collaboratorIds.
+  if (options.accessRevoked && !options.hadListFromContext) {
+    return 'grant';
   }
   if (options.accessRevoked) {
     return 'deny-revoked';
