@@ -112,11 +112,6 @@ function countNotificationRecipients(listData, excludeUserId) {
   return recipientIds.size;
 }
 
-/** No-op after googlePlaces/listPlaces cutover — access fields are resolved at read time. */
-async function syncPlaceAccessFields(_listId, _listData) {
-  return;
-}
-
 async function resolveGooglePlaceName(googlePlaceId, fallback = 'A place') {
   if (!googlePlaceId) {
     return fallback;
@@ -555,15 +550,6 @@ exports.onListUpdated = onDocumentUpdated(
       before.importInProgress === true &&
       after.importInProgress !== true &&
       (after.lastImportCount || 0) > 0;
-
-    const accessChanged =
-      before.ownerId !== after.ownerId ||
-      before.isPublic !== after.isPublic ||
-      JSON.stringify(before.collaboratorIds || []) !== JSON.stringify(after.collaboratorIds || []);
-
-    if (accessChanged) {
-      await syncPlaceAccessFields(event.params.listId, after);
-    }
 
     if (importCompleted) {
       const updatedBy = after.updatedBy || null;
@@ -1053,12 +1039,6 @@ exports.deleteAccount = onCall(
       const updatedCollaborators = (listData.collaborators || []).filter((c) => c.userId !== uid);
       const collaboratorIds = (listData.collaboratorIds || []).filter((id) => id !== uid);
       const editorIds = (listData.editorIds || []).filter((id) => id !== uid);
-      const updatedListData = {
-        ...listData,
-        collaborators: updatedCollaborators,
-        collaboratorIds,
-        editorIds,
-      };
 
       await listDoc.ref.update({
         collaborators: updatedCollaborators,
@@ -1066,7 +1046,6 @@ exports.deleteAccount = onCall(
         editorIds,
         updatedAt: new Date(),
       });
-      await syncPlaceAccessFields(listDoc.id, updatedListData);
     }
 
     const invitationDeletes = new Map();

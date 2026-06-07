@@ -122,28 +122,35 @@ lists (collection)
     │   └── { userId, username, email, permission, invitedAt, joinedAt? }
     ├── collaboratorIds: string[]     # Denormalized for rules/queries
     ├── editorIds: string[]?
-    ├── places: string[]              # Place document IDs
+    ├── placeIds: string[]            # Canonical googlePlaceIds
     ├── customStatuses: string[]
     ├── tags: string[]
     ├── icon, color, iconSize
     ├── importInProgress: boolean?
     └── createdAt, updatedAt: timestamp
 
-places (collection)
-└── placeId (document)
-    ├── listId: string
-    ├── googlePlaceId: string?
+googlePlaces (collection)
+└── googlePlaceId (document)
     ├── name, address: string
     ├── location: { lat, lng }
-    ├── listOwnerId: string           # Denormalized from parent list
-    ├── listIsPublic: boolean       # Denormalized
-    ├── listCollaboratorIds: string[] # Denormalized
+    ├── rating, priceLevel, openingHours, service flags...
+    ├── photoUrls: string[]?, thumbnailUrl: string?
+    └── createdAt, updatedAt: timestamp
+
+listPlaces (collection)
+└── {listId}_{googlePlaceId} (document)
+    ├── listId: string
+    ├── googlePlaceId: string
     ├── status: 'not_visited' | 'visited' | 'not_going' | 'custom'
     ├── customStatus: string?
     ├── notes: string?
-    ├── photoUrls: string[]?, thumbnailUrl: string?
-    ├── rating, priceLevel, openingHours, service flags...
     └── addedBy: string, addedAt, updatedAt: timestamp
+
+places (collection)                 # Legacy — retained for rules/indexes during cutover
+└── placeId (document)
+    ├── listId: string
+    ├── googlePlaceId: string?
+    └── ... (full place payload)
 
 invitations (collection)
 └── invitationId (document)
@@ -162,23 +169,23 @@ places_cache (collection)             # Cached Google Place API payloads
     └── cacheTimestamp, place fields...
 ```
 
-Subcollection `lists/{listId}/places/{placeId}` also exists for list-scoped place reads; the top-level `places` collection is queried by `listId` with denormalized access fields.
+Runtime reads use `listPlaces` (per-list membership) joined with `googlePlaces` (shared metadata). `lists/{listId}.placeIds` is a denormalized index of googlePlaceIds.
 
 ## Cloud Functions
 
 Deployed from the repo-root `functions/` directory (region `us-east4`). See [Cloud Functions Setup](docs/setup/cloud-functions.md) for Gemini and deployment.
 
-| Function                                             | Type               | Purpose                                                           |
-| ---------------------------------------------------- | ------------------ | ----------------------------------------------------------------- |
-| `askList`                                            | Callable           | Gemini natural-language place search                              |
-| `getGoogleMapsList`                                  | Callable           | Scrape places from a Google Maps shared list URL                  |
-| `checkUsernameExists`                                | Callable           | Username availability + legacy registry backfill                  |
-| `deleteAccount`                                      | Callable           | Delete user, owned lists, invitations, and Auth record            |
-| `acceptInvitation`                                   | Callable           | Server-side invitation accept and collaborator update             |
-| `onInvitationCreated`                                | Firestore trigger  | Push notification on new invite                                   |
-| `onInvitationAccepted`                               | Firestore trigger  | Notify inviter on accept                                          |
-| `onPlaceAdded` / `onPlaceUpdated` / `onPlaceDeleted` | Firestore triggers | Collaborator notifications for place changes                      |
-| `onListUpdated` / `onListDeleted`                    | Firestore triggers | Sync place denorm fields; list rename/import/delete notifications |
+| Function                                             | Type               | Purpose                                                |
+| ---------------------------------------------------- | ------------------ | ------------------------------------------------------ |
+| `askList`                                            | Callable           | Gemini natural-language place search                   |
+| `getGoogleMapsList`                                  | Callable           | Scrape places from a Google Maps shared list URL       |
+| `checkUsernameExists`                                | Callable           | Username availability + legacy registry backfill       |
+| `deleteAccount`                                      | Callable           | Delete user, owned lists, invitations, and Auth record |
+| `acceptInvitation`                                   | Callable           | Server-side invitation accept and collaborator update  |
+| `onInvitationCreated`                                | Firestore trigger  | Push notification on new invite                        |
+| `onInvitationAccepted`                               | Firestore trigger  | Notify inviter on accept                               |
+| `onPlaceAdded` / `onPlaceUpdated` / `onPlaceDeleted` | Firestore triggers | Collaborator notifications for place changes           |
+| `onListUpdated` / `onListDeleted`                    | Firestore triggers | List rename/import/delete notifications                |
 
 ## Project Structure
 

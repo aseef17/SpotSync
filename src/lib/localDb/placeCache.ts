@@ -13,9 +13,7 @@ import { getPlaceThumbnail } from '@/features/places/utils/placeHelpers';
 import { toMilliseconds } from '@/utils/date';
 
 function readPlacesFromDb(db: Database, listId: string): Place[] {
-  const statement = db.prepare(
-    'SELECT data FROM places WHERE list_id = ? ORDER BY updated_at DESC'
-  );
+  const statement = db.prepare('SELECT data FROM places WHERE list_id = ?');
   statement.bind([listId]);
 
   const places: Place[] = [];

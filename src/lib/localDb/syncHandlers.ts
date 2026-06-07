@@ -145,11 +145,11 @@ async function applyDeletePlace(payload: DeletePlacePayload): Promise<void> {
 }
 
 async function applyCreateList(payload: CreateListPayload): Promise<void> {
-  await setDoc(doc(db, 'lists', payload.listId), omit(payload.list, ['id']));
+  await setDoc(doc(db, 'lists', payload.listId), omit(payload.list, ['id', 'places']));
 }
 
 async function applyUpdateList(payload: UpdateListPayload): Promise<void> {
-  await updateDoc(doc(db, 'lists', payload.listId), payload.updates);
+  await updateDoc(doc(db, 'lists', payload.listId), omit(payload.updates, ['places']));
 }
 
 async function applyDeleteList(payload: DeleteListPayload): Promise<void> {

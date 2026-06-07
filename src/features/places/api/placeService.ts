@@ -12,7 +12,9 @@ import {
   queueOfflineMutation,
   removeCachedPlace,
   upsertCachedPlace,
+  upsertCachedPlaces,
 } from '@/lib/localDb';
+import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { listRepository } from '@/lib/localDb/repositories/listRepository';
 import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
 import { PLACES_PAGE_SIZE } from '@/features/places/api/placeFirestore';
@@ -45,11 +47,7 @@ import { googlePlaceDocRef } from '@/features/places/api/googlePlaceFirestore';
 import { listPlaceMembershipDocRef } from '@/features/places/api/listPlaceMembershipFirestore';
 import imageCompression from 'browser-image-compression';
 
-export {
-  PLACES_PAGE_SIZE,
-  PLACES_SUBSCRIPTION_LIMIT,
-  placeConverter,
-} from '@/features/places/api/placeFirestore';
+export { PLACES_PAGE_SIZE, PLACES_SUBSCRIPTION_LIMIT } from '@/features/places/api/placeFirestore';
 /** Firestore allows 500 ops per batch; each place writes googlePlaces + listPlaces + list update. */
 export const BULK_CREATE_BATCH_SIZE = 249;
 
@@ -157,11 +155,14 @@ export class PlaceService {
       const suppressNotifications = options?.suppressNotifications ?? false;
       const duplicateIndexes = new Set(findDuplicateMembershipIndexes(listId, placesData));
 
+      const createdPlaces: Place[] = [];
+
       for (let i = 0; i < placesData.length; i += BATCH_SIZE) {
         const chunk = placesData.slice(i, Math.min(i + BATCH_SIZE, placesData.length));
         const batch = writeBatch(db);
         const googlePlaceIds: string[] = [];
         const now = new Date();
+        const chunkCreatedPlaces: Place[] = [];
 
         let batchWriteCount = 0;
 
@@ -193,6 +194,12 @@ export class PlaceService {
             timestamps: { addedAt: now, updatedAt: now },
           });
           googlePlaceIds.push(googlePlaceId);
+          chunkCreatedPlaces.push({
+            ...newPlace,
+            id: membershipId,
+            googlePlaceId,
+            listId,
+          });
           batchWriteCount += 1;
         }
 
@@ -209,7 +216,8 @@ export class PlaceService {
         try {
           await batch.commit();
           successCount += batchWriteCount;
-          logger.info(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: Added ${chunk.length} places`);
+          createdPlaces.push(...chunkCreatedPlaces);
+          logger.info(`Batch ${Math.floor(i / BATCH_SIZE) + 1}: Added ${batchWriteCount} places`);
         } catch (batchError) {
           logger.error(`Batch ${Math.floor(i / BATCH_SIZE) + 1} failed:`, batchError);
           failedCount += chunk.length;
@@ -221,6 +229,11 @@ export class PlaceService {
             });
           }
         }
+      }
+
+      if (createdPlaces.length > 0) {
+        await upsertCachedPlaces(createdPlaces);
+        emitChange(changeTopics.placesForList(listId));
       }
 
       return { successCount, failedCount, errors };
