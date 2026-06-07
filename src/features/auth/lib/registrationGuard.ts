@@ -1,5 +1,7 @@
 export const REGISTRATION_IN_PROGRESS_KEY = 'spotsync_registration_in_progress';
-export const REGISTRATION_STALE_MS = 60_000;
+// Must stay well above throttled setInterval gaps (up to 60s in background tabs) so a slow
+// registration heartbeat cannot expire while register() is still running in another tab.
+export const REGISTRATION_STALE_MS = 120_000;
 export const REGISTRATION_HEARTBEAT_MS = 15_000;
 
 export interface RegistrationProgress {

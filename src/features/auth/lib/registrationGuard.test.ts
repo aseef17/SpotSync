@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  REGISTRATION_HEARTBEAT_MS,
   REGISTRATION_STALE_MS,
   isRegistrationActiveForUid,
   parseRegistrationProgress,
@@ -30,5 +31,11 @@ describe('registrationGuard', () => {
   it('ignores flags for a different uid', () => {
     const progress = { uid: 'user-2', startedAt: 1_000 };
     expect(isRegistrationActiveForUid(progress, 'user-1', 1_000 + 1_000)).toBe(false);
+  });
+
+  it('keeps stale window wider than throttled heartbeat gaps', () => {
+    const maxThrottledHeartbeatGapMs = 60_000;
+    expect(REGISTRATION_STALE_MS).toBeGreaterThan(maxThrottledHeartbeatGapMs);
+    expect(REGISTRATION_STALE_MS).toBeGreaterThan(2 * REGISTRATION_HEARTBEAT_MS);
   });
 });
