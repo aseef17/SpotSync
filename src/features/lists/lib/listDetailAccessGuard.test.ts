@@ -4,6 +4,7 @@ import {
   shouldApplyCachedListDetails,
   shouldClearAccessRevokedOnContextReturn,
   shouldConfirmPrivateAccessFromTrustedContext,
+  shouldConfirmSavedListAccessFromContext,
   shouldHydrateCachedListSnapshot,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import type { PlaceList } from '@/features/lists/types/list';
@@ -195,6 +196,63 @@ describe('shouldConfirmPrivateAccessFromTrustedContext', () => {
       shouldConfirmPrivateAccessFromTrustedContext({
         list: list(),
         userId: 'collab-b',
+        accessRevoked: true,
+        isOnline: false,
+      })
+    ).toBe(false);
+  });
+});
+
+describe('shouldConfirmSavedListAccessFromContext', () => {
+  it('confirms server access when a saved public list re-enters context after sticky revocation', () => {
+    expect(
+      shouldConfirmSavedListAccessFromContext({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        userId: 'user-c',
+        accessRevoked: true,
+        isOnline: true,
+      })
+    ).toBe(true);
+  });
+
+  it('confirms server access for saved private rows that may retain stale collaboratorIds', () => {
+    expect(
+      shouldConfirmSavedListAccessFromContext({
+        list: list({ isSavedList: true }),
+        userId: 'collab-b',
+        accessRevoked: true,
+        isOnline: true,
+      })
+    ).toBe(true);
+  });
+
+  it('does not confirm for trusted owned/collaborator rows handled separately', () => {
+    expect(
+      shouldConfirmSavedListAccessFromContext({
+        list: list(),
+        userId: 'collab-b',
+        accessRevoked: true,
+        isOnline: true,
+      })
+    ).toBe(false);
+  });
+
+  it('does not confirm when revocation is already cleared', () => {
+    expect(
+      shouldConfirmSavedListAccessFromContext({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        userId: 'user-c',
+        accessRevoked: false,
+        isOnline: true,
+      })
+    ).toBe(false);
+  });
+
+  it('does not confirm while offline because server reads are unavailable', () => {
+    expect(
+      shouldConfirmSavedListAccessFromContext({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        userId: 'user-c',
         accessRevoked: true,
         isOnline: false,
       })

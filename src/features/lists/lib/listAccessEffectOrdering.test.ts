@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveListFromContextAccess,
   shouldClearAccessRevokedOnContextReturn,
+  shouldConfirmSavedListAccessFromContext,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import type { PlaceList } from '@/features/lists/types/list';
 
@@ -131,5 +132,40 @@ describe('places effect access baseline', () => {
         accessRevoked: false,
       })
     ).toBe(true);
+  });
+
+  it('requires server confirmation before restoring a re-saved public list after revocation', () => {
+    const staleSavedPublic = {
+      ...list(),
+      isSavedList: true,
+      isPublic: true,
+      collaboratorIds: [],
+    } as PlaceList;
+    const accessRevoked = true;
+
+    expect(
+      shouldClearAccessRevokedOnContextReturn({
+        hadListFromContext: false,
+        list: staleSavedPublic,
+        userId: 'user-c',
+      })
+    ).toBe(false);
+
+    expect(
+      shouldConfirmSavedListAccessFromContext({
+        list: staleSavedPublic,
+        userId: 'user-c',
+        accessRevoked,
+        isOnline: true,
+      })
+    ).toBe(true);
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPublic,
+        userId: 'user-c',
+        accessRevoked,
+      })
+    ).toBe('deny-revoked');
   });
 });
