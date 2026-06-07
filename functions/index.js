@@ -111,25 +111,9 @@ function countNotificationRecipients(listData, excludeUserId) {
   return recipientIds.size;
 }
 
-async function syncPlaceAccessFields(listId, listData) {
-  const db = getFirestore();
-  const accessFields = {
-    listOwnerId: listData.ownerId,
-    listIsPublic: listData.isPublic === true,
-    listCollaboratorIds: listData.collaboratorIds || [listData.ownerId],
-  };
-
-  const placesSnap = await db.collection('places').where('listId', '==', listId).get();
-  if (placesSnap.empty) return;
-
-  const batchSize = 500;
-  for (let i = 0; i < placesSnap.docs.length; i += batchSize) {
-    const batch = db.batch();
-    placesSnap.docs.slice(i, i + batchSize).forEach((placeDoc) => {
-      batch.update(placeDoc.ref, accessFields);
-    });
-    await batch.commit();
-  }
+/** No-op after googlePlaces/listPlaces cutover — access fields are resolved at read time. */
+async function syncPlaceAccessFields(_listId, _listData) {
+  return;
 }
 
 /**
@@ -364,7 +348,7 @@ exports.onInvitationAccepted = onDocumentUpdated(
  */
 exports.onPlaceAdded = onDocumentCreated(
   {
-    document: 'places/{placeId}',
+    document: 'listPlaces/{membershipId}',
     region: 'us-east4',
     database: '(default)',
   },
@@ -372,13 +356,8 @@ exports.onPlaceAdded = onDocumentCreated(
     const snap = event.data;
     if (!snap) return;
 
-    const place = snap.data();
-    const { listId, addedBy, name, notes } = place;
-
-    if (place.suppressNotifications) {
-      console.log(`Skipping notification for "${name}" — suppressNotifications flag set`);
-      return;
-    }
+    const membership = snap.data();
+    const { listId, addedBy, notes, googlePlaceId } = membership;
 
     const listDoc = await getFirestore().collection('lists').doc(listId).get();
     if (!listDoc.exists) {
@@ -395,6 +374,17 @@ exports.onPlaceAdded = onDocumentCreated(
     if (countNotificationRecipients(listData, addedBy) === 0) {
       console.log(`[Notification Warning] No recipients left after excluding actor: ${addedBy}`);
       return;
+    }
+
+    let name = 'A place';
+    if (googlePlaceId) {
+      const googlePlaceDoc = await getFirestore()
+        .collection('googlePlaces')
+        .doc(googlePlaceId)
+        .get();
+      if (googlePlaceDoc.exists) {
+        name = googlePlaceDoc.data().name || name;
+      }
     }
 
     console.log(`Place "${name}" added to list ${listId} by ${addedBy}`);
