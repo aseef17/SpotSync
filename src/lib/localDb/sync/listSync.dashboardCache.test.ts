@@ -6,6 +6,9 @@ const upsertCachedUserListsMock = vi.fn();
 const fetchSavedListsByIdsMock = vi.fn();
 
 let ownedListsSnapshotHandler: ((snapshot: unknown) => void) | undefined;
+let ownedListsSyncCreateCount = 0;
+let ownedListsSyncEntryExists = false;
+let releaseOwnedListsSync: (() => void) | undefined;
 
 vi.mock('firebase/firestore', async () => {
   const actual = await vi.importActual<typeof import('firebase/firestore')>('firebase/firestore');
@@ -35,8 +38,17 @@ vi.mock('@/lib/firebase', () => ({
 
 vi.mock('@/lib/localDb/subscriptionRegistry', () => ({
   acquireSubscription: vi.fn((_key: string, create: () => () => void) => {
-    create();
-    return vi.fn();
+    if (!ownedListsSyncEntryExists) {
+      create();
+      ownedListsSyncEntryExists = true;
+      ownedListsSyncCreateCount += 1;
+    }
+
+    const release = () => {
+      // Subscription registry keeps the entry alive during its grace window.
+    };
+    releaseOwnedListsSync = release;
+    return release;
   }),
 }));
 
@@ -75,11 +87,18 @@ vi.mock('@/features/lists/api/listFirestore', () => ({
   listConverter: {},
 }));
 
+vi.mock('@/lib/localDb/userCache', () => ({
+  getCachedUser: vi.fn(),
+}));
+
+import { getCachedUser } from '@/lib/localDb/userCache';
 import {
   acquireUserOwnedListsSync,
   clearUserListsSyncState,
   setUserSavedListIds,
 } from '@/lib/localDb/sync/listSync';
+
+const getCachedUserMock = vi.mocked(getCachedUser);
 
 const ownedList = {
   id: 'owned-1',
@@ -113,7 +132,11 @@ describe('dashboard cache publish gating', () => {
     syncCachedUserListsMock.mockReset();
     upsertCachedUserListsMock.mockReset();
     fetchSavedListsByIdsMock.mockReset();
+    getCachedUserMock.mockReset();
     ownedListsSnapshotHandler = undefined;
+    ownedListsSyncCreateCount = 0;
+    ownedListsSyncEntryExists = false;
+    releaseOwnedListsSync = undefined;
     clearUserListsSyncState('user-1');
   });
 
@@ -126,6 +149,38 @@ describe('dashboard cache publish gating', () => {
 
     expect(upsertCachedUserListsMock).toHaveBeenCalledWith('user-1', [ownedList]);
     expect(syncCachedUserListsMock).not.toHaveBeenCalled();
+  });
+
+  it('reseeds saved-list ids from profile cache when sync state is cleared and reacquired', async () => {
+    fetchSavedListsByIdsMock.mockResolvedValue({ lists: [], resolved: true });
+    getCachedUserMock.mockResolvedValue({
+      id: 'user-1',
+      email: 'user@example.com',
+      displayName: 'User',
+      username: 'user',
+      savedLists: ['saved-1'],
+      fcmTokens: [],
+      notificationsDisabled: false,
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date('2024-01-01'),
+    });
+
+    acquireUserOwnedListsSync('user-1');
+    expect(ownedListsSyncCreateCount).toBe(1);
+
+    releaseOwnedListsSync?.();
+    clearUserListsSyncState('user-1');
+    fetchSavedListsByIdsMock.mockClear();
+    getCachedUserMock.mockClear();
+
+    acquireUserOwnedListsSync('user-1');
+    expect(ownedListsSyncCreateCount).toBe(1);
+    expect(getCachedUserMock).toHaveBeenCalledWith('user-1');
+
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchSavedListsByIdsMock).toHaveBeenCalledWith(['saved-1'], {});
   });
 
   it('replays profile saved-list ids that arrived before owned-list sync started', async () => {
@@ -159,5 +214,21 @@ describe('dashboard cache publish gating', () => {
 
     expect(syncCachedUserListsMock).toHaveBeenCalledWith('user-1', [ownedList]);
     expect(upsertCachedUserListsMock).not.toHaveBeenCalled();
+  });
+
+  it('does not prune dashboard rows when profile hydrates before owned lists load', async () => {
+    acquireUserOwnedListsSync('user-1');
+
+    setUserSavedListIds('user-1', []);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(syncCachedUserListsMock).not.toHaveBeenCalled();
+
+    ownedListsSnapshotHandler?.(makeOwnedListsSnapshot());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(syncCachedUserListsMock).toHaveBeenCalledWith('user-1', [ownedList]);
   });
 });
