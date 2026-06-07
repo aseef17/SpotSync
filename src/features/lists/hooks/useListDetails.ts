@@ -26,6 +26,7 @@ export const useListDetails = (listId: string | undefined) => {
   const [error, setError] = useState<string | null>(listId ? null : 'No list ID provided');
   const paginationCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const extraPlacesRef = useRef<Place[]>([]);
+  const activeListIdRef = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (listFromContext) {
@@ -43,10 +44,15 @@ export const useListDetails = (listId: string | undefined) => {
     let listLoaded = !!listFromContext;
     let placesLoaded = false;
     let hasCachedData = !!listFromContext;
-    paginationCursorRef.current = null;
-    extraPlacesRef.current = [];
-    setPlaces([]);
-    setLoading(true);
+    const listIdChanged = activeListIdRef.current !== listId;
+    activeListIdRef.current = listId;
+
+    if (listIdChanged) {
+      paginationCursorRef.current = null;
+      extraPlacesRef.current = [];
+      setPlaces([]);
+      setLoading(true);
+    }
 
     const finishLoading = () => {
       if (!cancelled && listLoaded && placesLoaded) {
@@ -55,7 +61,7 @@ export const useListDetails = (listId: string | undefined) => {
     };
 
     const hydrateFromCache = async () => {
-      const contextList = lists.find((entry) => entry.id === listId) ?? null;
+      const contextList = listFromContext ?? null;
       if (contextList) {
         setList(contextList);
         setError(null);
@@ -173,7 +179,7 @@ export const useListDetails = (listId: string | undefined) => {
       unsubscribeList?.();
       unsubscribePlaces();
     };
-  }, [listId, listFromContext, lists]);
+  }, [listId, listFromContext]);
 
   const loadMorePlaces = useCallback(async () => {
     if (!listId || loadingMore) return;
