@@ -442,7 +442,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
     );
   }
 
-  if (error || !list || !displayedList) {
+  if (!displayedList || !list) {
     return (
       <div className={`min-h-screen ${themeColors.background.app}`}>
         <header

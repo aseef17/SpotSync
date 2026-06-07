@@ -11,6 +11,7 @@ import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import { shouldSetSlowListLoadError } from '@/features/lists/hooks/listLoadTimeout';
 
 const OFFLINE_LOAD_TIMEOUT_MS = 8000;
 
@@ -170,6 +171,7 @@ export const useListDetails = (listId: string | undefined) => {
           return true;
         });
         setPlaces(deduped);
+        setError(null);
         setHasMorePlaces(
           placesData.length >= PLACES_SUBSCRIPTION_LIMIT || paginationCursorRef.current !== null
         );
@@ -237,12 +239,15 @@ export const useListDetails = (listId: string | undefined) => {
     if (!loading || !listId) return;
 
     const timeoutId = window.setTimeout(() => {
-      setError((prev) =>
-        prev ??
-        (isBrowserOnline()
-          ? 'Loading is taking longer than expected. Please try again.'
-          : 'You appear to be offline. Reconnect to the internet to load this list.')
-      );
+      const listMetadataLoaded = loadTrackingRef.current.listLoaded;
+      if (shouldSetSlowListLoadError(listMetadataLoaded)) {
+        setError((prev) =>
+          prev ??
+          (isBrowserOnline()
+            ? 'Loading is taking longer than expected. Please try again.'
+            : 'You appear to be offline. Reconnect to the internet to load this list.')
+        );
+      }
       setLoading(false);
     }, 12000);
 
