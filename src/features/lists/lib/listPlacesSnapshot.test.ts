@@ -15,10 +15,12 @@ const place = (id: string): Place =>
 
 describe('mergeSubscribedPlaces', () => {
   it('deduplicates subscribed and paginated places by id', () => {
-    expect(mergeSubscribedPlaces([place('a'), place('b')], [place('b'), place('c')])).toEqual([
-      place('a'),
-      place('b'),
-      place('c'),
+    const subscribed = [place('a'), place('b')];
+    const paginated = [place('b'), place('c')];
+    expect(mergeSubscribedPlaces(subscribed, paginated)).toEqual([
+      subscribed[0],
+      subscribed[1],
+      paginated[1],
     ]);
   });
 });
