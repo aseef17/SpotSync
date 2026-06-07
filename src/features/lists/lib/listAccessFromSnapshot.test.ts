@@ -70,6 +70,18 @@ describe('shouldGrantListAccess', () => {
     ).toBe(true);
   });
 
+  it('denies cached private collaborator snapshots while online until server confirms', () => {
+    expect(
+      shouldGrantListAccess({
+        list: list(),
+        userId: 'collab-b',
+        fromCache: true,
+        accessRevoked: false,
+        online: true,
+      })
+    ).toBe(false);
+  });
+
   it('allows server-confirmed snapshots after revocation when access is still valid', () => {
     expect(
       shouldGrantListAccess({
@@ -77,6 +89,7 @@ describe('shouldGrantListAccess', () => {
         userId: 'collab-b',
         fromCache: false,
         accessRevoked: true,
+        online: true,
       })
     ).toBe(true);
   });

@@ -32,6 +32,7 @@ import { getPlaceListAccessFields } from '@/features/places/utils/placeAccess';
 import { toMilliseconds } from '@/utils/date';
 import { omit } from '@/utils/objectUtils';
 import { fetchSavedListsByIds } from '@/features/lists/api/savedListsFetch';
+import { mergeOwnedAndSavedLists } from '@/features/lists/api/mergeOwnedAndSavedLists';
 import { reconcileSavedLists } from '@/features/lists/api/reconcileSavedLists';
 
 function getExpectedCollaboratorIds(list: PlaceList): string[] {
@@ -490,10 +491,7 @@ export class ListService {
     let fetchSavedListsSeq = 0;
 
     const emit = () => {
-      const existingIds = new Set(ownedLists.map((list) => list.id));
-      const merged = [...ownedLists, ...savedLists.filter((list) => !existingIds.has(list.id))];
-      merged.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
-      onUpdate(merged);
+      onUpdate(mergeOwnedAndSavedLists(ownedLists, savedLists));
     };
 
     const fetchSavedLists = async (ids: string[]) => {
@@ -630,10 +628,7 @@ export class ListService {
         savedLists = [];
       }
 
-      const mergedIds = new Set(ownedLists.map((list) => list.id));
-      const merged = [...ownedLists, ...savedLists.filter((list) => !mergedIds.has(list.id))];
-      merged.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
-      return merged;
+      return mergeOwnedAndSavedLists(ownedLists, savedLists);
     } catch {
       return [];
     }

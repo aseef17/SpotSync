@@ -209,6 +209,7 @@ export const useListDetails = (listId: string | undefined) => {
             userId: user?.id,
             fromCache: meta.fromCache,
             accessRevoked: accessRevokedRef.current,
+            online: isBrowserOnline(),
           })
         ) {
           denyListAccess();
@@ -270,6 +271,7 @@ export const useListDetails = (listId: string | undefined) => {
         list: contextList,
         userId: user?.id,
         accessRevoked: accessRevokedRef.current,
+        online: isBrowserOnline(),
       })
     ) {
       listAccessibleRef.current = true;
@@ -303,6 +305,7 @@ export const useListDetails = (listId: string | undefined) => {
           list: contextList,
           userId: user?.id,
           accessRevoked: accessRevokedRef.current,
+          online: isBrowserOnline(),
         })
       ) {
         setList(contextList);
@@ -329,6 +332,7 @@ export const useListDetails = (listId: string | undefined) => {
           userId: user?.id,
           fromCache: true,
           accessRevoked: accessRevokedRef.current,
+          online: isBrowserOnline(),
         })
       ) {
         setList(cachedList);
@@ -345,6 +349,7 @@ export const useListDetails = (listId: string | undefined) => {
           list: listForPlacesAccess,
           userId: user?.id,
           accessRevoked: accessRevokedRef.current,
+          online: isBrowserOnline(),
         })
       ) {
         setPlaces(cachedPlaces);

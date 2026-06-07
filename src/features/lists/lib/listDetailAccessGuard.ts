@@ -12,12 +12,14 @@ export function shouldHydrateCachedListSnapshot(options: {
   list: PlaceList | null;
   userId: string | undefined;
   accessRevoked: boolean;
+  online?: boolean;
 }): boolean {
   return shouldGrantListAccess({
     list: options.list,
     userId: options.userId,
     fromCache: true,
     accessRevoked: options.accessRevoked,
+    online: options.online,
   });
 }
 
