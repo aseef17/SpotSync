@@ -77,14 +77,18 @@ export function shouldClearAccessRevokedOnContextReturn(options: {
   list: PlaceList;
   userId: string | undefined;
 }): boolean {
+  if (options.hadListFromContext || !userCanReadList(options.list, options.userId)) {
+    return false;
+  }
   // Private lists can linger in persistent cache with stale collaboratorIds after revocation.
   // Those are cleared only after server-confirmed access in useListDetails.
   if (!options.list.isPublic) {
     return false;
   }
-  // Saved-list rows may carry stale isPublic after visibility changes; require server confirmation.
+  // Saved-list rows may carry stale isPublic after visibility changes.
+  // Only owned/collaborator query rows (isSavedList unset) indicate live access was restored.
   if (options.list.isSavedList) {
     return false;
   }
-  return !options.hadListFromContext && userCanReadList(options.list, options.userId);
+  return true;
 }
