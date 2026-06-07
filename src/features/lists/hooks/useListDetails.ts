@@ -81,12 +81,13 @@ export const useListDetails = (listId: string | undefined) => {
           }
           privateListServerVerifiedRef.current = true;
           setAccessRevoked(false);
+          setSavedPrivateDenied(false);
         })
         .catch(() => {
           // Permission denied or offline — keep sticky revocation.
         });
     },
-    [setAccessRevoked]
+    [setAccessRevoked, setSavedPrivateDenied]
   );
   const paginationCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const extraPlacesRef = useRef<Place[]>([]);
@@ -297,6 +298,9 @@ export const useListDetails = (listId: string | undefined) => {
           return;
         }
 
+        if (!meta.fromCache) {
+          setSavedPrivateDenied(false);
+        }
         listAccessibleRef.current = true;
         flushPendingPlacesSnapshot();
         setList(listData);
@@ -337,6 +341,7 @@ export const useListDetails = (listId: string | undefined) => {
     denyListAccess,
     setAccessRevoked,
     confirmPrivateAccessFromServer,
+    setSavedPrivateDenied,
   ]);
 
   useEffect(() => {
