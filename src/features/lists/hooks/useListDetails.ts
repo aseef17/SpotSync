@@ -7,6 +7,7 @@ import {
 } from '@/features/places/api/placeService';
 import { useListsContext } from '@/features/lists/context/useListsContext';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
+import { canApplyCachedListData } from '@/features/lists/hooks/listDetailsAccess';
 import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
@@ -105,7 +106,7 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
-    listAccessibleRef.current = true;
+    listAccessibleRef.current = !!listFromContext;
     loadTrackingRef.current.listLoaded = !!listFromContext;
     loadTrackingRef.current.hasCachedData = !!listFromContext;
     let listLoaded = loadTrackingRef.current.listLoaded;
@@ -143,7 +144,9 @@ export const useListDetails = (listId: string | undefined) => {
         PlaceService.getListPlacesFromCache(listId),
       ]);
 
-      if (cancelled) return;
+      if (!canApplyCachedListData({ cancelled, listAccessible: listAccessibleRef.current })) {
+        return;
+      }
 
       if (!contextList && cachedList) {
         setList(cachedList);
@@ -216,7 +219,7 @@ export const useListDetails = (listId: string | undefined) => {
   }, [listId]);
 
   const loadMorePlaces = useCallback(async () => {
-    if (!listId || loadingMore) return;
+    if (!listId || loadingMore || !listAccessibleRef.current) return;
 
     setLoadingMore(true);
     try {
