@@ -67,6 +67,9 @@ interface GooglePlace {
     wheelchairAccessibleRestroom?: boolean;
     wheelchairAccessibleSeating?: boolean;
   };
+  timeZone?: {
+    id?: string;
+  };
 }
 
 interface GooglePlacesSearchResponse {
@@ -115,6 +118,7 @@ export interface LegacyGooglePlace {
   serves_dinner?: boolean;
   serves_brunch?: boolean;
   wheelchair_accessible_entrance?: boolean;
+  time_zone?: string;
 }
 
 export class GoogleMapsService {
@@ -159,6 +163,7 @@ export class GoogleMapsService {
         weekday_text: gp.openingHours,
         open_now: gp.openNow,
       },
+      time_zone: gp.timeZone,
       business_status: gp.businessStatus,
       user_ratings_total: gp.userRatingsTotal,
       delivery: gp.delivery,
@@ -214,7 +219,7 @@ export class GoogleMapsService {
 
     try {
       const response = await fetch(
-        `https://places.googleapis.com/v1/places/${placeId}?fields=id,displayName,formattedAddress,location,rating,userRatingCount,priceLevel,photos,types,primaryType,nationalPhoneNumber,websiteUri,googleMapsUri,businessStatus,currentOpeningHours,delivery,dineIn,takeout,curbsidePickup,reservable,servesBeer,servesWine,servesVegetarianFood,servesBreakfast,servesLunch,servesDinner,servesBrunch,accessibilityOptions&key=${this.apiKey}`
+        `https://places.googleapis.com/v1/places/${placeId}?fields=id,displayName,formattedAddress,location,rating,userRatingCount,priceLevel,photos,types,primaryType,nationalPhoneNumber,websiteUri,googleMapsUri,businessStatus,currentOpeningHours,timeZone,delivery,dineIn,takeout,curbsidePickup,reservable,servesBeer,servesWine,servesVegetarianFood,servesBreakfast,servesLunch,servesDinner,servesBrunch,accessibilityOptions&key=${this.apiKey}`
       );
 
       if (!response.ok) {
@@ -253,6 +258,7 @@ export class GoogleMapsService {
           ),
           open_now: data.currentOpeningHours?.openNow,
         },
+        time_zone: data.timeZone?.id,
         // New fields from API v1
         business_status: data.businessStatus,
         user_ratings_total: data.userRatingCount,
@@ -339,7 +345,7 @@ export class GoogleMapsService {
           'Content-Type': 'application/json',
           'X-Goog-Api-Key': this.apiKey,
           'X-Goog-FieldMask':
-            'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.types,places.primaryType,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.photos,places.businessStatus,places.userRatingCount,places.currentOpeningHours,places.delivery,places.dineIn,places.takeout,places.curbsidePickup,places.reservable,places.servesBeer,places.servesWine,places.servesVegetarianFood,places.servesBreakfast,places.servesLunch,places.servesDinner,places.servesBrunch,places.accessibilityOptions',
+            'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.priceLevel,places.types,places.primaryType,places.nationalPhoneNumber,places.websiteUri,places.googleMapsUri,places.photos,places.businessStatus,places.userRatingCount,places.currentOpeningHours,places.timeZone,places.delivery,places.dineIn,places.takeout,places.curbsidePickup,places.reservable,places.servesBeer,places.servesWine,places.servesVegetarianFood,places.servesBreakfast,places.servesLunch,places.servesDinner,places.servesBrunch,places.accessibilityOptions',
         },
         body: JSON.stringify(body),
       });
@@ -381,6 +387,7 @@ export class GoogleMapsService {
           weekday_text: normalizeOpeningHours(p.currentOpeningHours?.weekdayDescriptions),
           open_now: p.currentOpeningHours?.openNow,
         },
+        time_zone: p.timeZone?.id,
         // New fields from API v1
         business_status: p.businessStatus,
         user_ratings_total: p.userRatingCount,
@@ -553,6 +560,9 @@ export class GoogleMapsService {
     }
     if (googlePlace.opening_hours?.weekday_text) {
       place.openingHours = normalizeOpeningHours(googlePlace.opening_hours.weekday_text);
+    }
+    if (googlePlace.time_zone) {
+      place.timeZone = googlePlace.time_zone;
     }
 
     // Add top-level lat/lng for map integration

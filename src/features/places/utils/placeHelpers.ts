@@ -2,6 +2,7 @@ import type { Place } from '@/features/places/types/place';
 import type { PlaceList, Collaborator } from '@/features/lists/types/list';
 import { formatCategoryName } from '@/constants/placeCategories';
 import { isOpenAtTimeFromHoursText } from '@/features/places/utils/openingHoursUtils';
+import { getZonedWeekdayName } from '@/features/places/utils/placeTimeUtils';
 import { calculateDistance } from '@/utils/geo';
 
 export const getPlaceThumbnail = (place: Place): string | undefined =>
@@ -155,9 +156,11 @@ export const getWebsiteHostname = (url: string) => {
 export const getTodayHoursText = (place: Place) => {
   if (!place.openingHours || place.openingHours.length === 0) return null;
 
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  const todayIndex = new Date().getDay();
-  const todayName = days[todayIndex];
+  const todayName = place.timeZone
+    ? getZonedWeekdayName(place.timeZone)
+    : ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][
+        new Date().getDay()
+      ];
 
   const todayHours = place.openingHours.find((h: string) => h.startsWith(todayName));
 
@@ -229,10 +232,14 @@ export const isPlaceOpen = (place: Place): boolean => {
     }
 
     if (todayText.match(/\d+:\d+/)) {
-      const parsed = isOpenAtTimeFromHoursText(todayText);
+      const parsed = isOpenAtTimeFromHoursText(todayText, new Date(), {
+        timeZone: place.timeZone,
+      });
       if (parsed !== null) {
         return parsed;
       }
+      // Hours text exists but could not be parsed — do not trust a stale openNow snapshot.
+      return false;
     }
   }
 

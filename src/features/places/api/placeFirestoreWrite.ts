@@ -1,7 +1,6 @@
 import {
   arrayRemove,
   arrayUnion,
-  deleteDoc,
   doc,
   updateDoc,
   writeBatch,
@@ -134,6 +133,11 @@ export async function deletePlaceMembership(membershipId: string, listId: string
     throw new Error(`Invalid membership ID: ${membershipId}`);
   }
 
-  await removeGooglePlaceIdFromList(listId, googlePlaceId);
-  await deleteDoc(listPlaceMembershipDocRef(membershipId));
+  const batch = writeBatch(db);
+  batch.update(doc(db, 'lists', listId), {
+    [LIST_PLACE_IDS_FIELD]: arrayRemove(googlePlaceId),
+    updatedAt: new Date(),
+  });
+  batch.delete(listPlaceMembershipDocRef(membershipId));
+  await batch.commit();
 }

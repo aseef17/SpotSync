@@ -36,6 +36,8 @@ export interface Place {
   phoneNumber?: string;
   website?: string;
   openingHours?: string[];
+  /** IANA timezone at the place location — hours are evaluated in this zone. */
+  timeZone?: string;
   delivery?: boolean;
   dineIn?: boolean;
   takeout?: boolean;

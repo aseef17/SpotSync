@@ -24,6 +24,10 @@ describe('normalizeOpeningHours', () => {
       'Wednesday: Closed',
     ]);
   });
+
+  it('does not infer PM when the start hour is after the end hour', () => {
+    expect(normalizeOpeningHoursLine('Monday: 11:00 - 2:00 PM')).toBe('Monday: 11:00 - 2:00 PM');
+  });
 });
 
 describe('isOpenAtTimeFromHoursText', () => {
@@ -43,6 +47,34 @@ describe('isOpenAtTimeFromHoursText', () => {
     vi.setSystemTime(new Date('2026-06-07T14:00:00'));
 
     expect(isOpenAtTimeFromHoursText('3:00 - 10:00 PM')).toBe(false);
+  });
+
+  it('treats ambiguous lunch hours as AM start, not overnight PM', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-07T12:00:00'));
+
+    expect(isOpenAtTimeFromHoursText('11:00 - 2:00 PM')).toBe(true);
+  });
+
+  it('does not mark lunch hours open late at night', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-07T23:30:00'));
+
+    expect(isOpenAtTimeFromHoursText('11:00 - 2:00 PM')).toBe(false);
+  });
+
+  it('evaluates comma-separated lunch and dinner ranges', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-07T05:13:00'));
+
+    expect(isOpenAtTimeFromHoursText('11:30 AM – 4:00 PM, 5:00 PM – 10:00 PM')).toBe(false);
+  });
+
+  it('returns true when any comma-separated range is active', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-07T18:00:00'));
+
+    expect(isOpenAtTimeFromHoursText('11:30 AM – 4:00 PM, 5:00 PM – 10:00 PM')).toBe(true);
   });
 });
 

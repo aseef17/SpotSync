@@ -48,6 +48,7 @@ export function resolvePlaceView(
     phoneNumber: googlePlace.phoneNumber,
     website: googlePlace.website,
     openingHours: normalizeOpeningHours(googlePlace.openingHours),
+    timeZone: googlePlace.timeZone,
     delivery: googlePlace.delivery,
     dineIn: googlePlace.dineIn,
     takeout: googlePlace.takeout,

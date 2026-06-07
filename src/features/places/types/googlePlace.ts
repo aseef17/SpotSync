@@ -27,6 +27,8 @@ export interface GooglePlace {
   phoneNumber?: string;
   website?: string;
   openingHours?: string[];
+  /** IANA timezone for the place (e.g. America/New_York). Used for open/closed checks. */
+  timeZone?: string;
   delivery?: boolean;
   dineIn?: boolean;
   takeout?: boolean;

@@ -209,6 +209,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       setEnriching(true);
 
       const placesToImport: EnrichedPlace[] = [];
+      const seenImportGooglePlaceIds = new Set<string>();
 
       const BATCH_SIZE = 5;
       for (let i = 0; i < uniquePlaces.length; i += BATCH_SIZE) {
@@ -264,6 +265,14 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
             skippedCount++;
             setSkippedPlaces((prev) => [...prev, enriched]);
             return;
+          }
+          if (enriched.googlePlaceId) {
+            if (seenImportGooglePlaceIds.has(enriched.googlePlaceId)) {
+              skippedCount++;
+              setSkippedPlaces((prev) => [...prev, enriched]);
+              return;
+            }
+            seenImportGooglePlaceIds.add(enriched.googlePlaceId);
           }
           placesToImport.push(enriched);
         });
