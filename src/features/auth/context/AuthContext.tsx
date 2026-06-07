@@ -18,7 +18,9 @@ import { auth, db } from '@/lib/firebase';
 import type { User } from '@/features/auth/types/user';
 import {
   REGISTRATION_HEARTBEAT_MS,
+  beginRegistrationSession,
   clearRegistrationProgress,
+  endRegistrationSession,
   isRegistrationInProgress,
   writeRegistrationProgress,
 } from '@/features/auth/lib/registrationGuard';
@@ -217,6 +219,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
   const register = useCallback(
     async (email: string, password: string, username: string, displayName: string) => {
       registrationInFlightCount++;
+      beginRegistrationSession();
       writeRegistrationProgress('pending');
 
       // Refresh the cross-tab registration flag while register() is still running so a second
@@ -275,11 +278,12 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
         window.clearInterval(heartbeat);
         const completedUid = heartbeatUid;
         registrationInFlightCount--;
+        const remainingSessions = endRegistrationSession();
         // Only drop this registration's uid key; keep pending while another register() is in flight.
         if (completedUid !== 'pending') {
           clearRegistrationProgress(completedUid);
         }
-        if (registrationInFlightCount === 0) {
+        if (registrationInFlightCount === 0 && remainingSessions === 0) {
           clearRegistrationProgress();
         }
       }
