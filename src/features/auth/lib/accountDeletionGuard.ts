@@ -16,6 +16,16 @@ export async function isAccountDeletionInProgress(uid: string): Promise<boolean>
   }
 }
 
+/** True only when the tombstone doc positively exists; false when absent or lookup fails. */
+export async function hasConfirmedAccountDeletionTombstone(uid: string): Promise<boolean> {
+  try {
+    const markerDoc = await getDoc(doc(db, 'accountDeletions', uid));
+    return markerDoc.exists();
+  } catch {
+    return false;
+  }
+}
+
 /** Ignore cached or stale profile docs while accountDeletions/{uid} tombstone exists. */
 export async function resolveProfileUnlessDeletionPending<T>(
   uid: string,

@@ -5,6 +5,7 @@ import {
   listViewRemountKey,
   readPersistedListAccessRevoked,
   shouldClearStaleListView,
+  shouldTrustPrivateListSnapshot,
   writePersistedListAccessRevoked,
 } from '@/features/lists/hooks/listViewAccess';
 
@@ -59,6 +60,48 @@ describe('isFirestorePermissionDenied', () => {
   it('detects Firestore permission errors', () => {
     expect(isFirestorePermissionDenied({ code: 'permission-denied' })).toBe(true);
     expect(isFirestorePermissionDenied(new Error('offline'))).toBe(false);
+  });
+});
+
+describe('shouldTrustPrivateListSnapshot', () => {
+  it('allows server snapshots for private lists', () => {
+    expect(
+      shouldTrustPrivateListSnapshot({
+        fromCache: false,
+        isPublic: false,
+        serverVerified: false,
+      })
+    ).toBe(true);
+  });
+
+  it('allows cached public list snapshots', () => {
+    expect(
+      shouldTrustPrivateListSnapshot({
+        fromCache: true,
+        isPublic: true,
+        serverVerified: false,
+      })
+    ).toBe(true);
+  });
+
+  it('blocks cached private snapshots until server access is confirmed', () => {
+    expect(
+      shouldTrustPrivateListSnapshot({
+        fromCache: true,
+        isPublic: false,
+        serverVerified: false,
+      })
+    ).toBe(false);
+  });
+
+  it('allows cached private snapshots after server access is confirmed', () => {
+    expect(
+      shouldTrustPrivateListSnapshot({
+        fromCache: true,
+        isPublic: false,
+        serverVerified: true,
+      })
+    ).toBe(true);
   });
 });
 

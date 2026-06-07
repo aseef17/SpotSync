@@ -14,6 +14,7 @@ vi.mock('@/lib/firebase', () => ({
 }));
 
 import {
+  hasConfirmedAccountDeletionTombstone,
   isAccountDeletionInProgress,
   resolveProfileUnlessDeletionPending,
 } from '@/features/auth/lib/accountDeletionGuard';
@@ -47,6 +48,30 @@ describe('isAccountDeletionInProgress', () => {
     getDocMock.mockResolvedValue({ exists: () => true });
 
     await expect(isAccountDeletionInProgress('deleted-user')).resolves.toBe(true);
+  });
+});
+
+describe('hasConfirmedAccountDeletionTombstone', () => {
+  beforeEach(() => {
+    getDocMock.mockReset();
+  });
+
+  it('returns true only when the tombstone doc exists', async () => {
+    getDocMock.mockResolvedValue({ exists: () => true });
+
+    await expect(hasConfirmedAccountDeletionTombstone('user-1')).resolves.toBe(true);
+  });
+
+  it('returns false when no tombstone exists', async () => {
+    getDocMock.mockResolvedValue({ exists: () => false });
+
+    await expect(hasConfirmedAccountDeletionTombstone('user-1')).resolves.toBe(false);
+  });
+
+  it('fails open when the tombstone lookup errors', async () => {
+    getDocMock.mockRejectedValue(new Error('offline'));
+
+    await expect(hasConfirmedAccountDeletionTombstone('user-1')).resolves.toBe(false);
   });
 });
 

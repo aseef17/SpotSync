@@ -47,6 +47,17 @@ export function shouldClearStaleListView(options: {
   return Boolean(listId && hadListFromContext && !hasListFromContext);
 }
 
+export function shouldTrustPrivateListSnapshot(options: {
+  fromCache: boolean;
+  isPublic: boolean;
+  serverVerified: boolean;
+}): boolean {
+  if (!options.fromCache || options.isPublic) {
+    return true;
+  }
+  return options.serverVerified;
+}
+
 export function isFirestorePermissionDenied(error: unknown): boolean {
   return (
     typeof error === 'object' &&
