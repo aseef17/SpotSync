@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { resolveListFromContextAccess } from '@/features/lists/lib/listDetailAccessGuard';
+import {
+  resolveListFromContextAccess,
+  shouldClearAccessRevokedOnContextReturn,
+} from '@/features/lists/lib/listDetailAccessGuard';
 import type { PlaceList } from '@/features/lists/types/list';
 
 /**
@@ -79,6 +82,32 @@ describe('places effect access baseline', () => {
         accessRevoked: true,
       })
     ).toBe(false);
+  });
+
+  it('blocks stale saved public context after permission-denied revocation', () => {
+    const staleSavedPublic = {
+      ...list(),
+      isSavedList: true,
+      isPublic: true,
+      collaboratorIds: [],
+    } as PlaceList;
+    const accessRevoked = true;
+
+    expect(
+      shouldClearAccessRevokedOnContextReturn({
+        hadListFromContext: false,
+        list: staleSavedPublic,
+        userId: 'user-c',
+      })
+    ).toBe(false);
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPublic,
+        userId: 'user-c',
+        accessRevoked,
+      })
+    ).toBe('deny-revoked');
   });
 
   it('restores access when owned context replaces an untrusted saved-private row', () => {
