@@ -25,6 +25,8 @@ export interface PlaceList {
   collaboratorIds: string[];
   editorIds?: string[];
   places: Place[];
+  /** Canonical googlePlaceIds stored on lists/{listId} in Firestore. */
+  placeIds?: string[];
   customStatuses: string[];
   tags: string[];
   icon?: string;

@@ -1,6 +1,11 @@
-import { collection, doc, updateDoc, writeBatch, arrayUnion } from 'firebase/firestore';
+import { arrayUnion, doc, writeBatch } from 'firebase/firestore';
 import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
+import {
+  resolveGooglePlaceIdFromMembershipId,
+  writeGooglePlacePhotoMetadata,
+  writePlaceCreateToBatch,
+} from '@/features/places/api/placeFirestoreWrite';
 import {
   loadPlacePhotoBlob,
   patchCachedPlace,
@@ -29,6 +34,14 @@ import {
   isFirebaseStoragePhotoUrl,
   partitionGoogleSyncUpdates,
 } from '@/features/places/utils/placeGoogleSync';
+import {
+  resolveCanonicalGooglePlaceId,
+  resolveMembershipId,
+  splitPlaceUpdates,
+} from '@/features/places/utils/placeWriteSplit';
+import { LIST_PLACE_IDS_FIELD } from '@/features/places/constants/firestorePaths';
+import { googlePlaceDocRef } from '@/features/places/api/googlePlaceFirestore';
+import { listPlaceMembershipDocRef } from '@/features/places/api/listPlaceMembershipFirestore';
 import imageCompression from 'browser-image-compression';
 
 export {
@@ -36,8 +49,8 @@ export {
   PLACES_SUBSCRIPTION_LIMIT,
   placeConverter,
 } from '@/features/places/api/placeFirestore';
-/** Firestore allows 500 ops per batch; bulk create also updates the parent list doc. */
-export const BULK_CREATE_BATCH_SIZE = 499;
+/** Firestore allows 500 ops per batch; each place writes googlePlaces + listPlaces + list update. */
+export const BULK_CREATE_BATCH_SIZE = 249;
 
 export class PlaceService {
   private static async fetchListAccessFields(listId: string): Promise<PlaceListAccessFields> {
@@ -50,8 +63,7 @@ export class PlaceService {
 
   private static enrichPlaceWrite(
     placeData: Omit<Place, 'id' | 'addedAt' | 'updatedAt'>,
-    accessFields: PlaceListAccessFields,
-    options?: { suppressNotifications?: boolean }
+    accessFields: PlaceListAccessFields
   ): Omit<Place, 'id' | 'addedAt' | 'updatedAt'> {
     const trimmedPhotos = trimPhotoUrlsForStorage(placeData.photoUrls);
     const thumbnailUrl = placeData.thumbnailUrl ?? getPrimaryPhotoUrl(trimmedPhotos);
@@ -63,7 +75,6 @@ export class PlaceService {
       ...(trimmedPhotos ? { photoUrls: trimmedPhotos } : {}),
       ...(thumbnailUrl ? { thumbnailUrl } : {}),
       ...(photoCount !== undefined ? { photoCount } : {}),
-      ...(options?.suppressNotifications ? { suppressNotifications: true } : {}),
     };
   }
 
@@ -89,21 +100,24 @@ export class PlaceService {
       }
 
       const accessFields = await this.resolveListAccessFields(listId);
-      const placeRef = doc(collection(db, 'places'));
-      const newPlace = this.enrichPlaceWrite({ ...placeData, listId }, accessFields);
-      const placeId = placeRef.id;
+      const googlePlaceId = resolveCanonicalGooglePlaceId(placeData);
+      const membershipId = resolveMembershipId(listId, googlePlaceId);
+      const newPlace = this.enrichPlaceWrite(
+        { ...placeData, listId, googlePlaceId },
+        accessFields
+      );
       const placeWithTimestamps: Place = {
         ...newPlace,
-        id: placeId,
+        id: membershipId,
         addedAt: new Date(),
         updatedAt: new Date(),
       };
 
       await queueOfflineMutation(
         'createPlace',
-        placeId,
+        membershipId,
         {
-          placeId,
+          placeId: membershipId,
           listId,
           place: omit(placeWithTimestamps, ['id']),
         },
@@ -112,7 +126,7 @@ export class PlaceService {
         }
       );
 
-      return placeId;
+      return membershipId;
     } catch (error) {
       logger.error('Error creating place:', error);
       throw error;
@@ -126,8 +140,7 @@ export class PlaceService {
    */
   static async bulkCreatePlaces(
     listId: string,
-    placesData: Array<Omit<Place, 'id' | 'addedAt' | 'updatedAt'>>,
-    options?: { suppressNotifications?: boolean }
+    placesData: Array<Omit<Place, 'id' | 'addedAt' | 'updatedAt'>>
   ): Promise<{
     successCount: number;
     failedCount: number;
@@ -140,33 +153,40 @@ export class PlaceService {
 
     try {
       const accessFields = await this.fetchListAccessFields(listId);
-      const suppressNotifications = options?.suppressNotifications ?? false;
 
-      // Process in chunks of 500
       for (let i = 0; i < placesData.length; i += BATCH_SIZE) {
         const chunk = placesData.slice(i, Math.min(i + BATCH_SIZE, placesData.length));
         const batch = writeBatch(db);
-        const placeIds: string[] = [];
+        const googlePlaceIds: string[] = [];
+        const now = new Date();
 
         for (let j = 0; j < chunk.length; j++) {
           const placeData = chunk[j];
-          const placeRef = doc(collection(db, 'places'));
-          const enriched = this.enrichPlaceWrite({ ...placeData, listId }, accessFields, {
-            suppressNotifications,
-          });
+          const googlePlaceId = resolveCanonicalGooglePlaceId(placeData);
+          const membershipId = resolveMembershipId(listId, googlePlaceId);
+          const enriched = this.enrichPlaceWrite(
+            { ...placeData, listId, googlePlaceId },
+            accessFields
+          );
           const newPlace: Omit<Place, 'id'> = {
             ...enriched,
-            addedAt: new Date(),
-            updatedAt: new Date(),
+            addedAt: now,
+            updatedAt: now,
           };
 
-          batch.set(placeRef, newPlace);
-          placeIds.push(placeRef.id);
+          writePlaceCreateToBatch(batch, {
+            listId,
+            membershipId,
+            googlePlaceId,
+            place: newPlace,
+            timestamps: { addedAt: now, updatedAt: now },
+          });
+          googlePlaceIds.push(googlePlaceId);
         }
 
         const listRef = doc(db, 'lists', listId);
         batch.update(listRef, {
-          places: arrayUnion(...placeIds),
+          [LIST_PLACE_IDS_FIELD]: arrayUnion(...googlePlaceIds),
           updatedAt: new Date(),
         });
 
@@ -283,15 +303,32 @@ export class PlaceService {
     }
   }
 
-  static async bulkUpdatePlaces(placeIds: string[], updates: Partial<Place>): Promise<void> {
+  static async bulkUpdatePlaces(membershipIds: string[], updates: Partial<Place>): Promise<void> {
     try {
       const batch = writeBatch(db);
+      const now = new Date();
+      const { membershipUpdates, googlePlaceUpdates } = splitPlaceUpdates({
+        ...updates,
+        updatedAt: now,
+      });
 
-      for (const placeId of placeIds) {
-        batch.update(doc(db, 'places', placeId), {
-          ...updates,
-          updatedAt: new Date(),
-        });
+      for (const membershipId of membershipIds) {
+        if (Object.keys(membershipUpdates).length > 0) {
+          batch.update(listPlaceMembershipDocRef(membershipId), {
+            ...membershipUpdates,
+            updatedAt: now,
+          });
+        }
+
+        if (Object.keys(googlePlaceUpdates).length > 0) {
+          const googlePlaceId = resolveGooglePlaceIdFromMembershipId(membershipId);
+          if (googlePlaceId) {
+            batch.update(googlePlaceDocRef(googlePlaceId), {
+              ...googlePlaceUpdates,
+              updatedAt: now,
+            });
+          }
+        }
       }
 
       await batch.commit();
@@ -744,7 +781,7 @@ export class PlaceService {
     };
 
     if (isBrowserOnline()) {
-      await updateDoc(doc(db, 'places', placeId), updates);
+      await writeGooglePlacePhotoMetadata(placeId, updates);
     }
 
     await patchCachedPlace(placeId, updates);

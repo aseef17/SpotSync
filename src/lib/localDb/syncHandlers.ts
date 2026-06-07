@@ -1,6 +1,4 @@
 import {
-  arrayRemove,
-  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -12,6 +10,14 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db, functions } from '@/lib/firebase';
+import {
+  addGooglePlaceIdToList,
+  deletePlaceMembership,
+  writePlaceCreate,
+  writePlaceUpdates,
+} from '@/features/places/api/placeFirestoreWrite';
+import { LIST_PLACES_COLLECTION } from '@/features/places/constants/firestorePaths';
+import { resolveCanonicalGooglePlaceId } from '@/features/places/utils/placeWriteSplit';
 import type { PendingMutation } from '@/lib/localDb/types';
 import type {
   AcceptInvitationPayload,
@@ -33,6 +39,7 @@ import type {
   UpdateProfilePayload,
   UpdateUserPayload,
 } from '@/lib/localDb/types';
+import type { Place } from '@/features/places/types/place';
 import { omit } from '@/utils/objectUtils';
 import { Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -99,7 +106,7 @@ export async function applyPendingMutation(mutation: PendingMutation): Promise<v
 }
 
 async function applyUpdatePlaceStatus(payload: UpdatePlaceStatusPayload): Promise<void> {
-  const updates: Record<string, unknown> = {
+  const updates: Partial<Place> & { updatedAt: Date; updatedBy?: string } = {
     status: payload.status,
     updatedAt: new Date(),
   };
@@ -109,33 +116,33 @@ async function applyUpdatePlaceStatus(payload: UpdatePlaceStatusPayload): Promis
   if (payload.userId) {
     updates.updatedBy = payload.userId;
   }
-  await updateDoc(doc(db, 'places', payload.placeId), updates);
+  await writePlaceUpdates(payload.placeId, updates);
 }
 
 async function applyUpdatePlace(payload: UpdatePlacePayload): Promise<void> {
-  await updateDoc(doc(db, 'places', payload.placeId), payload.updates);
+  await writePlaceUpdates(payload.placeId, payload.updates);
 }
 
 async function applyCreatePlace(payload: CreatePlacePayload): Promise<void> {
-  await setDoc(doc(db, 'places', payload.placeId), payload.place);
-  await updateDoc(doc(db, 'lists', payload.listId), {
-    places: arrayUnion(payload.placeId),
-    updatedAt: new Date(),
+  const googlePlaceId =
+    payload.place.googlePlaceId ?? resolveCanonicalGooglePlaceId(payload.place);
+  const membershipId = payload.placeId;
+
+  await writePlaceCreate({
+    listId: payload.listId,
+    membershipId,
+    googlePlaceId,
+    place: payload.place,
+    timestamps: {
+      addedAt: payload.place.addedAt,
+      updatedAt: payload.place.updatedAt,
+    },
   });
+  await addGooglePlaceIdToList(payload.listId, googlePlaceId);
 }
 
 async function applyDeletePlace(payload: DeletePlacePayload): Promise<void> {
-  if (payload.userId) {
-    await updateDoc(doc(db, 'places', payload.placeId), {
-      deletedBy: payload.userId,
-      deletedAt: new Date(),
-    });
-  }
-  await updateDoc(doc(db, 'lists', payload.listId), {
-    places: arrayRemove(payload.placeId),
-    updatedAt: new Date(),
-  });
-  await deleteDoc(doc(db, 'places', payload.placeId));
+  await deletePlaceMembership(payload.placeId, payload.listId);
 }
 
 async function applyCreateList(payload: CreateListPayload): Promise<void> {
@@ -147,17 +154,20 @@ async function applyUpdateList(payload: UpdateListPayload): Promise<void> {
 }
 
 async function applyDeleteList(payload: DeleteListPayload): Promise<void> {
-  const placesQuery = query(collection(db, 'places'), where('listId', '==', payload.listId));
-  const placesSnapshot = await getDocs(placesQuery);
-  const places = placesSnapshot.docs;
+  const membershipsQuery = query(
+    collection(db, LIST_PLACES_COLLECTION),
+    where('listId', '==', payload.listId)
+  );
+  const membershipsSnapshot = await getDocs(membershipsQuery);
+  const memberships = membershipsSnapshot.docs;
 
-  if (places.length === 0) {
+  if (memberships.length === 0) {
     await deleteDoc(doc(db, 'lists', payload.listId));
     return;
   }
 
   const batch = writeBatch(db);
-  places.forEach((placeDoc) => batch.delete(placeDoc.ref));
+  memberships.forEach((membershipDoc) => batch.delete(membershipDoc.ref));
   batch.delete(doc(db, 'lists', payload.listId));
   await batch.commit();
 }

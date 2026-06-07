@@ -2,13 +2,9 @@ import {
   doc,
   updateDoc,
   collection,
-  query,
-  where,
-  getDocs,
   getDocFromServer,
   arrayUnion,
   arrayRemove,
-  writeBatch,
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
@@ -22,7 +18,6 @@ import {
 import { listRepository } from '@/lib/localDb/repositories/listRepository';
 import type { PlaceList, Collaborator, Permission } from '@/features/lists/types/list';
 import { logger } from '@/utils/logger';
-import { getPlaceListAccessFields } from '@/features/places/utils/placeAccess';
 import { listConverter } from '@/features/lists/api/listFirestore';
 
 function getExpectedEditorIds(list: PlaceList): string[] {
@@ -69,6 +64,7 @@ export class ListService {
         collaboratorIds: [ownerId],
         editorIds: [ownerId],
         places: [],
+        placeIds: [],
         customStatuses: [],
         tags: [],
         icon: icon || 'AUTO',
@@ -133,30 +129,9 @@ export class ListService {
     );
   }
 
-  static async syncPlaceAccessFields(listId: string): Promise<void> {
-    try {
-      const list = await listRepository.getById(listId);
-      if (!list) return;
-
-      const accessFields = getPlaceListAccessFields(list);
-      const placesQuery = query(collection(db, 'places'), where('listId', '==', listId));
-      const placesSnapshot = await getDocs(placesQuery);
-      if (placesSnapshot.empty) return;
-
-      const BATCH_SIZE = 500;
-      const docs = placesSnapshot.docs;
-
-      for (let i = 0; i < docs.length; i += BATCH_SIZE) {
-        const batch = writeBatch(db);
-        docs.slice(i, i + BATCH_SIZE).forEach((placeDoc) => {
-          batch.update(placeDoc.ref, { ...accessFields });
-        });
-        await batch.commit();
-      }
-    } catch (error) {
-      logger.error('Error syncing place access fields:', error);
-      throw error;
-    }
+  /** No-op after googlePlaces/listPlaces cutover — access fields are resolved at read time. */
+  static async syncPlaceAccessFields(_listId: string): Promise<void> {
+    return;
   }
 
   static async updateList(

@@ -49,24 +49,47 @@ exports.askList = onCall({ region: 'us-east4' }, async (request) => {
         address: entry.address,
       }));
     } else {
-      const placesSnapshot = await db.collection('places').where('listId', '==', listId).get();
+      const membershipsSnapshot = await db
+        .collection('listPlaces')
+        .where('listId', '==', listId)
+        .get();
 
-      if (placesSnapshot.empty) {
+      if (membershipsSnapshot.empty) {
         return { placeIds: [], message: 'No places in this list.' };
       }
 
-      places = placesSnapshot.docs.map((doc, index) => {
-        const d = doc.data();
+      const googlePlaceIds = [
+        ...new Set(
+          membershipsSnapshot.docs
+            .map((membershipDoc) => membershipDoc.data().googlePlaceId)
+            .filter(Boolean)
+        ),
+      ];
+      const googlePlacesById = new Map();
+
+      if (googlePlaceIds.length > 0) {
+        const googleRefs = googlePlaceIds.map((id) => db.collection('googlePlaces').doc(id));
+        const googleSnaps = await db.getAll(...googleRefs);
+        googleSnaps.forEach((snap) => {
+          if (snap.exists) {
+            googlePlacesById.set(snap.id, snap.data());
+          }
+        });
+      }
+
+      places = membershipsSnapshot.docs.map((membershipDoc, index) => {
+        const membership = membershipDoc.data();
+        const googlePlace = googlePlacesById.get(membership.googlePlaceId) || {};
         return {
           index,
-          realId: doc.id,
-          name: d.name,
-          notes: d.notes || '',
-          category: d.category || 'General',
-          priceLevel: d.priceLevel,
-          status: d.status,
-          address: d.address,
-          googleMapsUrl: d.googleMapsUrl,
+          realId: membershipDoc.id,
+          name: googlePlace.name || 'Unknown',
+          notes: membership.notes || '',
+          category: googlePlace.category || 'General',
+          priceLevel: googlePlace.priceLevel,
+          status: membership.status,
+          address: googlePlace.address || '',
+          googleMapsUrl: googlePlace.googleMapsUrl,
         };
       });
     }
