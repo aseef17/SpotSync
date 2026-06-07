@@ -40,7 +40,7 @@ import type {
   UpdateUserPayload,
 } from '@/lib/localDb/types';
 import type { Place } from '@/features/places/types/place';
-import { planListDeleteBatches } from '@/lib/localDb/listDeleteBatch';
+import { LIST_DELETE_MEMBERSHIP_BATCH_SIZE } from '@/lib/localDb/listDeleteBatch';
 import { omit } from '@/utils/objectUtils';
 import { Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -157,19 +157,29 @@ async function applyDeleteList(payload: DeleteListPayload): Promise<void> {
     collection(db, LIST_PLACES_COLLECTION),
     where('listId', '==', payload.listId)
   );
-  const membershipsSnapshot = await getDocs(membershipsQuery);
-  const memberships = membershipsSnapshot.docs;
 
-  const deletePlans = planListDeleteBatches(memberships.length);
+  while (true) {
+    const membershipsSnapshot = await getDocs(membershipsQuery);
+    const memberships = membershipsSnapshot.docs;
 
-  for (const plan of deletePlans) {
+    if (memberships.length === 0) {
+      const batch = writeBatch(db);
+      batch.delete(doc(db, 'lists', payload.listId));
+      await batch.commit();
+      return;
+    }
+
     const batch = writeBatch(db);
-    const chunk = memberships.slice(plan.startIndex, plan.endIndex);
+    const chunk = memberships.slice(0, LIST_DELETE_MEMBERSHIP_BATCH_SIZE);
     chunk.forEach((membershipDoc) => batch.delete(membershipDoc.ref));
-    if (plan.deleteList) {
+    const isFinalBatch = memberships.length <= LIST_DELETE_MEMBERSHIP_BATCH_SIZE;
+    if (isFinalBatch) {
       batch.delete(doc(db, 'lists', payload.listId));
     }
     await batch.commit();
+    if (isFinalBatch) {
+      return;
+    }
   }
 }
 

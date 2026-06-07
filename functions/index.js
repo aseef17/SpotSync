@@ -855,23 +855,31 @@ async function batchDeleteDocRefs(db, docRefs) {
 }
 
 async function deleteListAndPlaces(db, listId) {
-  const membershipsSnapshot = await db.collection('listPlaces').where('listId', '==', listId).get();
   const BATCH_SIZE = 499;
-  const membershipDocs = membershipsSnapshot.docs;
 
-  if (membershipDocs.length === 0) {
-    await db.collection('lists').doc(listId).delete();
-    return;
-  }
+  while (true) {
+    const membershipsSnapshot = await db
+      .collection('listPlaces')
+      .where('listId', '==', listId)
+      .get();
+    const membershipDocs = membershipsSnapshot.docs;
 
-  for (let i = 0; i < membershipDocs.length; i += BATCH_SIZE) {
+    if (membershipDocs.length === 0) {
+      await db.collection('lists').doc(listId).delete();
+      return;
+    }
+
     const batch = db.batch();
-    const chunk = membershipDocs.slice(i, i + BATCH_SIZE);
+    const chunk = membershipDocs.slice(0, BATCH_SIZE);
     chunk.forEach((membershipDoc) => batch.delete(membershipDoc.ref));
-    if (i + BATCH_SIZE >= membershipDocs.length) {
+    const isFinalBatch = membershipDocs.length <= BATCH_SIZE;
+    if (isFinalBatch) {
       batch.delete(db.collection('lists').doc(listId));
     }
     await batch.commit();
+    if (isFinalBatch) {
+      return;
+    }
   }
 }
 
