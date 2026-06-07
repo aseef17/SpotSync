@@ -81,6 +81,23 @@ describe('fetchSavedListsByIds', () => {
     expect(result.lists).toEqual([]);
   });
 
+  it('reports unresolved when a later chunk fails after an earlier chunk succeeds', async () => {
+    getDocsMock
+      .mockResolvedValueOnce({
+        forEach: (cb: (doc: { data: () => { id: string; name: string } }) => void) => {
+          cb({ data: () => ({ id: 'saved-1', name: 'First chunk list' }) });
+        },
+      })
+      .mockRejectedValueOnce(new Error('offline'));
+    getDocsFromCacheMock.mockRejectedValue(new Error('cache miss'));
+
+    const ids = Array.from({ length: 11 }, (_, index) => `saved-${index + 1}`);
+    const result = await fetchSavedListsByIds(ids, listConverter);
+
+    expect(result.resolved).toBe(false);
+    expect(result.lists).toEqual([{ id: 'saved-1', name: 'First chunk list', isSavedList: true }]);
+  });
+
   it('reads from cache directly when offline', async () => {
     vi.mocked(isBrowserOnline).mockReturnValue(false);
     getDocsFromCacheMock.mockResolvedValue({

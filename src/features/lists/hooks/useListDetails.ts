@@ -26,7 +26,8 @@ export const useListDetails = (listId: string | undefined) => {
   const [error, setError] = useState<string | null>(listId ? null : 'No list ID provided');
   const paginationCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const extraPlacesRef = useRef<Place[]>([]);
-  const activeListIdRef = useRef<string | undefined>(undefined);
+  const listsRef = useRef(lists);
+  listsRef.current = lists;
 
   useEffect(() => {
     if (listFromContext) {
@@ -44,15 +45,10 @@ export const useListDetails = (listId: string | undefined) => {
     let listLoaded = !!listFromContext;
     let placesLoaded = false;
     let hasCachedData = !!listFromContext;
-    const listIdChanged = activeListIdRef.current !== listId;
-    activeListIdRef.current = listId;
-
-    if (listIdChanged) {
-      paginationCursorRef.current = null;
-      extraPlacesRef.current = [];
-      setPlaces([]);
-      setLoading(true);
-    }
+    paginationCursorRef.current = null;
+    extraPlacesRef.current = [];
+    setPlaces([]);
+    setLoading(true);
 
     const finishLoading = () => {
       if (!cancelled && listLoaded && placesLoaded) {
@@ -61,7 +57,7 @@ export const useListDetails = (listId: string | undefined) => {
     };
 
     const hydrateFromCache = async () => {
-      const contextList = lists.find((entry) => entry.id === listId) ?? null;
+      const contextList = listsRef.current.find((entry) => entry.id === listId) ?? null;
       if (contextList) {
         setList(contextList);
         setError(null);
@@ -179,7 +175,9 @@ export const useListDetails = (listId: string | undefined) => {
       unsubscribeList?.();
       unsubscribePlaces();
     };
-  }, [listId, listFromContext, lists]);
+    // Only re-subscribe when the viewed list changes. List metadata syncs via the effect above.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- listFromContext syncs in the effect above; lists via listsRef
+  }, [listId]);
 
   const loadMorePlaces = useCallback(async () => {
     if (!listId || loadingMore) return;

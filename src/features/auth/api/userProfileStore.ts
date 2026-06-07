@@ -26,9 +26,16 @@ function emit(data: UserProfileSnapshot | null) {
   listeners.forEach((listener) => listener(data));
 }
 
+function isActiveUserProfile(userId: string): boolean {
+  return activeUserId === userId;
+}
+
 async function hydrateFromCache(userId: string) {
   try {
     const snap = await getDocFromCache(doc(db, 'users', userId));
+    if (!isActiveUserProfile(userId)) {
+      return;
+    }
     if (snap.exists()) {
       emit(toProfileSnapshot(snap.data()));
     }
@@ -43,6 +50,9 @@ function startSubscription(userId: string) {
   unsubscribeFirestore = onSnapshot(
     doc(db, 'users', userId),
     (snap) => {
+      if (!isActiveUserProfile(userId)) {
+        return;
+      }
       if (!snap.exists()) {
         emit(null);
         return;
