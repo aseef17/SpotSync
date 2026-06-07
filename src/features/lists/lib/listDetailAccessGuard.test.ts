@@ -3,6 +3,7 @@ import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
   shouldClearAccessRevokedOnContextReturn,
+  shouldConfirmPrivateAccessFromTrustedContext,
   shouldHydrateCachedListSnapshot,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import type { PlaceList } from '@/features/lists/types/list';
@@ -152,6 +153,52 @@ describe('resolveListFromContextAccess', () => {
         accessRevoked: true,
       })
     ).toBe('deny-revoked');
+  });
+});
+
+describe('shouldConfirmPrivateAccessFromTrustedContext', () => {
+  it('confirms server access when a trusted owned row appears after sticky revocation', () => {
+    expect(
+      shouldConfirmPrivateAccessFromTrustedContext({
+        list: list(),
+        userId: 'collab-b',
+        accessRevoked: true,
+        isOnline: true,
+      })
+    ).toBe(true);
+  });
+
+  it('does not confirm for untrusted saved private rows that may retain stale collaboratorIds', () => {
+    expect(
+      shouldConfirmPrivateAccessFromTrustedContext({
+        list: list({ isSavedList: true }),
+        userId: 'collab-b',
+        accessRevoked: true,
+        isOnline: true,
+      })
+    ).toBe(false);
+  });
+
+  it('does not confirm when revocation is already cleared', () => {
+    expect(
+      shouldConfirmPrivateAccessFromTrustedContext({
+        list: list(),
+        userId: 'collab-b',
+        accessRevoked: false,
+        isOnline: true,
+      })
+    ).toBe(false);
+  });
+
+  it('does not confirm while offline because server reads are unavailable', () => {
+    expect(
+      shouldConfirmPrivateAccessFromTrustedContext({
+        list: list(),
+        userId: 'collab-b',
+        accessRevoked: true,
+        isOnline: false,
+      })
+    ).toBe(false);
   });
 });
 
