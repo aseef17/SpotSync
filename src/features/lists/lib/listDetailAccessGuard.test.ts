@@ -113,6 +113,26 @@ describe('resolveListFromContextAccess', () => {
       })
     ).toBe('deny-no-access');
   });
+
+  it('denies saved private context that still shows stale collaborator membership', () => {
+    expect(
+      resolveListFromContextAccess({
+        list: list({ isSavedList: true }),
+        userId: 'collab-b',
+        accessRevoked: false,
+      })
+    ).toBe('deny-no-access');
+  });
+
+  it('denies revoked saved private context with deny-revoked', () => {
+    expect(
+      resolveListFromContextAccess({
+        list: list({ isSavedList: true }),
+        userId: 'collab-b',
+        accessRevoked: true,
+      })
+    ).toBe('deny-revoked');
+  });
 });
 
 describe('shouldClearAccessRevokedOnContextReturn', () => {
