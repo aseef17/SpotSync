@@ -10,6 +10,7 @@ const { initializeApp } = require('firebase-admin/app');
 const { getFirestore, FieldPath, FieldValue, Timestamp } = require('firebase-admin/firestore');
 const { getAuth } = require('firebase-admin/auth');
 const { getMessaging } = require('firebase-admin/messaging');
+const { shouldPruneAccountDeletionTombstone } = require('./lib/accountDeletionTombstonePrune');
 
 initializeApp();
 
@@ -894,23 +895,33 @@ async function markAccountDeletionCompleted(db, uid) {
   );
 }
 
+async function isAuthUserDeleted(uid) {
+  try {
+    await getAuth().getUser(uid);
+    return false;
+  } catch (error) {
+    if (error.code === 'auth/user-not-found') {
+      return true;
+    }
+    throw error;
+  }
+}
+
 async function pruneExpiredAccountDeletionTombstones(db) {
   const cutoff = Timestamp.fromMillis(Date.now() - ACCOUNT_DELETION_TOMBSTONE_RETENTION_MS);
+  const cutoffMs = cutoff.toMillis();
   const snapshot = await db.collection('accountDeletions').get();
   const refsToDelete = [];
 
   for (const doc of snapshot.docs) {
     const data = doc.data();
-    const completedAt = data.completedAt;
-    const startedAt = data.startedAt;
+    let authUserDeleted = false;
 
-    if (completedAt?.toMillis() <= cutoff.toMillis()) {
-      refsToDelete.push(doc.ref);
-      continue;
+    if (!data.completedAt && data.startedAt?.toMillis() <= cutoffMs) {
+      authUserDeleted = await isAuthUserDeleted(doc.id);
     }
 
-    // Legacy tombstones written before completedAt existed; startedAt was set at deletion time.
-    if (!completedAt && startedAt?.toMillis() <= cutoff.toMillis()) {
+    if (shouldPruneAccountDeletionTombstone(data, cutoffMs, authUserDeleted)) {
       refsToDelete.push(doc.ref);
     }
   }
