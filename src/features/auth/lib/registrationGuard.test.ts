@@ -90,11 +90,22 @@ describe('registrationGuard', () => {
     expect(isRegistrationInProgress('user-b', 5_000)).toBe(true);
   });
 
-  it('clears pending once a concrete uid is written', () => {
+  it('keeps pending when a concrete uid is written for another signup', () => {
     writeRegistrationProgress('pending');
     writeRegistrationProgress('user-a');
 
-    expect(localStorage.getItem(registrationKey('pending'))).toBeNull();
+    expect(localStorage.getItem(registrationKey('pending'))).not.toBeNull();
     expect(isRegistrationInProgress('user-a', 5_000)).toBe(true);
+    expect(isRegistrationInProgress('user-b', 5_000)).toBe(true);
+  });
+
+  it('does not clear pending when clearing a concrete uid', () => {
+    writeRegistrationProgress('pending');
+    writeRegistrationProgress('user-a');
+
+    clearRegistrationProgress('user-a');
+
+    expect(localStorage.getItem(registrationKey('pending'))).not.toBeNull();
+    expect(isRegistrationInProgress('user-b', 5_000)).toBe(true);
   });
 });
