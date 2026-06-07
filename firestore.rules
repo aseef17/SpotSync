@@ -27,9 +27,23 @@ service cloud.firestore {
         (isAuthenticated() && listData.editorIds != null && request.auth.uid in listData.editorIds);
     }
 
+    function canReadPlaceFromDenorm() {
+      return resource.data.listIsPublic == true ||
+        (isAuthenticated() && resource.data.listOwnerId == request.auth.uid) ||
+        (isAuthenticated() &&
+          resource.data.listCollaboratorIds != null &&
+          request.auth.uid in resource.data.listCollaboratorIds);
+    }
+
     function canReadList(listId) {
       let data = listData(listId);
       return data.isPublic == true || isOwner(data) || isCollaborator(data);
+    }
+
+    function canReadPlace() {
+      return resource.data.listOwnerId is string
+        ? canReadPlaceFromDenorm()
+        : canReadList(resource.data.listId);
     }
 
     function canWriteList(listId) {
@@ -69,7 +83,7 @@ service cloud.firestore {
     match /places/{placeId} {
       allow read: if isAuthenticated() &&
                      resource.data.listId is string &&
-                     canReadList(resource.data.listId);
+                     canReadPlace();
 
       allow create: if isAuthenticated() &&
                        request.resource.data.listId is string &&
@@ -83,6 +97,12 @@ service cloud.firestore {
       allow delete: if isAuthenticated() &&
                        resource.data.listId is string &&
                        canWriteList(resource.data.listId);
+    }
+
+    // PLACES CACHE
+    match /places_cache/{placeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
 
     // USERS

@@ -2,8 +2,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { logger } from '@/utils/logger';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { NotificationService } from '@/features/notifications/api/notificationService';
-import { db } from '@/lib/firebase';
-import { onSnapshot, doc } from 'firebase/firestore';
+import { subscribeToUserProfile } from '@/features/auth/api/userProfileStore';
 import { useToastContext } from '@/hooks/useToastContext';
 import { NotificationContext } from './NotificationContext';
 
@@ -57,12 +56,10 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
 
     setPreferencesLoaded(false);
 
-    const unsubscribe = onSnapshot(doc(db, 'users', user.id), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        const tokens = data.fcmTokens || [];
-        setTokenSynced(tokens.length > 0);
-        setNotificationsDisabled(data.notificationsDisabled === true);
+    const unsubscribe = subscribeToUserProfile(user.id, (profile) => {
+      if (profile) {
+        setTokenSynced(profile.fcmTokens.length > 0);
+        setNotificationsDisabled(profile.notificationsDisabled);
       } else {
         setTokenSynced(false);
         setNotificationsDisabled(false);

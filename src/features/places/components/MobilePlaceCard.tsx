@@ -8,6 +8,7 @@ import {
   getPlaceAttribution,
   getTodayHoursText,
   formatPlaceDistance,
+  getPlaceThumbnail,
   isPlaceOpen,
 } from '@/features/places/utils/placeHelpers';
 import type { Place } from '@/features/places/types/place';
@@ -25,7 +26,7 @@ export const MobilePlaceCard = React.memo<MobilePlaceCardProps>(
     const hoursText = getTodayHoursText(place);
     const categoryText = place.category ? formatCategoryName(place.category) : undefined;
     const distanceText = formatPlaceDistance(place, userLocation);
-    const photos = place.photoUrls || [];
+    const photos = getPlaceThumbnail(place) ? [getPlaceThumbnail(place)!] : place.photoUrls || [];
 
     return (
       <div

@@ -5,6 +5,7 @@ import {
   extractCuisines,
   findGeneralCategory,
 } from '@/constants/placeCategories';
+import { getPrimaryPhotoUrl, trimPhotoUrlsForStorage } from '@/features/places/utils/placeAccess';
 
 /**
  * Creates a unified Place object from Google Maps details.
@@ -35,6 +36,8 @@ export const createPlaceFromGoogleDetails = (
       })
       .filter((url) => !!url);
   }
+  const trimmedPhotos = trimPhotoUrlsForStorage(photoUrls);
+  const thumbnailUrl = getPrimaryPhotoUrl(trimmedPhotos);
 
   let category = googlePlace.category;
   let cuisines = googlePlace.cuisines;
@@ -76,7 +79,9 @@ export const createPlaceFromGoogleDetails = (
           ? googlePlace.geometry.location.lng()
           : googlePlace.geometry?.location?.lng || 0,
     },
-    photoUrls,
+    photoUrls: trimmedPhotos,
+    thumbnailUrl,
+    photoCount: photoUrls.length,
     addedBy: userId,
     status: 'not_visited',
     addedAt: new Date(),

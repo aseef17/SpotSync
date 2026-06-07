@@ -2,18 +2,12 @@ const { onCall, HttpsError } = require('firebase-functions/v2/https');
 const admin = require('firebase-admin');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// Initialize Vertex AI / Gemini
-// Note: User must set GOOGLE_GENAI_API_KEY config variable
-// firebase functions:config:set google_ai.api_key="THE_API_KEY"
-// Or use process.env.GOOGLE_GENAI_API_KEY
-
 exports.askList = onCall({ region: 'us-east4' }, async (request) => {
-  // 1. Authentication Check
   if (!request.auth) {
     throw new HttpsError('unauthenticated', 'The function must be called while authenticated.');
   }
 
-  const { listId, query } = request.data;
+  const { listId, query, placesSummary } = request.data;
 
   if (!listId || !query) {
     throw new HttpsError(
@@ -22,7 +16,6 @@ exports.askList = onCall({ region: 'us-east4' }, async (request) => {
     );
   }
 
-  // 2. Fetch List Data (Check permissions first)
   const apiKey = process.env.GOOGLE_GENAI_API_KEY;
 
   try {
@@ -35,44 +28,55 @@ exports.askList = onCall({ region: 'us-east4' }, async (request) => {
     }
 
     const listData = listDoc.data();
-    const accessMap = listData?.access || {};
     const isOwner = listData?.ownerId === request.auth.uid;
-    const isCollaborator = accessMap[request.auth.uid];
+    const collaboratorIds = listData?.collaboratorIds || [];
+    const isCollaborator = collaboratorIds.includes(request.auth.uid);
 
     if (!isOwner && !isCollaborator) {
       throw new HttpsError('permission-denied', 'You do not have access to this list.');
     }
 
-    // 3. Fetch Places in List
-    const placesSnapshot = await db.collection('places').where('listId', '==', listId).get();
+    let places;
 
-    if (placesSnapshot.empty) {
+    if (Array.isArray(placesSummary) && placesSummary.length > 0) {
+      places = placesSummary.map((entry, index) => ({
+        index,
+        realId: entry.id,
+        name: entry.name,
+        notes: entry.notes || '',
+        category: entry.category || 'General',
+        status: entry.status,
+        address: entry.address,
+      }));
+    } else {
+      const placesSnapshot = await db.collection('places').where('listId', '==', listId).get();
+
+      if (placesSnapshot.empty) {
+        return { placeIds: [], message: 'No places in this list.' };
+      }
+
+      places = placesSnapshot.docs.map((doc, index) => {
+        const d = doc.data();
+        return {
+          index,
+          realId: doc.id,
+          name: d.name,
+          notes: d.notes || '',
+          category: d.category || 'General',
+          priceLevel: d.priceLevel,
+          status: d.status,
+          address: d.address,
+          googleMapsUrl: d.googleMapsUrl,
+        };
+      });
+    }
+
+    if (!places.length) {
       return { placeIds: [], message: 'No places in this list.' };
     }
 
-    // 4. Prepare Context for AI
-    // Use numeric indices to avoid LLM confusion with similar characters (O vs 0, l vs 1)
-    const places = placesSnapshot.docs.map((doc, index) => {
-      const d = doc.data();
-      return {
-        index: index, // Simple numeric index
-        realId: doc.id, // Keep for mapping back
-        name: d.name,
-        notes: d.notes || '',
-        category: d.category || 'General',
-        priceLevel: d.priceLevel,
-        status: d.status,
-        address: d.address,
-        googleMapsUrl: d.googleMapsUrl,
-      };
-    });
-
-    // Create a simplified version for the prompt (without realId)
     const placesForPrompt = places.map(({ realId, ...rest }) => rest);
 
-    // 5. Call Gemini
-    // We look for the API key in process.env or functions config
-    // Note: For v2 functions, params/secrets are preferred, but process.env works if variables are set
     if (!apiKey) {
       console.error('Missing Google GenAI API Key');
       throw new HttpsError('internal', 'AI Service not configured.');
@@ -98,7 +102,6 @@ exports.askList = onCall({ region: 'us-east4' }, async (request) => {
     let usedModel = 'gemini-flash-latest';
 
     try {
-      // Attempt 1: Gemini Flash Latest (Resolves to current working preview)
       const model = genAI.getGenerativeModel({ model: 'gemini-flash-latest' });
       result = await model.generateContent(prompt);
     } catch (e1) {
@@ -110,7 +113,6 @@ exports.askList = onCall({ region: 'us-east4' }, async (request) => {
         })
       );
 
-      // Attempt 2: Fallback to Flash Lite Latest
       try {
         usedModel = 'gemini-flash-lite-latest';
         const modelLite = genAI.getGenerativeModel({ model: 'gemini-flash-lite-latest' });
@@ -123,21 +125,17 @@ exports.askList = onCall({ region: 'us-east4' }, async (request) => {
             error: e2.message,
           })
         );
-        throw e2; // Throw the second error
+        throw e2;
       }
     }
 
     const responseText = result.response.text();
-
-    // 6. Parse Response
-    // Clean up markdown code blocks if present
     const jsonStr = responseText
       .replace(/```json/g, '')
       .replace(/```/g, '')
       .trim();
     const parsed = JSON.parse(jsonStr);
 
-    // Map indices back to real Firestore document IDs
     const matchedIndices = parsed.matchedIndices || [];
     const matchedPlaceIds = matchedIndices
       .filter((idx) => idx >= 0 && idx < places.length)
@@ -145,7 +143,10 @@ exports.askList = onCall({ region: 'us-east4' }, async (request) => {
 
     return {
       placeIds: matchedPlaceIds,
-      debug: { usedModel },
+      debug: {
+        usedModel,
+        usedClientSummary: Array.isArray(placesSummary) && placesSummary.length > 0,
+      },
     };
   } catch (error) {
     console.error(

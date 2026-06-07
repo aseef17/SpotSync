@@ -15,11 +15,14 @@ initializeApp();
 setGlobalOptions({ region: 'us-east4' });
 
 // Helper to get tokens for list collaborators
-async function getCollaboratorTokens(listId, excludeUserId) {
-  const listDoc = await getFirestore().collection('lists').doc(listId).get();
-  if (!listDoc.exists) return null;
+async function getCollaboratorTokens(listId, excludeUserId, preloadedListData = null) {
+  let listData = preloadedListData;
+  if (!listData) {
+    const listDoc = await getFirestore().collection('lists').doc(listId).get();
+    if (!listDoc.exists) return null;
+    listData = listDoc.data();
+  }
 
-  const listData = listDoc.data();
   const { ownerId, collaborators, name: listName } = listData;
 
   const recipientIds = new Set();
@@ -86,6 +89,44 @@ async function getCollaboratorTokens(listId, excludeUserId) {
     new Set(tokens.filter((t) => typeof t === 'string' && t.length > 0).map((t) => t.trim()))
   );
   return { tokens: uniqueTokens, listName };
+}
+
+function countNotificationRecipients(listData, excludeUserId) {
+  const recipientIds = new Set();
+  if (listData.ownerId) recipientIds.add(listData.ownerId);
+
+  if (Array.isArray(listData.collaboratorIds)) {
+    listData.collaboratorIds.forEach((id) => recipientIds.add(id));
+  } else if (Array.isArray(listData.collaborators)) {
+    listData.collaborators.forEach((c) => {
+      if (typeof c === 'string') recipientIds.add(c);
+      else if (c && c.userId) recipientIds.add(c.userId);
+    });
+  }
+
+  if (excludeUserId) recipientIds.delete(excludeUserId);
+  return recipientIds.size;
+}
+
+async function syncPlaceAccessFields(listId, listData) {
+  const db = getFirestore();
+  const accessFields = {
+    listOwnerId: listData.ownerId,
+    listIsPublic: listData.isPublic === true,
+    listCollaboratorIds: listData.collaboratorIds || [listData.ownerId],
+  };
+
+  const placesSnap = await db.collection('places').where('listId', '==', listId).get();
+  if (placesSnap.empty) return;
+
+  const batchSize = 500;
+  for (let i = 0; i < placesSnap.docs.length; i += batchSize) {
+    const batch = db.batch();
+    placesSnap.docs.slice(i, i + batchSize).forEach((placeDoc) => {
+      batch.update(placeDoc.ref, accessFields);
+    });
+    await batch.commit();
+  }
 }
 
 /**
@@ -331,9 +372,31 @@ exports.onPlaceAdded = onDocumentCreated(
     const place = snap.data();
     const { listId, addedBy, name, notes } = place;
 
+    if (place.suppressNotifications) {
+      console.log(`Skipping notification for "${name}" — suppressNotifications flag set`);
+      return;
+    }
+
+    const listDoc = await getFirestore().collection('lists').doc(listId).get();
+    if (!listDoc.exists) {
+      console.log('No tokens result returned (list might not exist or no recipients).');
+      return;
+    }
+
+    const listData = listDoc.data();
+    if (listData.importInProgress) {
+      console.log(`Skipping notification for "${name}" — bulk import in progress`);
+      return;
+    }
+
+    if (countNotificationRecipients(listData, addedBy) === 0) {
+      console.log(`[Notification Warning] No recipients left after excluding actor: ${addedBy}`);
+      return;
+    }
+
     console.log(`Place "${name}" added to list ${listId} by ${addedBy}`);
 
-    const result = await getCollaboratorTokens(listId, addedBy);
+    const result = await getCollaboratorTokens(listId, addedBy, listData);
     if (!result) {
       console.log('No tokens result returned (list might not exist or no recipients).');
       return;
@@ -487,6 +550,43 @@ exports.onListUpdated = onDocumentUpdated(
     const after = event.data.after.data();
 
     if (!before || !after) return;
+
+    const importCompleted =
+      before.importInProgress === true &&
+      after.importInProgress !== true &&
+      (after.lastImportCount || 0) > 0;
+
+    const accessChanged =
+      before.isPublic !== after.isPublic ||
+      JSON.stringify(before.collaboratorIds || []) !== JSON.stringify(after.collaboratorIds || []);
+
+    if (accessChanged) {
+      await syncPlaceAccessFields(event.params.listId, after);
+    }
+
+    if (importCompleted) {
+      const updatedBy = after.updatedBy || null;
+      const result = await getCollaboratorTokens(event.params.listId, updatedBy, after);
+      if (result && result.tokens.length > 0) {
+        const { tokens, listName } = result;
+        const titleText = 'Import Complete';
+        const bodyText = `${after.lastImportCount} places were added to "${listName}"`;
+        try {
+          await getMessaging().sendEachForMulticast({
+            tokens,
+            notification: { title: titleText, body: bodyText },
+            data: {
+              title: String(titleText),
+              body: String(bodyText),
+              type: 'import_complete',
+              listId: String(event.params.listId),
+            },
+          });
+        } catch (error) {
+          console.error('Error sending import summary notification:', error);
+        }
+      }
+    }
 
     if (before.name === after.name) return;
 

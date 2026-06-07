@@ -50,7 +50,8 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const { list, places, loading, error, updateList } = useListDetails(listId);
+  const { list, places, loading, error, updateList, hasMorePlaces, loadingMore, loadMorePlaces } =
+    useListDetails(listId);
   const isMobile = useIsMobile();
 
   const [showAddPlacesModal, setShowAddPlacesModal] = useState(false);
@@ -213,7 +214,15 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
     setIsAiSearching(true);
 
     try {
-      const result = await PlaceService.askList(listId!, query);
+      const placesSummary = places.map((place) => ({
+        id: place.id,
+        name: place.name,
+        notes: place.notes,
+        category: place.category,
+        status: place.status,
+        address: place.address,
+      }));
+      const result = await PlaceService.askList(listId!, query, placesSummary);
       if (result.placeIds.length > 0) {
         setAiMatchedIds(result.placeIds);
         toast.success(`Found ${result.placeIds.length} matches!`);
@@ -857,6 +866,18 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                               )
                             )}
                           </motion.div>
+                          {hasMorePlaces && aiMatchedIds === null && (
+                            <div className="flex justify-center pt-6">
+                              <button
+                                type="button"
+                                onClick={() => void loadMorePlaces()}
+                                disabled={loadingMore}
+                                className="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                              >
+                                {loadingMore ? 'Loading…' : 'Load more places'}
+                              </button>
+                            </div>
+                          )}
                         </AnimatePresence>
                       )}
                     </>

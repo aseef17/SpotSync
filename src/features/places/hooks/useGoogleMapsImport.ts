@@ -342,7 +342,18 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       });
 
       logger.info(`Starting bulk import of ${total} places...`);
-      const result = await PlaceService.bulkCreatePlaces(listId, placesToCreate);
+      await ListService.beginBulkImport(listId, user.id);
+
+      let result;
+      try {
+        result = await PlaceService.bulkCreatePlaces(listId, placesToCreate, {
+          suppressNotifications: true,
+        });
+        await ListService.completeBulkImport(listId, result.successCount, user.id);
+      } catch (importError) {
+        await ListService.updateList(listId, { importInProgress: false }, user.id);
+        throw importError;
+      }
 
       successCount = result.successCount;
       failedCount = result.failedCount;
