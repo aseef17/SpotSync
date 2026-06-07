@@ -40,11 +40,9 @@ export function useInitialCacheHydrationScope(
   const [hydrationTimedOut, setHydrationTimedOut] = useState(false);
   const [hydrationCompletionRevision, setHydrationCompletionRevision] = useState(0);
   const hydrationStartedAtRef = useRef<number | null>(null);
-  const contentVisibleDuringProbeRef = useRef(false);
+  const [contentVisibleDuringProbe, setContentVisibleDuringProbe] = useState(false);
   const contentVisibleBeforeEmptyCacheConfirmed =
-    contentVisibleDuringProbeRef.current &&
-    options.hadCacheInitially === false &&
-    !options.isLoading;
+    contentVisibleDuringProbe && options.hadCacheInitially === false && !options.isLoading;
   const scopeAlreadyHydrated =
     isScopeHydrationComplete(scopeKey) ||
     options.hadCacheInitially === true ||
@@ -62,9 +60,12 @@ export function useInitialCacheHydrationScope(
   }, [waitForPhotoWarm, listIdForPhotoWarm]);
 
   useEffect(() => {
-    if (options.hadCacheInitially === null && options.hasContent) {
-      contentVisibleDuringProbeRef.current = true;
+    if (options.hadCacheInitially !== null || !options.hasContent) {
+      return;
     }
+
+    const timeoutId = window.setTimeout(() => setContentVisibleDuringProbe(true), 0);
+    return () => window.clearTimeout(timeoutId);
   }, [options.hadCacheInitially, options.hasContent]);
 
   useEffect(() => {

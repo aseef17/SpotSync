@@ -22,7 +22,9 @@ vi.mock('@/lib/firebase', () => ({
 }));
 
 vi.mock('@/features/places/api/listPlaceMembershipFirestore', () => ({
-  listPlaceMembershipDocRef: vi.fn((membershipId: string) => ({ path: `listPlaces/${membershipId}` })),
+  listPlaceMembershipDocRef: vi.fn((membershipId: string) => ({
+    path: `listPlaces/${membershipId}`,
+  })),
 }));
 
 import { deletePlaceMembership } from '@/features/places/api/placeFirestoreWrite';

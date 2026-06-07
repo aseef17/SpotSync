@@ -136,10 +136,7 @@ export function isOpenAtTimeFromHoursText(
     return null;
   }
 
-  const startInherit = inferAmbiguousStartMeridiem(
-    rangeParts[0].trim(),
-    rangeParts[1].trim()
-  );
+  const startInherit = inferAmbiguousStartMeridiem(rangeParts[0].trim(), rangeParts[1].trim());
 
   const startMinutes = parseOpeningHoursTimeToMinutes(rangeParts[0].trim(), {
     inheritMeridiem: startInherit,

@@ -49,7 +49,7 @@ describe('applyDeleteList', () => {
     vi.mocked(writeBatch).mockClear();
   });
 
-  it('deletes the list doc directly when there are no memberships', async () => {
+  it('deletes the list doc in a single batch when there are no memberships', async () => {
     getDocsMock.mockResolvedValue({ docs: [] });
 
     await applyPendingMutation({
@@ -61,8 +61,10 @@ describe('applyDeleteList', () => {
       updatedAt: Date.now(),
     });
 
-    expect(deleteDocMock).toHaveBeenCalledTimes(1);
-    expect(writeBatch).not.toHaveBeenCalled();
+    expect(writeBatch).toHaveBeenCalledTimes(1);
+    expect(batchDeleteMock).toHaveBeenCalledTimes(1);
+    expect(batchCommitMock).toHaveBeenCalledTimes(1);
+    expect(deleteDocMock).not.toHaveBeenCalled();
   });
 
   it('chunks membership deletes when a list has more than 499 places', async () => {
