@@ -411,6 +411,29 @@ describe('shouldApplyContextListSnapshot', () => {
   });
 });
 
+describe('useListDetails hydrateFromCache context snapshot guard', () => {
+  it('blocks cache hydration from overwriting server-confirmed list metadata', () => {
+    const staleSavedPublic = list({
+      isSavedList: true,
+      isPublic: true,
+      collaboratorIds: [],
+    });
+    const canHydrateSnapshot = shouldHydrateCachedListSnapshot({
+      list: staleSavedPublic,
+      userId: 'user-c',
+      accessRevoked: false,
+    });
+    const canApplyContextSnapshot = shouldApplyContextListSnapshot({
+      listFromContext: staleSavedPublic,
+      serverVerifiedPrivateAccess: true,
+    });
+
+    expect(canHydrateSnapshot).toBe(true);
+    expect(canApplyContextSnapshot).toBe(false);
+    expect(canHydrateSnapshot && canApplyContextSnapshot).toBe(false);
+  });
+});
+
 describe('useListDetails context access ordering', () => {
   it('does not clear accessRevoked before denying stale saved public context', () => {
     const staleSavedPublic = list({
