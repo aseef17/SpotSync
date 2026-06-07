@@ -34,11 +34,7 @@ import {
   resolvePlacesSnapshot,
   type PendingPlacesSnapshot,
 } from '@/features/lists/lib/listPlacesSnapshot';
-import {
-  applyPendingMutationsToPlaces,
-  getPendingMutations,
-  subscribeLocalDataChanges,
-} from '@/lib/localDb';
+import { subscribeLocalDataChanges } from '@/lib/localDb';
 import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
@@ -594,10 +590,12 @@ export const useListDetails = (listId: string | undefined) => {
 
     return subscribeLocalDataChanges(() => {
       void (async () => {
-        const pendingMutations = await getPendingMutations();
-        setPlaces((currentPlaces) =>
-          applyPendingMutationsToPlaces(currentPlaces, pendingMutations)
-        );
+        if (!listAccessibleRef.current) {
+          return;
+        }
+
+        const cachedPlaces = await placeRepository.getForList(listId);
+        setPlaces(mergeSubscribedPlaces(cachedPlaces, extraPlacesRef.current));
       })();
     });
   }, [listId]);
