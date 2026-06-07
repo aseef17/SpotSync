@@ -32,6 +32,7 @@ import {
   shouldRetainUserOnAuthChange,
 } from '@/features/auth/lib/authStateHandlerGuard';
 import {
+  hasConfirmedAccountDeletionTombstone,
   isAccountDeletionInProgress,
   resolveProfileUnlessDeletionPending,
 } from '@/features/auth/lib/accountDeletionGuard';
@@ -253,7 +254,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             // shouldRetainUserOnAuthChange kept a cached profile above. Only clear the
             // retained profile for tombstoned sessions — transient load failures should
             // keep the cached user so ListsProvider does not remount mid-recovery.
-            if (await isAccountDeletionInProgress(fbUser.uid)) {
+            if (await hasConfirmedAccountDeletionTombstone(fbUser.uid)) {
               if (!isCurrentAuthStateHandler(handlerGeneration)) {
                 return;
               }

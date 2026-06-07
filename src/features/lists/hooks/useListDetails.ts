@@ -14,6 +14,7 @@ import {
   isFirestorePermissionDenied,
   readPersistedListAccessRevoked,
   shouldClearStaleListView,
+  shouldTrustPrivateListSnapshot,
   writePersistedListAccessRevoked,
 } from '@/features/lists/hooks/listViewAccess';
 import {
@@ -67,6 +68,7 @@ export const useListDetails = (listId: string | undefined) => {
           if (!list || !userCanReadList(list, userId)) {
             return;
           }
+          privateListServerVerifiedRef.current = true;
           setAccessRevoked(false);
         })
         .catch(() => {
@@ -99,6 +101,7 @@ export const useListDetails = (listId: string | undefined) => {
   });
   const listAccessibleRef = useRef(true);
   const accessRevokedRef = useRef(false);
+  const privateListServerVerifiedRef = useRef(false);
   const pendingPlacesSnapshotRef = useRef<PendingPlacesSnapshot>(undefined);
   const applyPendingPlacesRef = useRef<((placesData: Place[]) => void) | null>(null);
   const hadListFromContextRef = useRef(!!listFromContext);
@@ -124,6 +127,7 @@ export const useListDetails = (listId: string | undefined) => {
   useEffect(() => {
     hadListFromContextRef.current = false;
     accessRevokedRef.current = readPersistedListAccessRevoked(user?.id, listId);
+    privateListServerVerifiedRef.current = false;
   }, [listId, user?.id]);
 
   useEffect(() => {
@@ -224,6 +228,29 @@ export const useListDetails = (listId: string | undefined) => {
       listId,
       (listData, meta) => {
         if (cancelled) return;
+        if (!meta.fromCache && listData && !listData.isPublic) {
+          privateListServerVerifiedRef.current = true;
+        }
+        if (
+          listData &&
+          !shouldTrustPrivateListSnapshot({
+            fromCache: meta.fromCache,
+            isPublic: listData.isPublic,
+            serverVerified: privateListServerVerifiedRef.current,
+          })
+        ) {
+          if (listId && user?.id && isBrowserOnline()) {
+            confirmPrivateAccessFromServer(listId, user.id);
+          }
+          denyListAccess();
+          setList(null);
+          setPlaces([]);
+          setError('List not found');
+          loadTrackingRef.current.hasCachedData = false;
+          loadTrackingRef.current.listLoaded = true;
+          loadTrackingRef.current.onProgress?.();
+          return;
+        }
         if (
           !shouldGrantListAccess({
             list: listData,
@@ -253,9 +280,9 @@ export const useListDetails = (listId: string | undefined) => {
       (err) => {
         if (cancelled) return;
         logger.error('Error listening to list:', err);
-        setAccessRevoked(true);
         denyListAccess();
         if (isFirestorePermissionDenied(err)) {
+          setAccessRevoked(true);
           setList(null);
           setPlaces([]);
           setError('List not found');
@@ -281,6 +308,7 @@ export const useListDetails = (listId: string | undefined) => {
     flushPendingPlacesSnapshot,
     denyListAccess,
     setAccessRevoked,
+    confirmPrivateAccessFromServer,
   ]);
 
   useEffect(() => {
