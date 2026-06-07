@@ -20,8 +20,8 @@ export const ImageGalleryModal: React.FunctionComponent<ImageGalleryModalProps> 
   const [currentIndex, setCurrentIndex] = useState(initialIndex);
   const [prevInitialIndex, setPrevInitialIndex] = useState(initialIndex);
   const thumbnailRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const thumbnailStripRef = useRef<HTMLDivElement>(null);
 
-  // Adjust state if initialIndex changes from parent
   if (initialIndex !== prevInitialIndex) {
     setPrevInitialIndex(initialIndex);
     setCurrentIndex(initialIndex);
@@ -29,7 +29,6 @@ export const ImageGalleryModal: React.FunctionComponent<ImageGalleryModalProps> 
 
   useEffect(() => {
     if (isOpen) {
-      // Prevent body scroll when modal is open
       document.body.style.overflow = 'hidden';
     } else {
       document.body.style.overflow = 'unset';
@@ -48,14 +47,16 @@ export const ImageGalleryModal: React.FunctionComponent<ImageGalleryModalProps> 
   }, [images.length]);
 
   useEffect(() => {
-    thumbnailRefs.current[currentIndex]?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'nearest',
-      inline: 'center',
-    });
+    if (!isOpen) return;
+
+    const thumb = thumbnailRefs.current[currentIndex];
+    const strip = thumbnailStripRef.current;
+    if (!thumb || !strip) return;
+
+    const thumbCenter = thumb.offsetLeft + thumb.offsetWidth / 2;
+    strip.scrollLeft = thumbCenter - strip.clientWidth / 2;
   }, [currentIndex, isOpen]);
 
-  // Handle keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isOpen) return;
@@ -74,41 +75,40 @@ export const ImageGalleryModal: React.FunctionComponent<ImageGalleryModalProps> 
 
   return (
     <div
-      className={`fixed inset-0 z-[60] ${themeColors.background.modalOverlay} flex flex-col items-center justify-center`}
+      className={`fixed inset-0 z-[60] flex h-dvh max-h-dvh flex-col overflow-hidden ${themeColors.background.modalOverlay}`}
     >
-      {/* Header */}
-      <div className="absolute top-0 left-0 right-0 p-4 flex justify-between items-center z-10 bg-gradient-to-b from-black/50 to-transparent">
-        <h3 className="text-white font-medium text-lg drop-shadow-md">{placeName}</h3>
+      <div className="flex shrink-0 items-center justify-between bg-gradient-to-b from-black/50 to-transparent p-4">
+        <h3 className="text-lg font-medium text-white drop-shadow-md">{placeName}</h3>
         <button
           onClick={onClose}
-          className="p-2 rounded-full bg-black/20 hover:bg-white/20 text-white transition-colors"
+          className="rounded-full bg-black/20 p-2 text-white transition-colors hover:bg-white/20"
           aria-label="Close gallery"
         >
           <X className="h-6 w-6" />
         </button>
       </div>
 
-      {/* Main Image */}
-      <div className="flex-1 w-full flex items-center justify-center p-4 relative">
-        {/* Navigation Buttons */}
+      <div className="relative flex min-h-0 flex-1 items-center justify-center px-4 py-2">
         {images.length > 1 && (
           <>
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 handlePrev();
               }}
-              className="absolute left-4 p-3 rounded-full bg-black/30 hover:bg-white/20 text-white transition-colors z-50"
+              className="absolute left-4 z-50 rounded-full bg-black/30 p-3 text-white transition-colors hover:bg-white/20"
               aria-label="Previous image"
             >
               <ChevronLeft className="h-8 w-8" />
             </button>
             <button
+              type="button"
               onClick={(e) => {
                 e.stopPropagation();
                 handleNext();
               }}
-              className="absolute right-4 p-3 rounded-full bg-black/30 hover:bg-white/20 text-white transition-colors z-50"
+              className="absolute right-4 z-50 rounded-full bg-black/30 p-3 text-white transition-colors hover:bg-white/20"
               aria-label="Next image"
             >
               <ChevronRight className="h-8 w-8" />
@@ -116,31 +116,29 @@ export const ImageGalleryModal: React.FunctionComponent<ImageGalleryModalProps> 
           </>
         )}
 
-        <div className="relative max-w-full max-h-full">
-          <img
-            src={images[currentIndex]}
-            alt={`${placeName} - ${currentIndex + 1}`}
-            className="max-w-full max-h-[85vh] object-contain rounded-lg shadow-2xl"
-          />
-        </div>
+        <img
+          src={images[currentIndex]}
+          alt={`${placeName} - ${currentIndex + 1}`}
+          className="max-h-full max-w-full rounded-lg object-contain shadow-2xl"
+        />
       </div>
 
-      {/* Footer — thumbnails scroll; counter stays viewport-centered */}
       <div
-        className={`w-full shrink-0 ${themeColors.background.card} border-t ${themeColors.border.default} py-4 backdrop-blur-sm`}
+        className={`shrink-0 border-t ${themeColors.border.default} ${themeColors.background.card} px-4 pb-4 pt-3 backdrop-blur-sm`}
       >
-        <div className="w-full overflow-x-auto scrollbar-hide">
-          <div className="mx-auto flex w-max min-w-full justify-center gap-2 px-4">
+        <div ref={thumbnailStripRef} className="w-full overflow-x-auto scrollbar-hide">
+          <div className="mx-auto flex w-max min-w-full justify-center gap-2">
             {images.map((img, idx) => (
               <button
                 key={idx}
+                type="button"
                 ref={(el) => {
                   thumbnailRefs.current[idx] = el;
                 }}
                 onClick={() => setCurrentIndex(idx)}
                 className={`relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-md border-2 transition-all ${
                   idx === currentIndex
-                    ? 'z-10 scale-105 border-blue-500'
+                    ? 'z-10 border-blue-500'
                     : 'border-transparent opacity-60 hover:opacity-100'
                 }`}
               >

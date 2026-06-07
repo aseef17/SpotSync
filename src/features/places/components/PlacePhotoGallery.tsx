@@ -1,6 +1,6 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react';
-import { themeColors } from '@/styles/colors';
+import React from 'react';
+
+const MAX_SLOTS = 4;
 
 interface PlacePhotoGalleryProps {
   images: string[];
@@ -15,109 +15,50 @@ export const PlacePhotoGallery: React.FunctionComponent<PlacePhotoGalleryProps> 
   compact = false,
   onOpenFullscreen,
 }) => {
-  const [activeIndex, setActiveIndex] = useState(0);
-  const thumbnailRefs = useRef<(HTMLButtonElement | null)[]>([]);
-  const safeIndex = Math.min(activeIndex, Math.max(images.length - 1, 0));
-
-  useEffect(() => {
-    thumbnailRefs.current[safeIndex]?.scrollIntoView({
-      behavior: 'smooth',
-      block: 'nearest',
-      inline: 'center',
-    });
-  }, [safeIndex]);
-
   if (images.length === 0) return null;
 
-  const goPrev = () => setActiveIndex((i) => (i === 0 ? images.length - 1 : i - 1));
-  const goNext = () => setActiveIndex((i) => (i === images.length - 1 ? 0 : i + 1));
+  const maxSlots = compact ? 3 : MAX_SLOTS;
+  const hasOverflow = images.length > maxSlots;
+  const visibleCount = hasOverflow ? maxSlots - 1 : images.length;
+  const overflowCount = images.length - visibleCount;
+
+  const tileClass =
+    'relative min-w-0 flex-1 aspect-square overflow-hidden rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500';
 
   return (
-    <div className={compact ? 'space-y-2' : 'space-y-3'}>
-      <div
-        className={`group relative overflow-hidden rounded-xl bg-gray-100 dark:bg-gray-800 ${
-          compact ? 'aspect-[4/3]' : 'aspect-[16/10]'
-        }`}
-      >
+    <div className="flex w-full gap-1.5">
+      {images.slice(0, visibleCount).map((img, idx) => (
         <button
+          key={idx}
           type="button"
-          onClick={() => onOpenFullscreen?.(safeIndex)}
-          className="h-full w-full"
-          aria-label={`View ${placeName} photos`}
+          onClick={() => onOpenFullscreen?.(idx)}
+          className={`${tileClass} bg-gray-100 dark:bg-gray-800`}
+          aria-label={`View ${placeName} photo ${idx + 1}`}
         >
           <img
-            src={images[safeIndex]}
-            alt={`${placeName} photo ${safeIndex + 1}`}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            src={img}
+            alt={`${placeName} photo ${idx + 1}`}
+            className="h-full w-full object-cover transition-opacity hover:opacity-90"
           />
         </button>
-
-        {onOpenFullscreen && (
-          <button
-            type="button"
-            onClick={() => onOpenFullscreen(safeIndex)}
-            className="absolute right-2 top-2 rounded-lg bg-black/50 p-2 text-white opacity-0 transition-opacity hover:bg-black/70 group-hover:opacity-100"
-            aria-label="Open fullscreen gallery"
-          >
-            <Maximize2 className="h-4 w-4" />
-          </button>
-        )}
-
-        {images.length > 1 && (
-          <>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                goPrev();
-              }}
-              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white transition-colors hover:bg-black/60"
-              aria-label="Previous photo"
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                goNext();
-              }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1.5 text-white transition-colors hover:bg-black/60"
-              aria-label="Next photo"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </>
-        )}
-      </div>
-
-      {images.length > 1 && (
-        <>
-          <div className="w-full overflow-x-auto scrollbar-hide">
-            <div className="mx-auto flex w-max min-w-full justify-center gap-2 px-1">
-              {images.map((img, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  ref={(el) => {
-                    thumbnailRefs.current[idx] = el;
-                  }}
-                  onClick={() => setActiveIndex(idx)}
-                  className={`h-14 w-14 flex-shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
-                    idx === safeIndex
-                      ? 'border-blue-500 ring-2 ring-blue-500/30'
-                      : 'border-transparent opacity-60 hover:opacity-100'
-                  }`}
-                >
-                  <img src={img} alt="" className="h-full w-full object-cover" />
-                </button>
-              ))}
-            </div>
-          </div>
-          <p className={`text-center text-sm tabular-nums ${themeColors.text.secondary}`}>
-            {safeIndex + 1} / {images.length}
-          </p>
-        </>
+      ))}
+      {hasOverflow && (
+        <button
+          type="button"
+          onClick={() => onOpenFullscreen?.(visibleCount)}
+          className={`${tileClass} bg-gray-900`}
+          aria-label={`View ${overflowCount} more photos`}
+        >
+          <img
+            src={images[visibleCount]}
+            alt=""
+            className="h-full w-full object-cover opacity-40"
+            aria-hidden
+          />
+          <span className="absolute inset-0 flex items-center justify-center bg-black/50 text-base font-semibold text-white">
+            +{overflowCount}
+          </span>
+        </button>
       )}
     </div>
   );
