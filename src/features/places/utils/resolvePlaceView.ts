@@ -2,6 +2,7 @@ import type { GooglePlace } from '@/features/places/types/googlePlace';
 import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
 import type { Place } from '@/features/places/types/place';
 import type { PlaceListAccessFields } from '@/features/places/utils/placeAccess';
+import { normalizeOpeningHours } from '@/features/places/utils/openingHoursUtils';
 
 export interface ResolvePlaceViewOptions {
   /** Denormalized list access fields until security rules no longer need them on Place. */
@@ -46,7 +47,7 @@ export function resolvePlaceView(
     businessStatus: googlePlace.businessStatus,
     phoneNumber: googlePlace.phoneNumber,
     website: googlePlace.website,
-    openingHours: googlePlace.openingHours,
+    openingHours: normalizeOpeningHours(googlePlace.openingHours),
     delivery: googlePlace.delivery,
     dineIn: googlePlace.dineIn,
     takeout: googlePlace.takeout,

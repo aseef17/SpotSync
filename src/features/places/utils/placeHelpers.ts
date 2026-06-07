@@ -1,6 +1,7 @@
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList, Collaborator } from '@/features/lists/types/list';
 import { formatCategoryName } from '@/constants/placeCategories';
+import { isOpenAtTimeFromHoursText } from '@/features/places/utils/openingHoursUtils';
 import { calculateDistance } from '@/utils/geo';
 
 export const getPlaceThumbnail = (place: Place): string | undefined =>
@@ -227,53 +228,10 @@ export const isPlaceOpen = (place: Place): boolean => {
       return true;
     }
 
-    // Try to parse range "7:00 am – 4:00 pm" or "09:00 - 17:00"
-    // Handles various dashes: hyphen, en-dash, em-dash
-    // Handles various dashes: hyphen, en-dash, em-dash
-    // We expect at least 2 parts (start time, end time) usually with AM/PM
-    // Simple parser for "7:00 am - 4:00 pm"
     if (todayText.match(/\d+:\d+/)) {
-      try {
-        const now = new Date();
-        const currentMinutes = now.getHours() * 60 + now.getMinutes();
-
-        // Helper to parse "7:00 am" to minutes from midnight
-        const parseTime = (timeStr: string): number | null => {
-          const match = timeStr.match(/(\d+):(\d+)\s*(am|pm)?/i);
-          if (!match) return null;
-          const [, hStr, mStr, meridiemStr] = match;
-
-          let hours = parseInt(hStr, 10);
-          const minutes = parseInt(mStr, 10);
-          const meridiem = meridiemStr ? meridiemStr.toLowerCase() : undefined;
-
-          if (meridiem) {
-            if (meridiem === 'pm' && hours < 12) hours += 12;
-            if (meridiem === 'am' && hours === 12) hours = 0;
-          }
-          return hours * 60 + minutes;
-        };
-
-        // Split by the dash/en-dash
-        const rangeParts = todayText.split(/[–—-]/);
-        if (rangeParts.length === 2) {
-          const startMinutes = parseTime(rangeParts[0].trim());
-          const endMinutes = parseTime(rangeParts[1].trim());
-
-          if (startMinutes !== null && endMinutes !== null) {
-            // Handle overnight hours (e.g. 5:00 PM - 2:00 AM)
-            if (endMinutes < startMinutes) {
-              // If current time is after start OR before end, it's open
-              return currentMinutes >= startMinutes || currentMinutes <= endMinutes;
-            } else {
-              // Standard day hours
-              return currentMinutes >= startMinutes && currentMinutes <= endMinutes;
-            }
-          }
-        }
-      } catch (error) {
-        // Fallback if parsing fails
-        console.warn('Failed to parse hours:', todayText, error);
+      const parsed = isOpenAtTimeFromHoursText(todayText);
+      if (parsed !== null) {
+        return parsed;
       }
     }
   }
