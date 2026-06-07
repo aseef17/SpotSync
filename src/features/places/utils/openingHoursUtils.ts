@@ -1,7 +1,43 @@
 const MERIDIEM_PATTERN = /\b(am|pm)\b/i;
 const TIME_PATTERN = /(\d{1,2}):(\d{2})\s*(am|pm)?/i;
 
-/** When Google returns "3:00 - 10:00 PM", infer PM on the start time. */
+/**
+ * When Google returns "3:00 - 10:00 PM", infer PM on the ambiguous start time.
+ * Avoid corrupting standard business hours like "9:00 - 5:00 PM" into "9:00 PM - 5:00 PM".
+ */
+export function inferAmbiguousStartMeridiem(
+  startText: string,
+  endText: string
+): 'am' | 'pm' | undefined {
+  const endMeridiem = endText.match(MERIDIEM_PATTERN)?.[1]?.toLowerCase();
+  if (endMeridiem !== 'pm' || MERIDIEM_PATTERN.test(startText)) {
+    return undefined;
+  }
+
+  const startMinutesAm = parseOpeningHoursTimeToMinutes(startText, { inheritMeridiem: 'am' });
+  const startMinutesPm = parseOpeningHoursTimeToMinutes(startText, { inheritMeridiem: 'pm' });
+  const endMinutes = parseOpeningHoursTimeToMinutes(endText);
+  if (startMinutesAm === null || startMinutesPm === null || endMinutes === null) {
+    return undefined;
+  }
+
+  const validAmRange = startMinutesAm < endMinutes;
+  const validPmRange = startMinutesPm < endMinutes;
+
+  if (validPmRange && !validAmRange) {
+    return 'pm';
+  }
+  if (validAmRange && !validPmRange) {
+    return 'am';
+  }
+  if (validAmRange && validPmRange) {
+    const startHour = parseInt(startText.match(/(\d{1,2})/)?.[1] ?? '0', 10);
+    return startHour <= 6 ? 'pm' : 'am';
+  }
+
+  return undefined;
+}
+
 export function normalizeOpeningHoursTimeRange(rangeText: string): string {
   const rangeParts = rangeText.split(/[–—-]/);
   if (rangeParts.length !== 2) {
@@ -10,11 +46,10 @@ export function normalizeOpeningHoursTimeRange(rangeText: string): string {
 
   const start = rangeParts[0].trim();
   const end = rangeParts[1].trim();
-  const endMeridiem = end.match(MERIDIEM_PATTERN)?.[1];
-  const startHasMeridiem = MERIDIEM_PATTERN.test(start);
+  const inferredMeridiem = inferAmbiguousStartMeridiem(start, end);
 
-  if (!startHasMeridiem && endMeridiem?.toLowerCase() === 'pm') {
-    return `${start} PM - ${end}`;
+  if (inferredMeridiem) {
+    return `${start} ${inferredMeridiem.toUpperCase()} - ${end}`;
   }
 
   return rangeText;
@@ -101,9 +136,10 @@ export function isOpenAtTimeFromHoursText(
     return null;
   }
 
-  const endMeridiem = rangeParts[1].match(MERIDIEM_PATTERN)?.[1]?.toLowerCase();
-  const startHasMeridiem = MERIDIEM_PATTERN.test(rangeParts[0]);
-  const startInherit = !startHasMeridiem && endMeridiem === 'pm' ? ('pm' as const) : undefined;
+  const startInherit = inferAmbiguousStartMeridiem(
+    rangeParts[0].trim(),
+    rangeParts[1].trim()
+  );
 
   const startMinutes = parseOpeningHoursTimeToMinutes(rangeParts[0].trim(), {
     inheritMeridiem: startInherit,

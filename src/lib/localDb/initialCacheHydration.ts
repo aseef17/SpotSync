@@ -52,6 +52,19 @@ export function markScopeHydrationComplete(scopeKey: string): void {
   }
 }
 
+/** Clears persisted hydration marks when the local cache runtime is reset (logout / account switch). */
+export function clearCompletedHydrationScopes(): void {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  try {
+    window.localStorage.removeItem(HYDRATION_COMPLETE_STORAGE_KEY);
+  } catch {
+    // Ignore private-mode storage errors.
+  }
+}
+
 export function resolveHydrationScopeKey(pathname: string): string | null {
   if (pathname === '/dashboard' || pathname === '/') {
     return 'dashboard';

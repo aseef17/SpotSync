@@ -12,6 +12,10 @@ describe('normalizeOpeningHours', () => {
     expect(normalizeOpeningHoursLine('Monday: 3:00 - 10:00 PM')).toBe('Monday: 3:00 PM - 10:00 PM');
   });
 
+  it('assumes AM for standard business hours when only the end has PM', () => {
+    expect(normalizeOpeningHoursLine('Monday: 9:00 - 5:00 PM')).toBe('Monday: 9:00 AM - 5:00 PM');
+  });
+
   it('leaves lines with explicit meridiems unchanged', () => {
     expect(normalizeOpeningHoursLine('Monday: 9:00 AM - 5:00 PM')).toBe(
       'Monday: 9:00 AM - 5:00 PM'
@@ -43,6 +47,13 @@ describe('isOpenAtTimeFromHoursText', () => {
     vi.setSystemTime(new Date('2026-06-07T14:00:00'));
 
     expect(isOpenAtTimeFromHoursText('3:00 - 10:00 PM')).toBe(false);
+  });
+
+  it('treats ambiguous 9:00 - 5:00 PM as a morning-to-afternoon range', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-06-07T10:00:00'));
+
+    expect(isOpenAtTimeFromHoursText('9:00 - 5:00 PM')).toBe(true);
   });
 });
 

@@ -1,6 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  clearCompletedHydrationScopes,
   isInitialCacheHydrating,
+  isScopeHydrationComplete,
+  markScopeHydrationComplete,
   resolveHydrationScopeKey,
 } from '@/lib/localDb/initialCacheHydration';
 
@@ -114,5 +117,33 @@ describe('initialCacheHydration', () => {
         forcedComplete: true,
       })
     ).toBe(false);
+  });
+
+  describe('persisted hydration scopes', () => {
+    beforeEach(() => {
+      const store = new Map<string, string>();
+      const localStorage = {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          store.set(key, value);
+        },
+        removeItem: (key: string) => {
+          store.delete(key);
+        },
+      };
+      vi.stubGlobal('window', { localStorage });
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('clears persisted hydration scopes on runtime reset', () => {
+      markScopeHydrationComplete('dashboard');
+      expect(isScopeHydrationComplete('dashboard')).toBe(true);
+
+      clearCompletedHydrationScopes();
+      expect(isScopeHydrationComplete('dashboard')).toBe(false);
+    });
   });
 });
