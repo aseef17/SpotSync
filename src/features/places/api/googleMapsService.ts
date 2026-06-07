@@ -201,10 +201,7 @@ export class GoogleMapsService {
         if (cacheSnap.exists()) {
           const cachedData = cacheSnap.data();
           const fetchedAt = cachedData.detailsFetchedAt ?? cachedData.updatedAt;
-          if (
-            fetchedAt &&
-            Date.now() - fetchedAt.getTime() < 30 * 24 * 60 * 60 * 1000
-          ) {
+          if (fetchedAt && Date.now() - fetchedAt.getTime() < 30 * 24 * 60 * 60 * 1000) {
             logger.info(`Using cached place details for ${placeId}`);
             return this.canonicalGooglePlaceToLegacy(cachedData);
           }
@@ -276,7 +273,7 @@ export class GoogleMapsService {
         const now = new Date();
         const placeFields = this.convertGooglePlaceToPlace(legacyPlace, '');
         const canonicalPlace = buildGooglePlacePayload(
-          { ...placeFields, status: 'not_visited' },
+          { ...placeFields, status: 'not_visited', addedAt: now, updatedAt: now },
           placeId,
           { createdAt: now, updatedAt: now }
         );

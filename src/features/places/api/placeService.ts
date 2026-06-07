@@ -102,10 +102,7 @@ export class PlaceService {
       const accessFields = await this.resolveListAccessFields(listId);
       const googlePlaceId = resolveCanonicalGooglePlaceId(placeData);
       const membershipId = resolveMembershipId(listId, googlePlaceId);
-      const newPlace = this.enrichPlaceWrite(
-        { ...placeData, listId, googlePlaceId },
-        accessFields
-      );
+      const newPlace = this.enrichPlaceWrite({ ...placeData, listId, googlePlaceId }, accessFields);
       const placeWithTimestamps: Place = {
         ...newPlace,
         id: membershipId,

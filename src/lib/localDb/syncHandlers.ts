@@ -1,4 +1,6 @@
 import {
+  arrayRemove,
+  arrayUnion,
   collection,
   deleteDoc,
   doc,
@@ -124,8 +126,7 @@ async function applyUpdatePlace(payload: UpdatePlacePayload): Promise<void> {
 }
 
 async function applyCreatePlace(payload: CreatePlacePayload): Promise<void> {
-  const googlePlaceId =
-    payload.place.googlePlaceId ?? resolveCanonicalGooglePlaceId(payload.place);
+  const googlePlaceId = payload.place.googlePlaceId ?? resolveCanonicalGooglePlaceId(payload.place);
   const membershipId = payload.placeId;
 
   await writePlaceCreate({

@@ -130,8 +130,8 @@ export class ListService {
   }
 
   /** No-op after googlePlaces/listPlaces cutover — access fields are resolved at read time. */
-  static async syncPlaceAccessFields(_listId: string): Promise<void> {
-    return;
+  static async syncPlaceAccessFields(listId: string): Promise<void> {
+    void listId;
   }
 
   static async updateList(

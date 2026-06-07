@@ -31,10 +31,7 @@ export interface WritePlaceCreateInput {
   timestamps?: { addedAt: Date; updatedAt: Date };
 }
 
-export function writePlaceCreateToBatch(
-  batch: WriteBatch,
-  input: WritePlaceCreateInput
-): void {
+export function writePlaceCreateToBatch(batch: WriteBatch, input: WritePlaceCreateInput): void {
   const now = input.timestamps ?? { addedAt: new Date(), updatedAt: new Date() };
   const googlePlace = buildGooglePlacePayload(input.place, input.googlePlaceId, {
     createdAt: now.addedAt,
@@ -132,10 +129,7 @@ export async function writeGooglePlacePhotoMetadata(
   await updateDoc(googlePlaceDocRef(googlePlaceId), photoMetadata);
 }
 
-export async function deletePlaceMembership(
-  membershipId: string,
-  listId: string
-): Promise<void> {
+export async function deletePlaceMembership(membershipId: string, listId: string): Promise<void> {
   const googlePlaceId = resolveGooglePlaceIdFromMembershipId(membershipId);
   if (!googlePlaceId) {
     throw new Error(`Invalid membership ID: ${membershipId}`);

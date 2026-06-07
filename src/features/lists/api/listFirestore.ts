@@ -5,6 +5,7 @@ import type {
   DocumentData,
 } from 'firebase/firestore';
 import type { PlaceList } from '@/features/lists/types/list';
+import type { Place } from '@/features/places/types/place';
 import { omit } from '@/utils/objectUtils';
 
 export const listConverter: FirestoreDataConverter<PlaceList> = {
@@ -16,7 +17,7 @@ export const listConverter: FirestoreDataConverter<PlaceList> = {
     return {
       id: snapshot.id,
       ...data,
-      places: [],
+      places: [] as Place[],
       createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
       updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
     } as PlaceList;
