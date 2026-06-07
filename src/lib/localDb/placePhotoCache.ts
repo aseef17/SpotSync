@@ -13,6 +13,28 @@ export { didPlacePhotoFieldsChange } from '@/lib/localDb/placePhotoFields';
 
 const inFlight = new Map<string, Promise<Blob | null>>();
 const invalidationGeneration = new Map<string, number>();
+let photoWarmInFlight = 0;
+const photoWarmListeners = new Set<() => void>();
+
+function notifyPhotoWarmListeners(): void {
+  photoWarmListeners.forEach((listener) => listener());
+}
+
+function adjustPhotoWarmInFlight(delta: number): void {
+  photoWarmInFlight = Math.max(0, photoWarmInFlight + delta);
+  notifyPhotoWarmListeners();
+}
+
+export function getPhotoWarmInFlight(): number {
+  return photoWarmInFlight;
+}
+
+export function subscribePhotoWarmInFlight(listener: () => void): () => void {
+  photoWarmListeners.add(listener);
+  return () => {
+    photoWarmListeners.delete(listener);
+  };
+}
 
 function buildInFlightKey(placeId: string, photoIndex: number, photoRef: string): string {
   return `${placeId}:${photoIndex}:${photoRef}`;
@@ -104,6 +126,7 @@ export async function loadPlacePhotoBlob(
   const generationAtStart = getInvalidationGeneration(placeId);
 
   const promise = (async () => {
+    adjustPhotoWarmInFlight(1);
     try {
       const blob = await fetchRemotePhotoBlob(photoRef, maxWidth, maxHeight);
       if (blob && getInvalidationGeneration(placeId) === generationAtStart) {
@@ -114,6 +137,7 @@ export async function loadPlacePhotoBlob(
       logger.debug('Failed to load place photo into cache:', error);
       return null;
     } finally {
+      adjustPhotoWarmInFlight(-1);
       inFlight.delete(inFlightKey);
     }
   })();
