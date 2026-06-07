@@ -1,3 +1,11 @@
+export function listViewRemountKey(options: {
+  userId: string | undefined;
+  listId: string | undefined;
+}): string {
+  const { userId, listId } = options;
+  return `${userId ?? 'anonymous'}:${listId ?? ''}`;
+}
+
 export function shouldClearStaleListView(options: {
   listId: string | undefined;
   hadListFromContext: boolean;

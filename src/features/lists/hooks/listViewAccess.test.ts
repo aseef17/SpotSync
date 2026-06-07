@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   isFirestorePermissionDenied,
+  listViewRemountKey,
   shouldClearStaleListView,
 } from '@/features/lists/hooks/listViewAccess';
 
@@ -33,6 +34,21 @@ describe('shouldClearStaleListView', () => {
         hasListFromContext: true,
       })
     ).toBe(false);
+  });
+});
+
+describe('listViewRemountKey', () => {
+  it('changes when the signed-in user changes so stale deep-linked data is dropped', () => {
+    const listId = 'list-1';
+    expect(listViewRemountKey({ userId: 'user-a', listId })).not.toBe(
+      listViewRemountKey({ userId: 'user-b', listId })
+    );
+  });
+
+  it('stays stable for the same user and list', () => {
+    expect(listViewRemountKey({ userId: 'user-a', listId: 'list-1' })).toBe(
+      listViewRemountKey({ userId: 'user-a', listId: 'list-1' })
+    );
   });
 });
 
