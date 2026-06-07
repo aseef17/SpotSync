@@ -552,6 +552,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
       if (credential?.accessToken) {
         if (user) {
+          if (await isAccountDeletionInProgress(user.id)) {
+            throw new Error('This account is no longer available.');
+          }
           await setDoc(
             doc(db, 'users', user.id),
             {
