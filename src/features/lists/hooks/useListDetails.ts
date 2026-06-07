@@ -33,9 +33,11 @@ export const useListDetails = (listId: string | undefined) => {
     hasCachedData: false,
     onProgress: null as (() => void) | null,
   });
+  const listAccessibleRef = useRef(true);
 
   useEffect(() => {
     if (listFromContext) {
+      listAccessibleRef.current = true;
       setList(listFromContext);
       setError(null);
       loadTrackingRef.current.listLoaded = true;
@@ -45,11 +47,57 @@ export const useListDetails = (listId: string | undefined) => {
   }, [listFromContext]);
 
   useEffect(() => {
+    if (!listId || listFromContext) {
+      return;
+    }
+
+    let cancelled = false;
+    loadTrackingRef.current.listLoaded = false;
+    loadTrackingRef.current.onProgress?.();
+
+    const unsubscribeList = ListService.subscribeToList(
+      listId,
+      (listData) => {
+        if (cancelled) return;
+        if (!listData) {
+          listAccessibleRef.current = false;
+          setList(null);
+          setPlaces([]);
+          setError('List not found');
+          loadTrackingRef.current.hasCachedData = false;
+        } else {
+          listAccessibleRef.current = true;
+          setList(listData);
+          setError(null);
+          loadTrackingRef.current.hasCachedData = true;
+        }
+        loadTrackingRef.current.listLoaded = true;
+        loadTrackingRef.current.onProgress?.();
+      },
+      (err) => {
+        if (cancelled) return;
+        logger.error('Error listening to list:', err);
+        setError(
+          `Failed to load list data: ${err instanceof Error ? err.message : 'Unknown error'}`
+        );
+        loadTrackingRef.current.listLoaded = true;
+        loadTrackingRef.current.onProgress?.();
+      }
+    );
+
+    return () => {
+      cancelled = true;
+      unsubscribeList();
+    };
+  }, [listId, listFromContext]);
+
+  useEffect(() => {
     if (!listId) {
       return;
     }
 
     let cancelled = false;
+    listAccessibleRef.current = true;
     loadTrackingRef.current.listLoaded = !!listFromContext;
     loadTrackingRef.current.hasCachedData = !!listFromContext;
     let listLoaded = loadTrackingRef.current.listLoaded;
@@ -122,46 +170,10 @@ export const useListDetails = (listId: string | undefined) => {
       isBrowserOnline() ? OFFLINE_LOAD_TIMEOUT_MS : 3000
     );
 
-    let unsubscribeList: (() => void) | undefined;
-
-    if (!listFromContext) {
-      unsubscribeList = ListService.subscribeToList(
-        listId,
-        (listData) => {
-          if (cancelled) return;
-          if (!listData) {
-            if (!hasCachedData) {
-              setError('List not found');
-            }
-          } else {
-            setList(listData);
-            setError(null);
-            hasCachedData = true;
-          }
-          listLoaded = true;
-          finishLoading();
-        },
-        (err) => {
-          if (cancelled) return;
-          logger.error('Error listening to list:', err);
-          if (!hasCachedData) {
-            setError(
-              `Failed to load list data: ${err instanceof Error ? err.message : 'Unknown error'}`
-            );
-          }
-          listLoaded = true;
-          finishLoading();
-        }
-      );
-    } else {
-      listLoaded = true;
-      finishLoading();
-    }
-
     const unsubscribePlaces = PlaceService.subscribeToListPlaces(
       listId,
       (placesData) => {
-        if (cancelled) return;
+        if (cancelled || !listAccessibleRef.current) return;
         const merged = [...placesData, ...extraPlacesRef.current];
         const seen = new Set<string>();
         const deduped = merged.filter((place) => {
@@ -189,7 +201,6 @@ export const useListDetails = (listId: string | undefined) => {
       cancelled = true;
       loadTrackingRef.current.onProgress = null;
       window.clearTimeout(timeoutId);
-      unsubscribeList?.();
       unsubscribePlaces();
     };
     // Only re-subscribe when the viewed list changes. List metadata syncs via the effect above.
