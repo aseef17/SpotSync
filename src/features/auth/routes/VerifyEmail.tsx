@@ -5,10 +5,26 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import { themeColors } from '@/styles/colors';
 
 export const VerifyEmail: React.FunctionComponent = () => {
-  const { firebaseUser, sendVerificationEmail, logout } = useAuth();
+  const { firebaseUser, sendVerificationEmail, logout, refreshEmailVerificationStatus } = useAuth();
   const [sending, setSending] = useState(false);
+  const [checking, setChecking] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState('');
+
+  const handleCheckVerified = async () => {
+    setChecking(true);
+    setError('');
+    try {
+      const verified = await refreshEmailVerificationStatus();
+      if (!verified) {
+        setError('Email not verified yet. Check your inbox and try again.');
+      }
+    } catch {
+      setError('Could not refresh verification status. Please try again.');
+    } finally {
+      setChecking(false);
+    }
+  };
 
   const handleResend = async () => {
     setSending(true);
@@ -64,10 +80,11 @@ export const VerifyEmail: React.FunctionComponent = () => {
           <p className={`text-sm ${themeColors.text.secondary} mb-4`}>
             Already verified?{' '}
             <button
-              onClick={() => window.location.reload()}
-              className="text-blue-600 hover:text-blue-500 font-medium"
+              onClick={handleCheckVerified}
+              disabled={checking}
+              className="text-blue-600 hover:text-blue-500 font-medium disabled:opacity-50"
             >
-              Refresh this page
+              {checking ? 'Checking...' : 'Refresh verification status'}
             </button>
           </p>
 

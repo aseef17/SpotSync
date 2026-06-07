@@ -9,6 +9,7 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   sendEmailVerification,
+  reload,
   updateProfile,
   type User as FirebaseUser,
   type UserCredential,
@@ -57,6 +58,7 @@ interface AuthContextType {
   sendVerificationEmail: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   requiresEmailVerification: boolean;
+  refreshEmailVerificationStatus: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -218,6 +220,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [googleMapsConnected, setGoogleMapsConnected] = useState(false);
+  const [authUserVersion, setAuthUserVersion] = useState(0);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
@@ -468,10 +471,21 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
     await AccountService.resetPassword(email);
   }, []);
 
+  const refreshEmailVerificationStatus = useCallback(async (): Promise<boolean> => {
+    const currentUser = auth.currentUser;
+    if (!currentUser) return false;
+
+    await reload(currentUser);
+    setFirebaseUser(auth.currentUser);
+    setAuthUserVersion((version) => version + 1);
+    return Boolean(auth.currentUser?.emailVerified);
+  }, []);
+
   const requiresEmailVerification = React.useMemo(() => {
     if (!firebaseUser) return false;
+    void authUserVersion;
     return isEmailPasswordUser(firebaseUser) && !firebaseUser.emailVerified;
-  }, [firebaseUser]);
+  }, [firebaseUser, authUserVersion]);
 
   const connectGoogleMaps = useCallback(async (): Promise<string> => {
     const provider = new GoogleAuthProvider();
@@ -517,6 +531,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
       sendVerificationEmail,
       resetPassword,
       requiresEmailVerification,
+      refreshEmailVerificationStatus,
     }),
     [
       user,
@@ -531,6 +546,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
       sendVerificationEmail,
       resetPassword,
       requiresEmailVerification,
+      refreshEmailVerificationStatus,
     ]
   );
 
