@@ -11,6 +11,7 @@ const { getFirestore, FieldPath, FieldValue, Timestamp } = require('firebase-adm
 const { getAuth } = require('firebase-admin/auth');
 const { getMessaging } = require('firebase-admin/messaging');
 const { shouldPruneAccountDeletionTombstone } = require('./lib/accountDeletionTombstonePrune');
+const { shouldSkipPlaceAddedNotification } = require('./lib/placeNotificationGate');
 
 initializeApp();
 
@@ -366,8 +367,8 @@ exports.onPlaceAdded = onDocumentCreated(
     }
 
     const listData = listDoc.data();
-    if (listData.importInProgress) {
-      console.log(`Skipping notification for "${name}" — bulk import in progress`);
+    if (shouldSkipPlaceAddedNotification(membership, listData)) {
+      console.log('Skipping place added notification — import in progress or suppressed');
       return;
     }
 
