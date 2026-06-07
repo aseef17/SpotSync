@@ -18,6 +18,11 @@ function cancelPendingTeardown(key: string): void {
   }
 }
 
+/** True when a subscription entry already exists (create() will be skipped on acquire). */
+export function hasSubscriptionEntry(key: string): boolean {
+  return entries.has(key);
+}
+
 export function acquireSubscription(key: string, create: () => Teardown): () => void {
   cancelPendingTeardown(key);
 

@@ -11,7 +11,7 @@ import {
   acquireUserOwnedListsSync,
   clearUserListsSyncState,
 } from '@/lib/localDb/sync/listSync';
-import { acquireUserProfileSync } from '@/lib/localDb/sync/userProfileSync';
+import { acquireUserProfileSync, clearUserSavedListIdsDedupForUser } from '@/lib/localDb/sync/userProfileSync';
 
 async function readUserLists(userId: string): Promise<PlaceList[]> {
   const cached = await getCachedUserLists(userId);
@@ -90,6 +90,7 @@ export const listRepository = {
       unsubscribeChanges();
       if (enableSync || includeProfileSync) {
         clearUserListsSyncState(userId);
+        clearUserSavedListIdsDedupForUser(userId);
       }
     };
   },

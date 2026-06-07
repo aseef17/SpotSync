@@ -2,7 +2,7 @@ import { collection, doc, onSnapshot, or, query, where, writeBatch } from 'fireb
 import { db } from '@/lib/firebase';
 import { logger } from '@/utils/logger';
 import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
-import { acquireSubscription } from '@/lib/localDb/subscriptionRegistry';
+import { acquireSubscription, hasSubscriptionEntry } from '@/lib/localDb/subscriptionRegistry';
 import { removeCachedList, upsertCachedList } from '@/lib/localDb/listCache';
 import { enqueueSnapshotTask } from '@/lib/localDb/snapshotQueue';
 import { getCachedUser } from '@/lib/localDb/userCache';
@@ -69,7 +69,7 @@ const pendingSavedListIds = new Map<string, string[]>();
 const ownedListsSnapshotChains = new Map<string, Promise<void>>();
 const listSnapshotChains = new Map<string, Promise<void>>();
 
-function initUserListsSyncState(userId: string): void {
+function initUserListsSyncState(userId: string, options?: { reseedFromCache?: boolean }): void {
   if (userListsState.has(userId)) {
     return;
   }
@@ -86,6 +86,10 @@ function initUserListsSyncState(userId: string): void {
   if (pendingIds) {
     pendingSavedListIds.delete(userId);
     void fetchSavedListsForUser(userId, pendingIds);
+    return;
+  }
+
+  if (!options?.reseedFromCache) {
     return;
   }
 
@@ -193,9 +197,11 @@ export function setUserSavedListIds(userId: string, savedListIds: string[]): voi
 }
 
 export function acquireUserOwnedListsSync(userId: string): () => void {
-  initUserListsSyncState(userId);
+  const subscriptionKey = `sync:lists:user:${userId}`;
+  const reusingExistingSubscription = hasSubscriptionEntry(subscriptionKey);
+  initUserListsSyncState(userId, { reseedFromCache: reusingExistingSubscription });
 
-  return acquireSubscription(`sync:lists:user:${userId}`, () => {
+  return acquireSubscription(subscriptionKey, () => {
     initUserListsSyncState(userId);
 
     const listsQuery = query(
