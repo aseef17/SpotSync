@@ -4,7 +4,8 @@ import { logger } from '@/utils/logger';
 import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { acquireSubscription } from '@/lib/localDb/subscriptionRegistry';
 import { removeCachedList, upsertCachedList } from '@/lib/localDb/listCache';
-import { removeCachedUserList, upsertCachedUserLists } from '@/lib/localDb/userListsCache';
+import { enqueueSnapshotTask } from '@/lib/localDb/snapshotQueue';
+import { removeCachedUserList, syncCachedUserLists } from '@/lib/localDb/userListsCache';
 import { listConverter } from '@/features/lists/api/listFirestore';
 import {
   fetchSavedListsByIds,
@@ -58,6 +59,8 @@ interface UserListsSyncState {
 }
 
 const userListsState = new Map<string, UserListsSyncState>();
+const ownedListsSnapshotChains = new Map<string, Promise<void>>();
+const listSnapshotChains = new Map<string, Promise<void>>();
 
 async function publishUserLists(userId: string): Promise<void> {
   const state = userListsState.get(userId);
@@ -71,7 +74,7 @@ async function publishUserLists(userId: string): Promise<void> {
     ...state.savedLists.filter((list) => !existingIds.has(list.id)),
   ];
 
-  await upsertCachedUserLists(userId, merged);
+  await syncCachedUserLists(userId, merged);
   emitChange(changeTopics.userLists(userId));
 }
 
@@ -147,7 +150,7 @@ export function acquireUserOwnedListsSync(userId: string): () => void {
     return onSnapshot(
       listsQuery,
       (snapshot) => {
-        void (async () => {
+        enqueueSnapshotTask(ownedListsSnapshotChains, userId, async () => {
           const state = userListsState.get(userId);
           if (!state) {
             return;
@@ -182,7 +185,7 @@ export function acquireUserOwnedListsSync(userId: string): () => void {
 
           state.ownedLists = snapshot.docs.map((snapDoc) => snapDoc.data());
           await publishUserLists(userId);
-        })();
+        });
       },
       (error) => {
         logger.error('User lists sync subscription error:', error);
@@ -198,7 +201,7 @@ export function acquireListSync(listId: string): () => void {
     return onSnapshot(
       listRef,
       (docSnap) => {
-        void (async () => {
+        enqueueSnapshotTask(listSnapshotChains, listId, async () => {
           if (!docSnap.exists()) {
             await removeCachedList(listId);
             emitChange(changeTopics.list(listId));
@@ -207,7 +210,7 @@ export function acquireListSync(listId: string): () => void {
 
           await upsertCachedList(docSnap.data());
           emitChange(changeTopics.list(listId));
-        })();
+        });
       },
       (error) => {
         logger.error('List sync subscription error:', error);

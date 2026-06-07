@@ -15,6 +15,7 @@ import {
   getPendingMutations,
   patchCachedUser,
   queueOfflineMutation,
+  removeCachedUserList,
   upsertCachedUser,
   applyPendingMutationsToUser,
 } from '@/lib/localDb';
@@ -191,6 +192,7 @@ export class UserService {
               updatedAt: new Date(),
             });
           }
+          await removeCachedUserList(userId, listId);
         }
       );
     } catch (error) {

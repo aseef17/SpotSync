@@ -30,31 +30,65 @@ export async function getCachedUserLists(userId: string): Promise<PlaceList[] | 
   return lists.length > 0 ? lists : null;
 }
 
+function upsertUserListRows(
+  db: Database,
+  userId: string,
+  lists: PlaceList[],
+  updatedAt: number
+): void {
+  for (const list of lists) {
+    db.run(
+      `INSERT INTO user_lists (user_id, list_id, data, updated_at)
+       VALUES (?, ?, ?, ?)
+       ON CONFLICT(user_id, list_id) DO UPDATE SET
+         data = excluded.data,
+         updated_at = excluded.updated_at`,
+      [userId, list.id, serializeRecord(list), updatedAt]
+    );
+    db.run(
+      `INSERT INTO lists (id, data, updated_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(id) DO UPDATE SET
+         data = excluded.data,
+         updated_at = excluded.updated_at`,
+      [list.id, serializeRecord(list), updatedAt]
+    );
+  }
+}
+
 export async function upsertCachedUserLists(userId: string, lists: PlaceList[]): Promise<void> {
   if (lists.length === 0) {
     return;
   }
 
   await runWriteAsync((db) => {
-    const now = Date.now();
-    for (const list of lists) {
-      db.run(
-        `INSERT INTO user_lists (user_id, list_id, data, updated_at)
-         VALUES (?, ?, ?, ?)
-         ON CONFLICT(user_id, list_id) DO UPDATE SET
-           data = excluded.data,
-           updated_at = excluded.updated_at`,
-        [userId, list.id, serializeRecord(list), now]
-      );
-      db.run(
-        `INSERT INTO lists (id, data, updated_at)
-         VALUES (?, ?, ?)
-         ON CONFLICT(id) DO UPDATE SET
-           data = excluded.data,
-           updated_at = excluded.updated_at`,
-        [list.id, serializeRecord(list), now]
-      );
+    upsertUserListRows(db, userId, lists, Date.now());
+  });
+}
+
+/** Replace the user's dashboard list rows so deleted/unsaved lists do not linger locally. */
+export async function syncCachedUserLists(userId: string, lists: PlaceList[]): Promise<void> {
+  await runWriteAsync((db) => {
+    const listIds = lists.map((list) => list.id);
+
+    if (listIds.length === 0) {
+      db.run('DELETE FROM user_lists WHERE user_id = ?', [userId]);
+      return;
     }
+
+    const placeholders = listIds.map(() => '?').join(', ');
+    db.run(`DELETE FROM user_lists WHERE user_id = ? AND list_id NOT IN (${placeholders})`, [
+      userId,
+      ...listIds,
+    ]);
+
+    upsertUserListRows(db, userId, lists, Date.now());
+  });
+}
+
+export async function removeCachedUserListMembership(listId: string): Promise<void> {
+  await runWriteAsync((db) => {
+    db.run('DELETE FROM user_lists WHERE list_id = ?', [listId]);
   });
 }
 
