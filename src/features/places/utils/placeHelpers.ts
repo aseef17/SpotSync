@@ -6,6 +6,33 @@ import { calculateDistance } from '@/utils/geo';
 export const getPlaceThumbnail = (place: Place): string | undefined =>
   place.thumbnailUrl || place.photoUrls?.[0];
 
+/** Use stored Firebase/HTTP URLs as-is; only transform Google Places photo resource names. */
+export function getPlacePhotoDisplayUrl(
+  photoRef: string | undefined,
+  resolveGooglePhoto: (ref: string, maxWidth?: number, maxHeight?: number) => string,
+  maxWidth = 400,
+  maxHeight = 300
+): string {
+  if (!photoRef) {
+    return '';
+  }
+
+  const trimmed = photoRef.trim();
+  if (!trimmed) {
+    return '';
+  }
+
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.includes('firebasestorage.googleapis.com')
+  ) {
+    return trimmed;
+  }
+
+  return resolveGooglePhoto(trimmed, maxWidth, maxHeight);
+}
+
 export const formatPrice = (level?: number | string | null) => {
   let numLevel = level;
 

@@ -730,8 +730,19 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                               setIsSyncingPhotos(true);
                               toast.info('Syncing photos in the background...');
                               try {
-                                await PlaceService.syncListPhotos(list.id);
-                                toast.success('Photos synced successfully!');
+                                const syncResult = await PlaceService.syncListPhotos(list.id);
+                                if (
+                                  syncResult.photoFailures > 0 ||
+                                  syncResult.placePersistFailures > 0
+                                ) {
+                                  toast.warning(
+                                    `Photo sync finished with issues: ${syncResult.placesUpdated}/${syncResult.placesProcessed} places updated, ${syncResult.photoFailures} photo failures.`
+                                  );
+                                } else {
+                                  toast.success(
+                                    `Photos synced for ${syncResult.placesUpdated} of ${syncResult.placesProcessed} places.`
+                                  );
+                                }
                               } catch {
                                 toast.error('Failed to sync photos.');
                               } finally {
@@ -774,8 +785,19 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                               setIsSyncingPhotos(true);
                               toast.info('Syncing photos in the background...');
                               try {
-                                await PlaceService.syncListPhotos(list.id);
-                                toast.success('Photos synced successfully!');
+                                const syncResult = await PlaceService.syncListPhotos(list.id);
+                                if (
+                                  syncResult.photoFailures > 0 ||
+                                  syncResult.placePersistFailures > 0
+                                ) {
+                                  toast.warning(
+                                    `Photo sync finished with issues: ${syncResult.placesUpdated}/${syncResult.placesProcessed} places updated, ${syncResult.photoFailures} photo failures.`
+                                  );
+                                } else {
+                                  toast.success(
+                                    `Photos synced for ${syncResult.placesUpdated} of ${syncResult.placesProcessed} places.`
+                                  );
+                                }
                               } catch {
                                 toast.error('Failed to sync photos.');
                               } finally {
@@ -833,6 +855,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                 }}
                 onPlaceRestored={handlePlaceRestored}
                 canDelete={getCanDelete(selectedPlace)}
+                canEdit={canEditList}
                 layout="panel"
                 className="border-none shadow-none"
               />

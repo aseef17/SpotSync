@@ -11,6 +11,7 @@ async function loadInitSqlJs(): Promise<InitSqlJs> {
 }
 import { logger } from '@/utils/logger';
 import { clearSqliteBytes, loadSqliteBytes, saveSqliteBytes } from '@/lib/localDb/idbStorage';
+import { clearPlacePhotoCache } from '@/lib/localDb/placePhotoCache';
 import { LOCAL_DB_SCHEMA_STATEMENTS } from '@/lib/localDb/schema';
 
 let sqlModule: SqlJsStatic | null = null;
@@ -133,4 +134,5 @@ export async function clearLocalDatabase(): Promise<void> {
 
   initPromise = null;
   await clearSqliteBytes();
+  await clearPlacePhotoCache();
 }

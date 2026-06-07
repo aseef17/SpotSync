@@ -324,9 +324,16 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
                         setIsSyncingPhotos(true);
                         toast.info('Syncing photos in the background...');
                         try {
-                          await PlaceService.syncListPhotos(list.id);
-                          toast.success('Photos synced successfully!');
-                          // Note: LoadListData would normally be called here
+                          const syncResult = await PlaceService.syncListPhotos(list.id);
+                          if (syncResult.photoFailures > 0 || syncResult.placePersistFailures > 0) {
+                            toast.warning(
+                              `Photo sync finished with issues: ${syncResult.placesUpdated}/${syncResult.placesProcessed} places updated, ${syncResult.photoFailures} photo failures.`
+                            );
+                          } else {
+                            toast.success(
+                              `Photos synced for ${syncResult.placesUpdated} of ${syncResult.placesProcessed} places.`
+                            );
+                          }
                         } catch {
                           toast.error('Failed to sync photos.');
                         } finally {
@@ -509,6 +516,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
       currentUserId={user?.id}
       customStatuses={list.customStatuses}
       onAddExternalPlace={onAddExternalPlace}
+      canEdit={canEditList}
     />
   ) : (
     listHeader

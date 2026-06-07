@@ -1,0 +1,29 @@
+rules_version = '2';
+
+// Firebase Storage rules for SpotSync.
+//
+// Place photos are stored as getDownloadURL() links (token in query string). Those
+// tokenized URLs load in <img> tags without sending Firebase Auth; rules below
+// govern SDK access (list/getMetadata/getDownloadURL) for signed-in users only.
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    // Globally shared place photos (Sync Photos uploads here).
+    match /places/shared/{googlePlaceId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // Legacy per-place uploads (older clients).
+    match /places/{placeOrGoogleId}/{userId}/{fileName} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Profile photos — private to the signed-in user.
+    match /profiles/{userId}/{fileName} {
+      allow read: if request.auth != null && request.auth.uid == userId;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

@@ -1,7 +1,8 @@
-import { collection, doc, writeBatch, arrayUnion } from 'firebase/firestore';
+import { collection, doc, updateDoc, writeBatch, arrayUnion } from 'firebase/firestore';
 import type { QueryDocumentSnapshot, DocumentData } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import {
+  loadPlacePhotoBlob,
   patchCachedPlace,
   queueOfflineMutation,
   removeCachedPlace,
@@ -10,6 +11,8 @@ import {
 import { listRepository } from '@/lib/localDb/repositories/listRepository';
 import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
 import { PLACES_PAGE_SIZE } from '@/features/places/api/placeFirestore';
+import { GoogleMapsService } from '@/features/places/api/googleMapsService';
+import { PhotoService } from '@/features/places/api/photoService';
 import type { Place, PlaceStatus } from '@/features/places/types/place';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { logger } from '@/utils/logger';
@@ -532,78 +535,131 @@ export class PlaceService {
     }
   }
 
-  private static resolvePhotoFetchUrl(
-    rawUrl: string,
-    GoogleMapsService: typeof import('@/features/places/api/googleMapsService').GoogleMapsService
-  ): string {
+  private static resolvePhotoFetchUrl(rawUrl: string): string {
     return rawUrl.startsWith('places/')
       ? GoogleMapsService.getPhotoUrl(rawUrl, 1200, 1200)
       : rawUrl;
   }
 
+  private static async listFreshGooglePhotoRefs(googlePlaceId: string): Promise<string[]> {
+    const freshDetails = await GoogleMapsService.getPlaceDetails(googlePlaceId, {
+      skipCache: true,
+    });
+    if (!freshDetails) {
+      return [];
+    }
+    return GoogleMapsService.extractPhotoResourceNames(freshDetails);
+  }
+
+  private static async getFreshGooglePhotoRef(
+    googlePlaceId: string,
+    photoIndex: number
+  ): Promise<string | null> {
+    const freshRefs = await this.listFreshGooglePhotoRefs(googlePlaceId);
+    return freshRefs[photoIndex] ?? null;
+  }
+
+  private static async refreshStaleGooglePhotoRefs(
+    place: Place,
+    updatedPhotoUrls: string[],
+    maxPhotos: number
+  ): Promise<boolean> {
+    const googlePlaceId = place.googlePlaceId;
+    if (!googlePlaceId) {
+      return false;
+    }
+
+    let needsRefresh = false;
+    for (let i = 0; i < maxPhotos; i++) {
+      const url = updatedPhotoUrls[i];
+      if (!url || url.includes('firebasestorage.googleapis.com')) {
+        continue;
+      }
+      if (!(await PhotoService.isGooglePhotoRefValid(url))) {
+        needsRefresh = true;
+        break;
+      }
+    }
+
+    if (!needsRefresh) {
+      return false;
+    }
+
+    logger.warn(
+      `Refreshing expired Google photo refs for place ${place.id} (${place.name}) from Places API`
+    );
+    const freshRefs = await this.listFreshGooglePhotoRefs(googlePlaceId);
+    if (freshRefs.length === 0) {
+      return false;
+    }
+
+    let changed = false;
+    for (let i = 0; i < maxPhotos; i++) {
+      const current = updatedPhotoUrls[i];
+      if (
+        current?.includes('firebasestorage.googleapis.com') &&
+        (await PhotoService.storageUrlExists(current))
+      ) {
+        continue;
+      }
+      if (freshRefs[i] && current !== freshRefs[i]) {
+        updatedPhotoUrls[i] = freshRefs[i];
+        changed = true;
+      }
+    }
+
+    return changed;
+  }
+
   private static async syncPlacePhotos(
     place: Place,
-    photoCache: Cache | null,
-    PhotoService: typeof import('@/features/places/api/photoService').PhotoService,
-    GoogleMapsService: typeof import('@/features/places/api/googleMapsService').GoogleMapsService
-  ): Promise<string[] | null> {
+    photoCache: Cache | null
+  ): Promise<{ photoUrls: string[] | null; photoFailures: number }> {
     if (!place.photoUrls || place.photoUrls.length === 0) {
-      return null;
+      return { photoUrls: null, photoFailures: 0 };
     }
 
     const maxPhotos = Math.min(10, place.photoUrls.length);
     const updatedPhotoUrls = [...place.photoUrls];
     const photoIndexes = Array.from({ length: maxPhotos }, (_, index) => index);
     let hasUpdates = false;
+    let photoFailures = 0;
 
-    await this.runWithConcurrency(photoIndexes, 10, async (photoIndex) => {
+    const googlePlaceId = place.googlePlaceId;
+    if (!googlePlaceId) {
+      logger.warn(`Place ${place.id} (${place.name}) has no googlePlaceId; skipping photo sync`);
+      return { photoUrls: null, photoFailures: maxPhotos };
+    }
+
+    if (await this.refreshStaleGooglePhotoRefs(place, updatedPhotoUrls, maxPhotos)) {
+      hasUpdates = true;
+    }
+
+    await this.runWithConcurrency(photoIndexes, 3, async (photoIndex) => {
       let rawUrl = updatedPhotoUrls[photoIndex];
       if (!rawUrl) return;
 
       if (rawUrl.includes('firebasestorage.googleapis.com')) {
-        return;
-      }
-
-      const googlePlaceId = place.googlePlaceId || place.id;
-      const photoHash = this.getPhotoHash(rawUrl);
-      let fetchUrl = this.resolvePhotoFetchUrl(rawUrl, GoogleMapsService);
-
-      const urlLoads = await PhotoService.remotePhotoUrlLoads(fetchUrl, photoCache);
-      if (urlLoads) {
-        logger.info(`Photo ${photoHash} for place ${place.id} loads — skipping sync`);
-        return;
-      }
-
-      try {
-        const probe = await fetch(fetchUrl);
-        if (probe.status === 400) {
-          logger.warn(`Photo token might be expired for place ${place.id}, refreshing details...`);
-          const freshDetails = await GoogleMapsService.getPlaceDetails(googlePlaceId);
-          if (freshDetails?.photos && freshDetails.photos.length > photoIndex) {
-            const photoUrlObj = freshDetails.photos[photoIndex].getUrl;
-            const freshPhotoName =
-              typeof photoUrlObj === 'function'
-                ? photoUrlObj({ maxWidth: 1200, maxHeight: 1200 })
-                : photoUrlObj;
-            rawUrl = freshPhotoName;
-            fetchUrl = GoogleMapsService.getPhotoUrl(freshPhotoName, 1200, 1200);
-
-            if (await PhotoService.remotePhotoUrlLoads(fetchUrl, photoCache)) {
-              updatedPhotoUrls[photoIndex] = rawUrl;
-              hasUpdates = true;
-              return;
-            }
-          }
+        if (await PhotoService.storageUrlExists(rawUrl)) {
+          return;
         }
-      } catch {
-        // Continue to shared-storage fallback and upload path.
+        logger.warn(`Stale Firebase photo for place ${place.id}, re-syncing index ${photoIndex}`);
+        const freshRef = await this.getFreshGooglePhotoRef(googlePlaceId, photoIndex);
+        if (!freshRef) {
+          photoFailures += 1;
+          return;
+        }
+        rawUrl = freshRef;
       }
+
+      let photoHash = this.getPhotoHash(rawUrl);
+      let fetchUrl = this.resolvePhotoFetchUrl(rawUrl);
 
       const existingFirebaseUrl = await PhotoService.getSharedPlacePhotoUrl(
         googlePlaceId,
         photoHash
       );
-      if (existingFirebaseUrl) {
+      if (existingFirebaseUrl && (await PhotoService.storageUrlExists(existingFirebaseUrl))) {
         updatedPhotoUrls[photoIndex] = existingFirebaseUrl;
         hasUpdates = true;
         logger.info(`Reused existing globally synced photo ${photoHash} for place ${place.id}`);
@@ -611,9 +667,23 @@ export class PlaceService {
       }
 
       try {
-        const blob = await PhotoService.fetchPhotoBlob(fetchUrl, photoCache);
+        let blob = await PhotoService.fetchPhotoBlob(fetchUrl, photoCache, rawUrl);
         if (!blob) {
-          throw new Error('Unable to fetch photo bytes for upload');
+          const freshRef = await this.getFreshGooglePhotoRef(googlePlaceId, photoIndex);
+          if (freshRef) {
+            rawUrl = freshRef;
+            photoHash = this.getPhotoHash(rawUrl);
+            fetchUrl = this.resolvePhotoFetchUrl(rawUrl);
+            blob = await PhotoService.fetchPhotoBlob(fetchUrl, photoCache, rawUrl);
+          }
+        }
+
+        if (!blob) {
+          photoFailures += 1;
+          logger.error(
+            `Failed to sync photo ${photoHash} for place ${place.id}: unable to fetch photo bytes`
+          );
+          return;
         }
 
         let fileToUpload = new File([blob], `photo_${googlePlaceId}_${photoHash}.jpg`, {
@@ -641,17 +711,112 @@ export class PlaceService {
         hasUpdates = true;
         logger.info(`Synced photo ${photoHash} for place ${place.id}`);
       } catch (photoErr) {
+        photoFailures += 1;
         logger.error(`Failed to sync photo ${photoHash} for place ${place.id}`, photoErr);
       }
     });
 
-    return hasUpdates ? updatedPhotoUrls : null;
+    return {
+      photoUrls: hasUpdates ? updatedPhotoUrls : null,
+      photoFailures,
+    };
   }
 
-  static async syncListPhotos(listId: string): Promise<void> {
+  /**
+   * Photo sync writes Firestore + local cache directly (not the offline mutation queue)
+   * so bulk metadata updates do not flash the pending-sync banner.
+   */
+  private static async persistPhotoSyncMetadata(
+    placeId: string,
+    photoUrls: string[]
+  ): Promise<void> {
+    const trimmed = trimPhotoUrlsForStorage(photoUrls) ?? photoUrls;
+    const updates = {
+      photoUrls: trimmed,
+      thumbnailUrl: getPrimaryPhotoUrl(trimmed),
+      photoCount: photoUrls.length,
+      updatedAt: new Date(),
+    };
+
+    if (isBrowserOnline()) {
+      await updateDoc(doc(db, 'places', placeId), updates);
+    }
+
+    await patchCachedPlace(placeId, updates);
+  }
+
+  private static buildGoogleSyncUpdates(
+    converted: Omit<Place, 'id' | 'addedAt' | 'updatedAt' | 'status'>
+  ): Partial<Place> {
+    const googleFields = omit(converted, ['listId', 'addedBy']);
+    const updates: Partial<Place> = { ...googleFields };
+
+    if (updates.photoUrls) {
+      updates.thumbnailUrl = getPrimaryPhotoUrl(updates.photoUrls);
+      updates.photoCount = updates.photoUrls.length;
+    }
+
+    return updates;
+  }
+
+  /**
+   * Refreshes Google-sourced place metadata from the Places API (skipCache) and
+   * uploads photos to shared Firebase Storage. Preserves list-specific fields
+   * such as status, notes, and addedBy.
+   */
+  static async syncPlaceFromGoogle(
+    placeId: string,
+    userId?: string
+  ): Promise<{ place: Place | null; photoFailures: number }> {
+    const place = await placeRepository.getById(placeId);
+    if (!place) {
+      throw new Error('Place not found');
+    }
+    if (!place.googlePlaceId) {
+      throw new Error('Place has no Google Place ID');
+    }
+
+    const details = await GoogleMapsService.getPlaceDetails(place.googlePlaceId, {
+      skipCache: true,
+    });
+    if (!details) {
+      throw new Error('Could not fetch place details from Google');
+    }
+
+    const converted = GoogleMapsService.convertGooglePlaceToPlace(details, place.listId);
+    const googleUpdates = this.buildGoogleSyncUpdates(converted);
+
+    await this.updatePlace(placeId, googleUpdates, userId);
+
+    const mergedPlace: Place = { ...place, ...googleUpdates, id: placeId };
+    const photoCache = await this.openPhotoCache();
+    const { photoUrls: syncedPhotoUrls, photoFailures } = await this.syncPlacePhotos(
+      mergedPlace,
+      photoCache
+    );
+
+    if (syncedPhotoUrls) {
+      await this.persistPhotoSyncMetadata(placeId, syncedPhotoUrls);
+    }
+
+    const updatedPlace = await placeRepository.getById(placeId);
+    return { place: updatedPlace, photoFailures };
+  }
+
+  static async syncListPhotos(listId: string): Promise<{
+    placesProcessed: number;
+    placesUpdated: number;
+    photoFailures: number;
+    placePersistFailures: number;
+  }> {
+    const result = {
+      placesProcessed: 0,
+      placesUpdated: 0,
+      photoFailures: 0,
+      placePersistFailures: 0,
+    };
+
     try {
-      const { PhotoService } = await import('@/features/places/api/photoService');
-      const { GoogleMapsService } = await import('@/features/places/api/googleMapsService');
       const photoCache = await this.openPhotoCache();
 
       let cursor: QueryDocumentSnapshot<DocumentData> | undefined;
@@ -664,24 +829,34 @@ export class PlaceService {
 
         const placesWithPhotos = page.places.filter((place) => (place.photoUrls?.length ?? 0) > 0);
 
-        await this.runWithConcurrency(placesWithPhotos, 10, async (place) => {
-          const updatedPhotoUrls = await this.syncPlacePhotos(
-            place,
-            photoCache,
-            PhotoService,
-            GoogleMapsService
-          );
+        await this.runWithConcurrency(placesWithPhotos, 5, async (place) => {
+          result.placesProcessed += 1;
 
-          if (updatedPhotoUrls) {
-            const trimmed = trimPhotoUrlsForStorage(updatedPhotoUrls) ?? updatedPhotoUrls;
-            await this.updatePlace(place.id, {
-              photoUrls: trimmed,
-              thumbnailUrl: getPrimaryPhotoUrl(trimmed),
-              photoCount: updatedPhotoUrls.length,
-            });
+          try {
+            const { photoUrls, photoFailures } = await this.syncPlacePhotos(place, photoCache);
+            result.photoFailures += photoFailures;
+
+            if (photoUrls) {
+              try {
+                await this.persistPhotoSyncMetadata(place.id, photoUrls);
+                for (let i = 0; i < Math.min(10, photoUrls.length); i++) {
+                  void loadPlacePhotoBlob(place.id, photoUrls[i], i, 1200, 1200);
+                }
+                result.placesUpdated += 1;
+              } catch (persistErr) {
+                result.placePersistFailures += 1;
+                logger.error(`Failed to persist photo metadata for place ${place.id}`, persistErr);
+              }
+            }
+          } catch (placeErr) {
+            result.placePersistFailures += 1;
+            logger.error(`Failed to sync photos for place ${place.id}`, placeErr);
           }
         });
       }
+
+      logger.info('Photo sync complete', result);
+      return result;
     } catch (error) {
       logger.error('Error syncing list photos:', error);
       throw error;
