@@ -71,9 +71,11 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
         clearTimeout(autoCloseTimeoutRef.current);
         autoCloseTimeoutRef.current = null;
       }
-      resetImportState();
+      if (!resolving) {
+        resetImportState();
+      }
     }
-  }, [isOpen, resetImportState]);
+  }, [isOpen, resetImportState, resolving]);
 
   useEffect(() => {
     const isFinished = importComplete && !resolving;
@@ -120,7 +122,15 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
   };
 
   const handleClose = () => {
-    handleReset();
+    if (resolving) {
+      successNotified.current = false;
+      if (autoCloseTimeoutRef.current) {
+        clearTimeout(autoCloseTimeoutRef.current);
+        autoCloseTimeoutRef.current = null;
+      }
+    } else {
+      handleReset();
+    }
     onClose();
   };
 
@@ -408,7 +418,11 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
                     {importComplete ? 'Done' : 'Start Import'}
                   </LoadingButton>
 
-                  {importComplete && !enriching && (
+                  {importComplete &&
+                    !enriching &&
+                    (importStatus.success > 0 ||
+                      importStatus.skipped > 0 ||
+                      importStatus.failed > 0) && (
                     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
                       <div
                         className={`p-5 rounded-2xl text-center border-2 ${
