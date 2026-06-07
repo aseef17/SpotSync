@@ -25,6 +25,10 @@ import { auth, db } from '@/lib/firebase';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import type { User } from '@/features/auth/types/user';
 import {
+  beginAuthStateHandler,
+  isCurrentAuthStateHandler,
+} from '@/features/auth/lib/authStateHandlerGuard';
+import {
   REGISTRATION_HEARTBEAT_MS,
   beginRegistrationSession,
   clearRegistrationProgress,
@@ -215,11 +219,16 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      const handlerGeneration = beginAuthStateHandler();
+
       try {
         if (fbUser) {
           setFirebaseUser(fbUser);
 
           let profile = await loadUserProfile(fbUser.uid);
+          if (!isCurrentAuthStateHandler(handlerGeneration)) {
+            return;
+          }
           if (profile) {
             setUser(profile);
           } else if (isEmailPasswordUser(fbUser)) {
@@ -232,6 +241,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
               registrationInProgress ? 250 : 0
             );
 
+            if (!isCurrentAuthStateHandler(handlerGeneration)) {
+              return;
+            }
             if (profile) {
               setUser(profile);
             } else if (!isBrowserOnline()) {
@@ -245,13 +257,22 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
                 if (profile) {
                   break;
                 }
+                if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                  return;
+                }
               }
 
+              if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                return;
+              }
               if (profile) {
                 setUser(profile);
               } else if (isRegistrationInProgress(fbUser.uid)) {
                 // Another tab is still heartbeating register(); keep waiting instead of racing recovery.
                 profile = await waitForCrossTabRegistration(fbUser.uid);
+                if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                  return;
+                }
                 if (profile) {
                   setUser(profile);
                 }
@@ -260,6 +281,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
                 // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
                 clearRegistrationProgress(fbUser.uid);
                 await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
+                if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                  return;
+                }
                 const provisionedUserDoc = await getDocFromServer(doc(db, 'users', fbUser.uid));
                 if (provisionedUserDoc.exists()) {
                   setUser(provisionedUserDoc.data() as User);
@@ -272,6 +296,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             setUser(buildFallbackUserFromAuth(fbUser));
           } else {
             await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
+            if (!isCurrentAuthStateHandler(handlerGeneration)) {
+              return;
+            }
             const provisionedUserDoc = await getDocFromServer(doc(db, 'users', fbUser.uid));
             if (provisionedUserDoc.exists()) {
               setUser(provisionedUserDoc.data() as User);
@@ -285,11 +312,13 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
         }
       } catch (error) {
         logger.error('Auth state handler failed:', error);
-        if (fbUser) {
+        if (fbUser && isCurrentAuthStateHandler(handlerGeneration)) {
           setUser(buildFallbackUserFromAuth(fbUser));
         }
       } finally {
-        setLoading(false);
+        if (isCurrentAuthStateHandler(handlerGeneration)) {
+          setLoading(false);
+        }
       }
     });
 
