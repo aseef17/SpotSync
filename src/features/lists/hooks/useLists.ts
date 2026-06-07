@@ -25,7 +25,7 @@ export const useLists = (userId: string | undefined) => {
     setLoading(true);
     const unsubscribe = ListService.subscribeToUserLists(
       userId,
-      (updatedLists) => {
+      (updatedLists, _meta) => {
         setLists(updatedLists);
         setLoading(false);
         setError(null);

@@ -3,6 +3,8 @@ import type { PlaceList } from '@/features/lists/types/list';
 
 export interface ListsContextValue {
   lists: PlaceList[];
+  /** True when the latest lists snapshot came from Firestore local cache. */
+  listsFromCache: boolean;
   loading: boolean;
   creating: boolean;
   error: string | null;

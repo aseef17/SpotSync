@@ -79,18 +79,31 @@ describe('resolveListFromContextAccess', () => {
         list: list(),
         userId: 'collab-b',
         accessRevoked: false,
+        fromCache: true,
       })
     ).toBe('grant');
   });
 
-  it('denies stale context after collaborator access was revoked', () => {
+  it('denies stale cached context after collaborator access was revoked', () => {
     expect(
       resolveListFromContextAccess({
         list: list(),
         userId: 'collab-b',
         accessRevoked: true,
+        fromCache: true,
       })
     ).toBe('deny-revoked');
+  });
+
+  it('restores server-confirmed context access after revocation', () => {
+    expect(
+      resolveListFromContextAccess({
+        list: list(),
+        userId: 'collab-b',
+        accessRevoked: true,
+        fromCache: false,
+      })
+    ).toBe('grant');
   });
 
   it('denies context when the user is no longer a collaborator', () => {
@@ -99,6 +112,7 @@ describe('resolveListFromContextAccess', () => {
         list: list({ collaboratorIds: ['someone-else'] }),
         userId: 'collab-b',
         accessRevoked: false,
+        fromCache: false,
       })
     ).toBe('deny-no-access');
   });

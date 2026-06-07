@@ -13,6 +13,7 @@ function applyPlacesEffectAccessBaseline(options: {
   listAccessibleAfterListSubscription: boolean;
   userId: string | undefined;
   accessRevoked: boolean;
+  fromCache: boolean;
 }): boolean {
   if (options.listFromContext) {
     return (
@@ -20,6 +21,7 @@ function applyPlacesEffectAccessBaseline(options: {
         list: options.listFromContext,
         userId: options.userId,
         accessRevoked: options.accessRevoked,
+        fromCache: options.fromCache,
       }) === 'grant'
     );
   }
@@ -55,6 +57,7 @@ describe('places effect access baseline', () => {
         listAccessibleAfterListSubscription: listAccessible,
         userId: 'collab-b',
         accessRevoked: false,
+        fromCache: false,
       })
     ).toBe(true);
   });
@@ -66,18 +69,32 @@ describe('places effect access baseline', () => {
         listAccessibleAfterListSubscription: false,
         userId: 'collab-b',
         accessRevoked: false,
+        fromCache: false,
       })
     ).toBe(true);
   });
 
-  it('blocks stale context lists after collaborator access was revoked', () => {
+  it('blocks stale cached context lists after collaborator access was revoked', () => {
     expect(
       applyPlacesEffectAccessBaseline({
         listFromContext: list(),
         listAccessibleAfterListSubscription: false,
         userId: 'collab-b',
         accessRevoked: true,
+        fromCache: true,
       })
     ).toBe(false);
+  });
+
+  it('restores context access after re-invite when the server snapshot arrives', () => {
+    expect(
+      applyPlacesEffectAccessBaseline({
+        listFromContext: list(),
+        listAccessibleAfterListSubscription: false,
+        userId: 'collab-b',
+        accessRevoked: true,
+        fromCache: false,
+      })
+    ).toBe(true);
   });
 });

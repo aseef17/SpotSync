@@ -17,6 +17,7 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
   children,
 }) => {
   const [lists, setLists] = useState<PlaceList[]>([]);
+  const [listsFromCache, setListsFromCache] = useState(false);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +26,7 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
   useEffect(() => {
     if (!userId) {
       setLists([]);
+      setListsFromCache(false);
       setLoading(false);
       setIsOfflineView(false);
       return;
@@ -44,6 +46,7 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
 
       hasCachedData = true;
       setLists(cachedLists);
+      setListsFromCache(true);
       setLoading(false);
       setError(null);
     };
@@ -64,10 +67,11 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
 
     const unsubscribe = ListService.subscribeToUserLists(
       userId,
-      (updatedLists) => {
+      (updatedLists, meta) => {
         if (cancelled) return;
         hasCachedData = updatedLists.length > 0;
         setLists(updatedLists);
+        setListsFromCache(meta.fromCache);
         setLoading(false);
         setError(null);
         setIsOfflineView(!isBrowserOnline());
@@ -177,6 +181,7 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
   const value = useMemo<ListsContextValue>(
     () => ({
       lists,
+      listsFromCache,
       loading,
       creating,
       error,
@@ -185,7 +190,7 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
       updateList,
       deleteList,
     }),
-    [lists, loading, creating, error, isOfflineView, createList, updateList, deleteList]
+    [lists, listsFromCache, loading, creating, error, isOfflineView, createList, updateList, deleteList]
   );
 
   return <ListsContext.Provider value={value}>{children}</ListsContext.Provider>;

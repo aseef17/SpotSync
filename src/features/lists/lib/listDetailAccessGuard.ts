@@ -27,11 +27,19 @@ export function resolveListFromContextAccess(options: {
   list: PlaceList;
   userId: string | undefined;
   accessRevoked: boolean;
+  fromCache: boolean;
 }): ListFromContextAccess {
   if (!userCanReadList(options.list, options.userId)) {
     return 'deny-no-access';
   }
-  if (options.accessRevoked) {
+  if (
+    !shouldGrantListAccess({
+      list: options.list,
+      userId: options.userId,
+      fromCache: options.fromCache,
+      accessRevoked: options.accessRevoked,
+    })
+  ) {
     return 'deny-revoked';
   }
   return 'grant';

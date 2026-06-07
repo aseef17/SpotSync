@@ -466,11 +466,12 @@ export class ListService {
 
   static subscribeToUserLists(
     userId: string,
-    onUpdate: (lists: PlaceList[]) => void,
+    onUpdate: (lists: PlaceList[], meta: { fromCache: boolean }) => void,
     onError: (error: Error) => void
   ): () => void {
     let ownedLists: PlaceList[] = [];
     let savedLists: PlaceList[] = [];
+    let ownedListsFromCache = false;
     let savedListIds: string[] = [];
     let lastSavedListIdsKey = '';
     let fetchSavedListsSeq = 0;
@@ -479,7 +480,7 @@ export class ListService {
       const existingIds = new Set(ownedLists.map((list) => list.id));
       const merged = [...ownedLists, ...savedLists.filter((list) => !existingIds.has(list.id))];
       merged.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
-      onUpdate(merged);
+      onUpdate(merged, { fromCache: ownedListsFromCache });
     };
 
     const fetchSavedLists = async (ids: string[]) => {
@@ -530,6 +531,7 @@ export class ListService {
     const unsubscribeLists = onSnapshot(
       listsQuery,
       (snapshot) => {
+        ownedListsFromCache = snapshot.metadata.fromCache;
         const lists: PlaceList[] = [];
         const batch = writeBatch(db);
         let updatesNeeded = false;

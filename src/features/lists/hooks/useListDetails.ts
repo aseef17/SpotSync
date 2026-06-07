@@ -34,7 +34,7 @@ const OFFLINE_LOAD_TIMEOUT_MS = 8000;
 
 export const useListDetails = (listId: string | undefined) => {
   const { user } = useAuth();
-  const { lists } = useListsContext();
+  const { lists, listsFromCache } = useListsContext();
   const listFromContext = listId ? lists.find((entry) => entry.id === listId) : undefined;
 
   const [list, setList] = useState<PlaceList | null>(listFromContext ?? null);
@@ -103,6 +103,7 @@ export const useListDetails = (listId: string | undefined) => {
         list: listFromContext,
         userId: user?.id,
         accessRevoked: accessRevokedRef.current,
+        fromCache: listsFromCache,
       });
 
       if (contextAccess !== 'grant') {
@@ -119,6 +120,7 @@ export const useListDetails = (listId: string | undefined) => {
         return;
       }
 
+      accessRevokedRef.current = false;
       listAccessibleRef.current = true;
       flushPendingPlacesSnapshot();
       setList(listFromContext);
@@ -145,7 +147,7 @@ export const useListDetails = (listId: string | undefined) => {
       loadTrackingRef.current.hasCachedData = false;
       loadTrackingRef.current.onProgress?.();
     }
-  }, [listFromContext, listId, user?.id, flushPendingPlacesSnapshot, denyListAccess]);
+  }, [listFromContext, listId, user?.id, listsFromCache, flushPendingPlacesSnapshot, denyListAccess]);
 
   useEffect(() => {
     if (!listId || listFromContext) {
