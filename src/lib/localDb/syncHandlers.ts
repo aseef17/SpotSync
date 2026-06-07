@@ -13,9 +13,8 @@ import {
 } from 'firebase/firestore';
 import { db, functions } from '@/lib/firebase';
 import {
-  addGooglePlaceIdToList,
   deletePlaceMembership,
-  writePlaceCreate,
+  writePlaceCreateAndLinkToList,
   writePlaceUpdates,
 } from '@/features/places/api/placeFirestoreWrite';
 import { LIST_PLACES_COLLECTION } from '@/features/places/constants/firestorePaths';
@@ -129,7 +128,7 @@ async function applyCreatePlace(payload: CreatePlacePayload): Promise<void> {
   const googlePlaceId = payload.place.googlePlaceId ?? resolveCanonicalGooglePlaceId(payload.place);
   const membershipId = payload.placeId;
 
-  await writePlaceCreate({
+  await writePlaceCreateAndLinkToList({
     listId: payload.listId,
     membershipId,
     googlePlaceId,
@@ -139,7 +138,6 @@ async function applyCreatePlace(payload: CreatePlacePayload): Promise<void> {
       updatedAt: payload.place.updatedAt,
     },
   });
-  await addGooglePlaceIdToList(payload.listId, googlePlaceId);
 }
 
 async function applyDeletePlace(payload: DeletePlacePayload): Promise<void> {
