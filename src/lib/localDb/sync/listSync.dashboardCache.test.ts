@@ -182,7 +182,10 @@ describe('dashboard cache publish gating', () => {
     await Promise.resolve();
 
     expect(fetchSavedListsByIdsMock).toHaveBeenCalledWith(['fresh-1'], {});
-    expect(fetchSavedListsByIdsMock).not.toHaveBeenCalledWith(['stale-1', 'stale-2'], expect.anything());
+    expect(fetchSavedListsByIdsMock).not.toHaveBeenCalledWith(
+      ['stale-1', 'stale-2'],
+      expect.anything()
+    );
   });
 
   it('does not reseed from profile cache on first owned-list sync acquire', async () => {
@@ -221,6 +224,8 @@ describe('dashboard cache publish gating', () => {
     acquireUserOwnedListsSync('user-1');
     expect(ownedListsSyncCreateCount).toBe(1);
 
+    await Promise.resolve();
+    await Promise.resolve();
     await Promise.resolve();
     await Promise.resolve();
 
