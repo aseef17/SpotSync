@@ -254,77 +254,77 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             setUser((prev) => (prev?.id === fbUser.uid ? null : prev));
 
             if (isEmailPasswordUser(fbUser)) {
-            // Email/password registration creates the Firestore profile in register().
-            // Wait for that transaction before recovering orphaned auth-only accounts.
-            const registrationInProgress = isRegistrationInProgress(fbUser.uid);
-            profile = await waitForUserProfile(
-              fbUser.uid,
-              registrationInProgress ? 12 : 2,
-              registrationInProgress ? 250 : 0
-            );
-
-            if (!isCurrentAuthStateHandler(handlerGeneration)) {
-              return;
-            }
-            if (profile) {
-              setUser(profile);
-            } else if (!isBrowserOnline()) {
-              setUser(buildFallbackUserFromAuth(fbUser));
-            } else if (!isRegistrationInFlight()) {
-              // Heartbeat in another tab can refresh the flag after a stale read — keep waiting
-              // until register() finishes so we do not race orphan recovery, but do not stop early
-              // if the flag is refreshed between waitForCrossTabRegistration and this check.
-              while (isRegistrationInProgress(fbUser.uid)) {
-                if (!isCurrentAuthStateHandler(handlerGeneration)) {
-                  return;
-                }
-                profile = await waitForCrossTabRegistration(fbUser.uid);
-                if (profile) {
-                  break;
-                }
-                if (!isCurrentAuthStateHandler(handlerGeneration)) {
-                  return;
-                }
-              }
+              // Email/password registration creates the Firestore profile in register().
+              // Wait for that transaction before recovering orphaned auth-only accounts.
+              const registrationInProgress = isRegistrationInProgress(fbUser.uid);
+              profile = await waitForUserProfile(
+                fbUser.uid,
+                registrationInProgress ? 12 : 2,
+                registrationInProgress ? 250 : 0
+              );
 
               if (!isCurrentAuthStateHandler(handlerGeneration)) {
                 return;
               }
               if (profile) {
                 setUser(profile);
-              } else if (isRegistrationInProgress(fbUser.uid)) {
-                // Another tab is still heartbeating register(); keep waiting instead of racing recovery.
-                profile = await waitForCrossTabRegistration(fbUser.uid);
+              } else if (!isBrowserOnline()) {
+                setUser(buildFallbackUserFromAuth(fbUser));
+              } else if (!isRegistrationInFlight()) {
+                // Heartbeat in another tab can refresh the flag after a stale read — keep waiting
+                // until register() finishes so we do not race orphan recovery, but do not stop early
+                // if the flag is refreshed between waitForCrossTabRegistration and this check.
+                while (isRegistrationInProgress(fbUser.uid)) {
+                  if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                    return;
+                  }
+                  profile = await waitForCrossTabRegistration(fbUser.uid);
+                  if (profile) {
+                    break;
+                  }
+                  if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                    return;
+                  }
+                }
+
                 if (!isCurrentAuthStateHandler(handlerGeneration)) {
                   return;
                 }
                 if (profile) {
                   setUser(profile);
-                }
-              } else if (await isAccountDeletionInProgress(fbUser.uid)) {
-                if (!isCurrentAuthStateHandler(handlerGeneration)) {
-                  return;
-                }
-                setUser(buildFallbackUserFromAuth(fbUser));
-              } else {
-                // Profile never appeared and register() is not running on this page — clear any
-                // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
-                clearRegistrationProgress(fbUser.uid);
-                await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
-                if (!isCurrentAuthStateHandler(handlerGeneration)) {
-                  return;
-                }
-                const provisionedUserDoc = await getDocFromServer(doc(db, 'users', fbUser.uid));
-                if (!isCurrentAuthStateHandler(handlerGeneration)) {
-                  return;
-                }
-                if (provisionedUserDoc.exists()) {
-                  setUser(provisionedUserDoc.data() as User);
-                } else {
+                } else if (isRegistrationInProgress(fbUser.uid)) {
+                  // Another tab is still heartbeating register(); keep waiting instead of racing recovery.
+                  profile = await waitForCrossTabRegistration(fbUser.uid);
+                  if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                    return;
+                  }
+                  if (profile) {
+                    setUser(profile);
+                  }
+                } else if (await isAccountDeletionInProgress(fbUser.uid)) {
+                  if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                    return;
+                  }
                   setUser(buildFallbackUserFromAuth(fbUser));
+                } else {
+                  // Profile never appeared and register() is not running on this page — clear any
+                  // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
+                  clearRegistrationProgress(fbUser.uid);
+                  await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
+                  if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                    return;
+                  }
+                  const provisionedUserDoc = await getDocFromServer(doc(db, 'users', fbUser.uid));
+                  if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                    return;
+                  }
+                  if (provisionedUserDoc.exists()) {
+                    setUser(provisionedUserDoc.data() as User);
+                  } else {
+                    setUser(buildFallbackUserFromAuth(fbUser));
+                  }
                 }
               }
-            }
             } else if (!isBrowserOnline()) {
               setUser(buildFallbackUserFromAuth(fbUser));
             } else if (await isAccountDeletionInProgress(fbUser.uid)) {

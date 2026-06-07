@@ -48,18 +48,15 @@ export const useListDetails = (listId: string | undefined) => {
   const [loading, setLoading] = useState(!!listId);
   const [error, setError] = useState<string | null>(listId ? null : 'No list ID provided');
   const [accessRevokedRevision, setAccessRevokedRevision] = useState(0);
-  const confirmPrivateAccessFromServer = useCallback(
-    (targetListId: string, userId: string) => {
-      void ListService.getListFromServer(targetListId).then((list) => {
-        if (!list || !userCanReadList(list, userId)) {
-          return;
-        }
-        accessRevokedRef.current = false;
-        setAccessRevokedRevision((revision) => revision + 1);
-      });
-    },
-    []
-  );
+  const confirmPrivateAccessFromServer = useCallback((targetListId: string, userId: string) => {
+    void ListService.getListFromServer(targetListId).then((list) => {
+      if (!list || !userCanReadList(list, userId)) {
+        return;
+      }
+      accessRevokedRef.current = false;
+      setAccessRevokedRevision((revision) => revision + 1);
+    });
+  }, []);
   const paginationCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const extraPlacesRef = useRef<Place[]>([]);
   const listsRef = useRef(lists);
