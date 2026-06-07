@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
+  shouldApplyServerConfirmedPrivateAccess,
   shouldClearAccessRevokedOnContextReturn,
   shouldConfirmPrivateAccessFromTrustedContext,
+  shouldConfirmSavedListAccessFromServer,
   shouldHydrateCachedListSnapshot,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import type { PlaceList } from '@/features/lists/types/list';
@@ -39,6 +41,41 @@ describe('shouldApplyCachedListDetails', () => {
 
   it('blocks late pagination after access is revoked', () => {
     expect(shouldApplyCachedListDetails(false, false)).toBe(false);
+
+    it('keeps denying saved context until server confirmation clears revocation', () => {
+      const staleSavedPublic = list({
+        isSavedList: true,
+        isPublic: true,
+        collaboratorIds: [],
+      });
+      let accessRevoked = true;
+
+      expect(
+        shouldConfirmSavedListAccessFromServer({
+          list: staleSavedPublic,
+          accessRevoked,
+          isOnline: true,
+        })
+      ).toBe(true);
+
+      expect(
+        resolveListFromContextAccess({
+          list: staleSavedPublic,
+          userId: 'user-c',
+          accessRevoked,
+        })
+      ).toBe('deny-revoked');
+
+      accessRevoked = false;
+
+      expect(
+        resolveListFromContextAccess({
+          list: staleSavedPublic,
+          userId: 'user-c',
+          accessRevoked,
+        })
+      ).toBe('grant');
+    });
   });
 });
 
@@ -153,6 +190,94 @@ describe('resolveListFromContextAccess', () => {
         accessRevoked: true,
       })
     ).toBe('deny-revoked');
+  });
+});
+
+describe('shouldApplyServerConfirmedPrivateAccess', () => {
+  it('applies server confirmation for the currently mounted list', () => {
+    expect(
+      shouldApplyServerConfirmedPrivateAccess({
+        targetListId: 'list-1',
+        currentListId: 'list-1',
+        confirmedList: list(),
+        userId: 'collab-b',
+      })
+    ).toBe(true);
+  });
+
+  it('ignores late confirmations after navigation to another list', () => {
+    expect(
+      shouldApplyServerConfirmedPrivateAccess({
+        targetListId: 'list-1',
+        currentListId: 'list-2',
+        confirmedList: list(),
+        userId: 'collab-b',
+      })
+    ).toBe(false);
+  });
+
+  it('rejects mismatched server payloads', () => {
+    expect(
+      shouldApplyServerConfirmedPrivateAccess({
+        targetListId: 'list-1',
+        currentListId: 'list-1',
+        confirmedList: list({ id: 'list-2' }),
+        userId: 'collab-b',
+      })
+    ).toBe(false);
+  });
+
+  it('rejects confirmations when the user no longer has access', () => {
+    expect(
+      shouldApplyServerConfirmedPrivateAccess({
+        targetListId: 'list-1',
+        currentListId: 'list-1',
+        confirmedList: list({ collaboratorIds: ['someone-else'] }),
+        userId: 'collab-b',
+      })
+    ).toBe(false);
+  });
+});
+
+describe('shouldConfirmSavedListAccessFromServer', () => {
+  it('confirms server access for saved lists while revocation is sticky', () => {
+    expect(
+      shouldConfirmSavedListAccessFromServer({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        accessRevoked: true,
+        isOnline: true,
+      })
+    ).toBe(true);
+  });
+
+  it('does not confirm when revocation is already cleared', () => {
+    expect(
+      shouldConfirmSavedListAccessFromServer({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        accessRevoked: false,
+        isOnline: true,
+      })
+    ).toBe(false);
+  });
+
+  it('does not confirm while offline because server reads are unavailable', () => {
+    expect(
+      shouldConfirmSavedListAccessFromServer({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        accessRevoked: true,
+        isOnline: false,
+      })
+    ).toBe(false);
+  });
+
+  it('does not confirm for trusted owned rows handled separately', () => {
+    expect(
+      shouldConfirmSavedListAccessFromServer({
+        list: list(),
+        accessRevoked: true,
+        isOnline: true,
+      })
+    ).toBe(false);
   });
 });
 

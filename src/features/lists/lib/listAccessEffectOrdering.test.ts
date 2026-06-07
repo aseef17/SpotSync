@@ -3,6 +3,7 @@ import {
   resolveListFromContextAccess,
   shouldClearAccessRevokedOnContextReturn,
 } from '@/features/lists/lib/listDetailAccessGuard';
+import { shouldGrantListAccess } from '@/features/lists/lib/listAccessFromSnapshot';
 import type { PlaceList } from '@/features/lists/types/list';
 
 /**
@@ -129,6 +130,32 @@ describe('places effect access baseline', () => {
         listAccessibleAfterListSubscription: false,
         userId: 'collab-b',
         accessRevoked: false,
+      })
+    ).toBe(true);
+  });
+
+  it('clears savedPrivateDenied after server grant so later cache snapshots stay readable', () => {
+    let savedPrivateDenied = true;
+
+    expect(
+      shouldGrantListAccess({
+        list: list(),
+        userId: 'collab-b',
+        fromCache: false,
+        accessRevoked: false,
+        savedPrivateDenied,
+      })
+    ).toBe(true);
+
+    savedPrivateDenied = false;
+
+    expect(
+      shouldGrantListAccess({
+        list: list(),
+        userId: 'collab-b',
+        fromCache: true,
+        accessRevoked: false,
+        savedPrivateDenied,
       })
     ).toBe(true);
   });
