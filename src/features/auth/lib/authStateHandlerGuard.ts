@@ -1,0 +1,14 @@
+let authStateGeneration = 0;
+
+export function beginAuthStateHandler(): number {
+  authStateGeneration += 1;
+  return authStateGeneration;
+}
+
+export function isCurrentAuthStateHandler(generation: number): boolean {
+  return generation === authStateGeneration;
+}
+
+export function resetAuthStateHandlerGuardForTests(): void {
+  authStateGeneration = 0;
+}

@@ -30,10 +30,8 @@ import { subscribeToUserProfile } from '@/features/auth/api/userProfileStore';
 import { getPlaceListAccessFields } from '@/features/places/utils/placeAccess';
 import { toMilliseconds } from '@/utils/date';
 import { omit } from '@/utils/objectUtils';
-import {
-  fetchSavedListsByIds,
-  shouldCommitSavedListFetch,
-} from '@/features/lists/api/savedListsFetch';
+import { fetchSavedListsByIds } from '@/features/lists/api/savedListsFetch';
+import { reconcileSavedLists } from '@/features/lists/api/reconcileSavedLists';
 
 function getExpectedCollaboratorIds(list: PlaceList): string[] {
   return Array.from(new Set([list.ownerId, ...(list.collaborators?.map((c) => c.userId) || [])]));
@@ -509,11 +507,14 @@ export class ListService {
 
         const { lists: fetched, resolved } = await fetchSavedListsByIds(idsToFetch, listConverter);
 
-        if (
-          seq === fetchSavedListsSeq &&
-          shouldCommitSavedListFetch(savedLists.length > 0, fetched.length, resolved)
-        ) {
-          savedLists = fetched;
+        if (seq === fetchSavedListsSeq) {
+          savedLists = reconcileSavedLists({
+            profileIds: ids,
+            ownedIds: existingIds,
+            previousSavedLists: savedLists,
+            fetched,
+            resolved,
+          });
           emit();
         }
       } catch (err) {
