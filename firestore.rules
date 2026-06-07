@@ -95,12 +95,6 @@ service cloud.firestore {
       allow update: if isOwner(resource.data) || isEditor(resource.data);
 
       allow delete: if isOwner(resource.data);
-
-      // PLACES (Subcollection)
-      match /places/{placeId} {
-        allow read: if canReadList(listId);
-        allow write: if canWriteList(listId);
-      }
     }
 
     // PLACES (top-level collection, linked to lists via listId field)

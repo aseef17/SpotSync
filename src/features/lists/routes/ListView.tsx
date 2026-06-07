@@ -261,6 +261,8 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
     return filteredPlaces.filter((p) => aiMatchedIds.includes(p.id));
   }, [filteredPlaces, aiMatchedIds]);
 
+  const useLightListRendering = effectiveFilteredPlaces.length > 24;
+
   const handleAiSearchSubmit = async (query: string) => {
     if (!query.trim()) return;
 
@@ -935,19 +937,23 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                       </div>
                     )
                   ) : (
-                    <AnimatePresence mode="popLayout">
+                    <AnimatePresence mode={useLightListRendering ? undefined : 'popLayout'}>
                       <motion.div
-                        initial="hidden"
-                        animate="visible"
-                        variants={{
-                          hidden: { opacity: 0 },
-                          visible: {
-                            opacity: 1,
-                            transition: {
-                              staggerChildren: 0.05,
-                            },
-                          },
-                        }}
+                        initial={useLightListRendering ? false : 'hidden'}
+                        animate={useLightListRendering ? undefined : 'visible'}
+                        variants={
+                          useLightListRendering
+                            ? undefined
+                            : {
+                                hidden: { opacity: 0 },
+                                visible: {
+                                  opacity: 1,
+                                  transition: {
+                                    staggerChildren: 0.05,
+                                  },
+                                },
+                              }
+                        }
                         className={`
                    ${
                      density === 'compact'
@@ -957,8 +963,32 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                    ${!isMobile && viewMode === 'map' ? '!grid-cols-1 !gap-4' : ''}
                 `}
                       >
-                        {effectiveFilteredPlaces.map((place) =>
-                          density === 'compact' ? (
+                        {effectiveFilteredPlaces.map((place) => {
+                          const card =
+                            density === 'compact' ? (
+                              <CompactPlaceCard
+                                place={place}
+                                list={list}
+                                onClick={handlePlaceClick}
+                                onStatusChange={noopStatusChange}
+                                layout={!useLightListRendering}
+                              />
+                            ) : (
+                              <PlaceCard
+                                place={place}
+                                list={list}
+                                onClick={handlePlaceClick}
+                                onStatusChange={noopStatusChange}
+                                layout={!useLightListRendering}
+                                density={density}
+                              />
+                            );
+
+                          if (useLightListRendering) {
+                            return <div key={`${place.id}-${density}-${viewMode}`}>{card}</div>;
+                          }
+
+                          return density === 'compact' ? (
                             <motion.div
                               key={`${place.id}-compact-${viewMode}`}
                               layoutId={`card-${place.id}`}
@@ -967,13 +997,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                               exit={{ opacity: 0, scale: 0.95 }}
                               transition={{ duration: 0.2 }}
                             >
-                              <CompactPlaceCard
-                                place={place}
-                                list={list}
-                                onClick={handlePlaceClick}
-                                onStatusChange={noopStatusChange}
-                                layout
-                              />
+                              {card}
                             </motion.div>
                           ) : (
                             <motion.div
@@ -984,17 +1008,10 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                               exit={{ opacity: 0, scale: 0.95 }}
                               transition={{ duration: 0.2 }}
                             >
-                              <PlaceCard
-                                place={place}
-                                list={list}
-                                onClick={handlePlaceClick}
-                                onStatusChange={noopStatusChange}
-                                layout
-                                density={density}
-                              />
+                              {card}
                             </motion.div>
-                          )
-                        )}
+                          );
+                        })}
                       </motion.div>
                       {hasMorePlaces && aiMatchedIds === null && (
                         <div className="flex justify-center pt-6">

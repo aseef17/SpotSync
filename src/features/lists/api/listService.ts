@@ -19,6 +19,7 @@ import { listRepository } from '@/lib/localDb/repositories/listRepository';
 import type { PlaceList, Collaborator, Permission } from '@/features/lists/types/list';
 import { logger } from '@/utils/logger';
 import { listConverter } from '@/features/lists/api/listFirestore';
+import { omit } from '@/utils/objectUtils';
 
 function getExpectedEditorIds(list: PlaceList): string[] {
   return Array.from(
@@ -97,6 +98,30 @@ export class ListService {
     }
   }
 
+  /** Waits until the list exists on Firestore before bulk writes (e.g. after createList). */
+  static async ensureListExists(listId: string, maxAttempts = 8): Promise<void> {
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      const cached = await listRepository.getById(listId);
+      if (!cached) {
+        await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+        continue;
+      }
+
+      try {
+        const serverList = await this.getListFromServer(listId);
+        if (serverList) {
+          return;
+        }
+      } catch (error) {
+        logger.warn(`ensureListExists attempt ${attempt + 1} failed for ${listId}:`, error);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 150 * (attempt + 1)));
+    }
+
+    throw new Error('List is not ready yet. Please try the import again in a moment.');
+  }
+
   static async getListFromServer(listId: string): Promise<PlaceList | null> {
     try {
       const listDoc = await getDocFromServer(doc(db, 'lists', listId).withConverter(listConverter));
@@ -129,11 +154,6 @@ export class ListService {
     );
   }
 
-  /** No-op after googlePlaces/listPlaces cutover — access fields are resolved at read time. */
-  static async syncPlaceAccessFields(listId: string): Promise<void> {
-    void listId;
-  }
-
   static async updateList(
     listId: string,
     updates: Partial<PlaceList>,
@@ -141,7 +161,7 @@ export class ListService {
   ): Promise<void> {
     try {
       const updateData: Partial<PlaceList> & { updatedAt: Date; updatedBy?: string } = {
-        ...updates,
+        ...omit(updates, ['places']),
         updatedAt: new Date(),
       };
 
