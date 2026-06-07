@@ -4,9 +4,7 @@ import type { Place } from '@/features/places/types/place';
 import { buildListPlaceMembershipsQuery } from '@/features/places/api/listPlaceMembershipFirestore';
 import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { upsertCachedPlace } from '@/lib/localDb/placeCache';
-import {
-  fetchListPlaceMembershipByListAndGooglePlaceId,
-} from '@/lib/localDb/sync/listPlaceMembershipFetch';
+import { fetchListPlaceMembershipByListAndGooglePlaceId } from '@/lib/localDb/sync/listPlaceMembershipFetch';
 import { resolvePlacesFromMemberships } from '@/lib/localDb/sync/placeViewFetch';
 
 async function cacheResolvedPlaces(listId: string, places: Place[]): Promise<void> {

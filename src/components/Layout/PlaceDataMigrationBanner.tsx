@@ -1,6 +1,6 @@
 import React from 'react';
 import { Loader2 } from 'lucide-react';
-import { usePlaceDataMigration } from '@/features/places/context/PlaceDataMigrationContext';
+import { usePlaceDataMigration } from '@/features/places/context/usePlaceDataMigration';
 
 export const PlaceDataMigrationBanner: React.FunctionComponent = () => {
   const { isMigrating } = usePlaceDataMigration();

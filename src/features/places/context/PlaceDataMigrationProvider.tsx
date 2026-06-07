@@ -1,30 +1,8 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
-import {
-  migratePlaceLocalData,
-  needsPlaceDataMigration,
-} from '@/lib/localDb/placeDataMigration';
+import { PlaceDataMigrationContext } from '@/features/places/context/PlaceDataMigrationContext';
+import { migratePlaceLocalData, needsPlaceDataMigration } from '@/lib/localDb/placeDataMigration';
 import { logger } from '@/utils/logger';
-
-interface PlaceDataMigrationContextValue {
-  isMigrating: boolean;
-}
-
-const PlaceDataMigrationContext = createContext<PlaceDataMigrationContextValue>({
-  isMigrating: false,
-});
-
-export function usePlaceDataMigration(): PlaceDataMigrationContextValue {
-  return useContext(PlaceDataMigrationContext);
-}
 
 export function PlaceDataMigrationProvider({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();

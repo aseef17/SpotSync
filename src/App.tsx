@@ -6,7 +6,7 @@ import { ThemeProvider } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
 import { OfflineBanner } from '@/components/Layout/OfflineBanner';
 import { PlaceDataMigrationBanner } from '@/components/Layout/PlaceDataMigrationBanner';
-import { PlaceDataMigrationProvider } from '@/features/places/context/PlaceDataMigrationContext';
+import { PlaceDataMigrationProvider } from '@/features/places/context/PlaceDataMigrationProvider';
 import { AppRoutes } from '@/routes';
 import { ListsProvider } from '@/features/lists/context/ListsProvider';
 

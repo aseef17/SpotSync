@@ -7,7 +7,6 @@ import {
   needsPlaceDataMigration,
 } from '@/lib/localDb/placeDataMigration';
 
-
 const createLocalStorageMock = () => {
   const store = new Map<string, string>();
   return {
