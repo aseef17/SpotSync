@@ -189,6 +189,7 @@ export function setUserSavedListIds(userId: string, savedListIds: string[]): voi
   }
 
   state.savedListsHydrated = false;
+  state.savedLists = [];
   void fetchSavedListsForUser(userId, savedListIds);
 }
 

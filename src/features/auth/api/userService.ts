@@ -19,6 +19,7 @@ import {
   upsertCachedUser,
   applyPendingMutationsToUser,
 } from '@/lib/localDb';
+import { setUserSavedListIds } from '@/lib/localDb/sync/listSync';
 
 const userConverter: FirestoreDataConverter<User> = {
   toFirestore(user: User): DocumentData {
@@ -164,10 +165,12 @@ export class UserService {
           const user = await getCachedUser(userId);
           const savedLists = user?.savedLists ?? [];
           if (user && !savedLists.includes(listId)) {
+            const nextSavedLists = [...savedLists, listId];
             await patchCachedUser(userId, {
-              savedLists: [...savedLists, listId],
+              savedLists: nextSavedLists,
               updatedAt: new Date(),
             });
+            setUserSavedListIds(userId, nextSavedLists);
           }
         }
       );
@@ -187,10 +190,12 @@ export class UserService {
           const user = await getCachedUser(userId);
           if (user) {
             const savedLists = user.savedLists ?? [];
+            const nextSavedLists = savedLists.filter((id) => id !== listId);
             await patchCachedUser(userId, {
-              savedLists: savedLists.filter((id) => id !== listId),
+              savedLists: nextSavedLists,
               updatedAt: new Date(),
             });
+            setUserSavedListIds(userId, nextSavedLists);
           }
           await removeCachedUserDashboardList(userId, listId);
         }
