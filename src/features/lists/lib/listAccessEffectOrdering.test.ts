@@ -80,4 +80,27 @@ describe('places effect access baseline', () => {
       })
     ).toBe(false);
   });
+
+  it('restores access when owned context replaces an untrusted saved-private row', () => {
+    const savedPrivateContext = { ...list(), isSavedList: true } as PlaceList;
+    const ownedContext = list();
+
+    expect(
+      applyPlacesEffectAccessBaseline({
+        listFromContext: savedPrivateContext,
+        listAccessibleAfterListSubscription: false,
+        userId: 'collab-b',
+        accessRevoked: false,
+      })
+    ).toBe(false);
+
+    expect(
+      applyPlacesEffectAccessBaseline({
+        listFromContext: ownedContext,
+        listAccessibleAfterListSubscription: false,
+        userId: 'collab-b',
+        accessRevoked: false,
+      })
+    ).toBe(true);
+  });
 });
