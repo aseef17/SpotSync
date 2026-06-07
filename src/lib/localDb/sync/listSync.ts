@@ -5,7 +5,11 @@ import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { acquireSubscription } from '@/lib/localDb/subscriptionRegistry';
 import { removeCachedList, upsertCachedList } from '@/lib/localDb/listCache';
 import { enqueueSnapshotTask } from '@/lib/localDb/snapshotQueue';
-import { removeCachedUserList, syncCachedUserLists } from '@/lib/localDb/userListsCache';
+import {
+  removeCachedUserList,
+  syncCachedUserLists,
+  upsertCachedUserLists,
+} from '@/lib/localDb/userListsCache';
 import { listConverter } from '@/features/lists/api/listFirestore';
 import {
   fetchSavedListsByIds,
@@ -56,6 +60,8 @@ interface UserListsSyncState {
   ownedLists: PlaceList[];
   savedLists: PlaceList[];
   fetchSavedListsSeq: number;
+  /** True once profile saved-list IDs have been applied at least once. */
+  savedListsReady: boolean;
 }
 
 const userListsState = new Map<string, UserListsSyncState>();
@@ -74,7 +80,11 @@ async function publishUserLists(userId: string): Promise<void> {
     ...state.savedLists.filter((list) => !existingIds.has(list.id)),
   ];
 
-  await syncCachedUserLists(userId, merged);
+  if (state.savedListsReady) {
+    await syncCachedUserLists(userId, merged);
+  } else {
+    await upsertCachedUserLists(userId, merged);
+  }
   emitChange(changeTopics.userLists(userId));
 }
 
@@ -89,6 +99,7 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
   if (!ids.length) {
     state.savedLists = [];
     if (seq === state.fetchSavedListsSeq) {
+      state.savedListsReady = true;
       await publishUserLists(userId);
     }
     return;
@@ -101,6 +112,7 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
     if (!idsToFetch.length) {
       state.savedLists = [];
       if (seq === state.fetchSavedListsSeq) {
+        state.savedListsReady = true;
         await publishUserLists(userId);
       }
       return;
@@ -122,6 +134,7 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
           fetched,
           resolved,
         });
+        state.savedListsReady = true;
         await publishUserLists(userId);
       }
     }
@@ -140,6 +153,7 @@ export function acquireUserOwnedListsSync(userId: string): () => void {
       ownedLists: [],
       savedLists: [],
       fetchSavedListsSeq: 0,
+      savedListsReady: false,
     });
 
     const listsQuery = query(
