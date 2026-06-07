@@ -117,8 +117,22 @@ function initUserListsSyncState(userId: string, options?: { reseedFromCache?: bo
   void (async () => {
     await hydrateOwnedListsFromCache(userId);
 
+    const state = userListsState.get(userId);
+    if (!state) {
+      return;
+    }
+    const savedListFetchSeqAtReseedStart = state.fetchSavedListsSeq;
+
     const user = await getCachedUser(userId);
     if (!user) {
+      return;
+    }
+
+    const stateAfterCacheRead = userListsState.get(userId);
+    if (
+      !stateAfterCacheRead ||
+      stateAfterCacheRead.fetchSavedListsSeq !== savedListFetchSeqAtReseedStart
+    ) {
       return;
     }
 
