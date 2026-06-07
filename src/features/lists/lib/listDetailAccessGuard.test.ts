@@ -116,22 +116,32 @@ describe('resolveListFromContextAccess', () => {
 });
 
 describe('shouldClearAccessRevokedOnContextReturn', () => {
-  it('clears sticky revocation when a list reappears in live context', () => {
+  it('clears sticky revocation when a public list reappears in live context', () => {
+    expect(
+      shouldClearAccessRevokedOnContextReturn({
+        hadListFromContext: false,
+        list: list({ isPublic: true, collaboratorIds: [] }),
+        userId: 'user-c',
+      })
+    ).toBe(true);
+  });
+
+  it('does not clear private lists from context alone because cache may be stale', () => {
     expect(
       shouldClearAccessRevokedOnContextReturn({
         hadListFromContext: false,
         list: list(),
         userId: 'collab-b',
       })
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it('does not clear revocation while the list stayed in context', () => {
     expect(
       shouldClearAccessRevokedOnContextReturn({
         hadListFromContext: true,
-        list: list(),
-        userId: 'collab-b',
+        list: list({ isPublic: true, collaboratorIds: [] }),
+        userId: 'user-c',
       })
     ).toBe(false);
   });

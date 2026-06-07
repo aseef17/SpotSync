@@ -20,7 +20,10 @@ import {
   shouldClearAccessRevokedOnContextReturn,
   shouldHydrateCachedListSnapshot,
 } from '@/features/lists/lib/listDetailAccessGuard';
-import { shouldGrantListAccess } from '@/features/lists/lib/listAccessFromSnapshot';
+import {
+  shouldGrantListAccess,
+  userCanReadList,
+} from '@/features/lists/lib/listAccessFromSnapshot';
 import {
   mergeSubscribedPlaces,
   resolvePlacesSnapshot,
@@ -44,6 +47,16 @@ export const useListDetails = (listId: string | undefined) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [loading, setLoading] = useState(!!listId);
   const [error, setError] = useState<string | null>(listId ? null : 'No list ID provided');
+  const [accessRevokedRevision, setAccessRevokedRevision] = useState(0);
+  const confirmPrivateAccessFromServer = useCallback((targetListId: string, userId: string) => {
+    void ListService.getListFromServer(targetListId).then((list) => {
+      if (!list || !userCanReadList(list, userId)) {
+        return;
+      }
+      accessRevokedRef.current = false;
+      setAccessRevokedRevision((revision) => revision + 1);
+    });
+  }, []);
   const paginationCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const extraPlacesRef = useRef<Place[]>([]);
   const listsRef = useRef(lists);
@@ -108,6 +121,15 @@ export const useListDetails = (listId: string | undefined) => {
         })
       ) {
         accessRevokedRef.current = false;
+      } else if (
+        !hadListFromContext &&
+        accessRevokedRef.current &&
+        !listFromContext.isPublic &&
+        listId &&
+        user?.id &&
+        isBrowserOnline()
+      ) {
+        confirmPrivateAccessFromServer(listId, user.id);
       }
 
       const contextAccess = resolveListFromContextAccess({
@@ -156,7 +178,15 @@ export const useListDetails = (listId: string | undefined) => {
       loadTrackingRef.current.hasCachedData = false;
       loadTrackingRef.current.onProgress?.();
     }
-  }, [listFromContext, listId, user?.id, flushPendingPlacesSnapshot, denyListAccess]);
+  }, [
+    listFromContext,
+    listId,
+    user?.id,
+    flushPendingPlacesSnapshot,
+    denyListAccess,
+    accessRevokedRevision,
+    confirmPrivateAccessFromServer,
+  ]);
 
   useEffect(() => {
     if (!listId || listFromContext) {
