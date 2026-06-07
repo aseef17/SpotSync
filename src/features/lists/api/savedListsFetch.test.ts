@@ -35,6 +35,7 @@ import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import type { FirestoreDataConverter } from 'firebase/firestore';
 import {
   fetchSavedListsByIds,
+  hasRemovedSavedListIds,
   shouldCommitSavedListFetch,
 } from '@/features/lists/api/savedListsFetch';
 import type { PlaceList } from '@/features/lists/types/list';
@@ -106,6 +107,19 @@ describe('fetchSavedListsByIds', () => {
     expect(shouldCommitSavedListFetch(true, 10, false)).toBe(false);
     expect(shouldCommitSavedListFetch(false, 0, false)).toBe(false);
     expect(shouldCommitSavedListFetch(true, 12, true)).toBe(true);
+  });
+
+  it('detects saved lists removed from the profile', () => {
+    const previous = [
+      { id: 'a', name: 'A' },
+      { id: 'b', name: 'B' },
+      { id: 'c', name: 'C' },
+    ] as PlaceList[];
+
+    expect(hasRemovedSavedListIds(['a', 'b'], previous, new Set())).toBe(true);
+    expect(hasRemovedSavedListIds(['a', 'b', 'c'], previous, new Set())).toBe(false);
+    expect(hasRemovedSavedListIds(['a'], previous, new Set(['b']))).toBe(true);
+    expect(hasRemovedSavedListIds(['a', 'b'], previous, new Set(['c']))).toBe(false);
   });
 
   it('reads from local cache directly when offline', async () => {
