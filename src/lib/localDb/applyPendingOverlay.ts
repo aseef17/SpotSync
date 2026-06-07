@@ -79,7 +79,7 @@ export function applyPendingMutationsToPlaces(
   let result = places.filter((place) => !deletedIds.has(place.id));
 
   for (const [placeId, place] of createdPlaces) {
-    if (!result.some((entry) => entry.id === placeId)) {
+    if (!deletedIds.has(placeId) && !result.some((entry) => entry.id === placeId)) {
       result = [place, ...result];
     }
   }
@@ -160,7 +160,7 @@ export function applyPendingMutationsToLists(
   let result = lists.filter((list) => !deletedIds.has(list.id));
 
   for (const [listId, list] of createdLists) {
-    if (!result.some((entry) => entry.id === listId)) {
+    if (!deletedIds.has(listId) && !result.some((entry) => entry.id === listId)) {
       result = [list, ...result];
     }
   }
@@ -272,6 +272,17 @@ export function applyPendingMutationsToUser(user: User, mutations: PendingMutati
           updated = {
             ...updated,
             savedLists: savedLists.filter((id) => id !== payload.listId),
+            updatedAt: new Date(),
+          };
+        }
+        break;
+      }
+      case 'setNotificationsDisabled': {
+        const payload = mutation.payload as { userId: string; disabled: boolean };
+        if (payload.userId === user.id) {
+          updated = {
+            ...updated,
+            notificationsDisabled: payload.disabled,
             updatedAt: new Date(),
           };
         }

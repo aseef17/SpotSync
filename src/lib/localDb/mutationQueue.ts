@@ -11,6 +11,11 @@ const localDataChangeListeners = new Set<LocalDataChangeListener>();
 
 const MERGE_UPDATE_TYPES = new Set<MutationType>(['updatePlace', 'updateList', 'updateUser']);
 
+const DELETE_CANCELS_CREATE: Partial<Record<MutationType, MutationType>> = {
+  deletePlace: 'createPlace',
+  deleteList: 'createList',
+};
+
 function mergeMutationPayload(
   type: MutationType,
   existing: MutationPayload,
@@ -131,6 +136,14 @@ export async function getPendingMutations(): Promise<PendingMutation[]> {
   return readPendingMutations(db);
 }
 
+function hasPendingMutation(db: Database, mutationId: string): boolean {
+  const statement = db.prepare('SELECT 1 FROM pending_mutations WHERE id = ? LIMIT 1');
+  statement.bind([mutationId]);
+  const exists = statement.step();
+  statement.free();
+  return exists;
+}
+
 export async function enqueueMutation(input: {
   type: MutationType;
   entityId: string;
@@ -138,8 +151,20 @@ export async function enqueueMutation(input: {
 }): Promise<void> {
   const now = Date.now();
   const id = buildMutationKey(input.type, input.entityId);
+  const cancelledCreateType = DELETE_CANCELS_CREATE[input.type];
+
+  let skipped = false;
 
   await runWriteAsync((db) => {
+    if (cancelledCreateType) {
+      const createMutationId = buildMutationKey(cancelledCreateType, input.entityId);
+      if (hasPendingMutation(db, createMutationId)) {
+        db.run('DELETE FROM pending_mutations WHERE id = ?', [createMutationId]);
+        skipped = true;
+        return;
+      }
+    }
+
     const existing = db.prepare(
       'SELECT created_at, payload FROM pending_mutations WHERE id = ? LIMIT 1'
     );
@@ -170,6 +195,12 @@ export async function enqueueMutation(input: {
       [id, input.type, input.entityId, serializeRecord(payload), createdAt, now]
     );
   });
+
+  if (skipped) {
+    notifyLocalDataChange();
+    await notifyPendingCount();
+    return;
+  }
 
   notifyLocalDataChange();
   await notifyPendingCount();
