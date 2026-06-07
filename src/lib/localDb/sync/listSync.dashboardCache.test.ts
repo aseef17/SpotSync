@@ -477,6 +477,35 @@ describe('dashboard cache publish gating', () => {
     expect(upsertCachedListMock).toHaveBeenCalledWith(updatedOwnedList);
   });
 
+  it('does not let orphaned owned-list cache hydrate apply after sync state reset without snapshot', async () => {
+    const staleOwnedList = ownedList;
+
+    let resolveCachedUserLists: (value: PlaceList[]) => void = () => {};
+    const cachedUserListsDeferred = new Promise<PlaceList[]>((resolve) => {
+      resolveCachedUserLists = resolve;
+    });
+    getCachedUserListsMock.mockReturnValueOnce(cachedUserListsDeferred);
+
+    acquireUserOwnedListsSync('user-1');
+    releaseOwnedListsSync?.();
+    clearUserListsSyncState('user-1');
+    upsertCachedUserListsMock.mockClear();
+
+    acquireUserOwnedListsSync('user-1');
+    clearUserListsSyncState('user-1');
+
+    acquireUserOwnedListsSync('user-1');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    resolveCachedUserLists([staleOwnedList]);
+    await cachedUserListsDeferred;
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(upsertCachedUserListsMock).not.toHaveBeenCalledWith('user-1', [staleOwnedList]);
+  });
+
   it('does not let stale owned-list cache hydrate overwrite fresher snapshot during grace resubscribe', async () => {
     const updatedOwnedList = {
       ...ownedList,
