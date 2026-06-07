@@ -13,6 +13,11 @@ export function clearUserProfileSyncState(): void {
   lastSavedListIdsKeyByUser.clear();
 }
 
+/** Allow profile saved-list IDs to be re-delivered after dashboard sync state is cleared. */
+export function clearUserSavedListIdsDedupForUser(userId: string): void {
+  lastSavedListIdsKeyByUser.delete(userId);
+}
+
 export function acquireUserProfileSync(userId: string): () => void {
   return acquireSubscription(`sync:user:${userId}`, () => {
     return onSnapshot(

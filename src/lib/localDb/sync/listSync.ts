@@ -2,11 +2,15 @@ import { collection, doc, onSnapshot, or, query, where, writeBatch } from 'fireb
 import { db } from '@/lib/firebase';
 import { logger } from '@/utils/logger';
 import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
-import { acquireSubscription } from '@/lib/localDb/subscriptionRegistry';
+import { acquireSubscription, hasSubscriptionEntry } from '@/lib/localDb/subscriptionRegistry';
 import { removeCachedList, upsertCachedList } from '@/lib/localDb/listCache';
 import { enqueueSnapshotTask } from '@/lib/localDb/snapshotQueue';
 import { getCachedUser } from '@/lib/localDb/userCache';
-import { removeCachedUserList, writeUserListsForDashboard } from '@/lib/localDb/userListsCache';
+import {
+  getCachedUserLists,
+  removeCachedUserList,
+  writeUserListsForDashboard,
+} from '@/lib/localDb/userListsCache';
 import { listConverter } from '@/features/lists/api/listFirestore';
 import {
   fetchSavedListsByIds,
@@ -69,7 +73,23 @@ const pendingSavedListIds = new Map<string, string[]>();
 const ownedListsSnapshotChains = new Map<string, Promise<void>>();
 const listSnapshotChains = new Map<string, Promise<void>>();
 
-function initUserListsSyncState(userId: string): void {
+async function hydrateOwnedListsFromCache(userId: string): Promise<void> {
+  const state = userListsState.get(userId);
+  if (!state || state.ownedListsHydrated) {
+    return;
+  }
+
+  const cachedLists = await getCachedUserLists(userId);
+  if (!cachedLists) {
+    return;
+  }
+
+  state.ownedLists = cachedLists.filter((list) => list.isSavedList !== true);
+  state.ownedListsHydrated = true;
+  await publishUserLists(userId);
+}
+
+function initUserListsSyncState(userId: string, options?: { reseedFromCache?: boolean }): void {
   if (userListsState.has(userId)) {
     return;
   }
@@ -85,11 +105,18 @@ function initUserListsSyncState(userId: string): void {
   const pendingIds = pendingSavedListIds.get(userId);
   if (pendingIds) {
     pendingSavedListIds.delete(userId);
+    void hydrateOwnedListsFromCache(userId);
     void fetchSavedListsForUser(userId, pendingIds);
     return;
   }
 
+  if (!options?.reseedFromCache) {
+    return;
+  }
+
   void (async () => {
+    await hydrateOwnedListsFromCache(userId);
+
     const user = await getCachedUser(userId);
     if (!user) {
       return;
@@ -126,7 +153,11 @@ function markSavedListsHydrated(userId: string): void {
   }
 }
 
-async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<void> {
+async function fetchSavedListsForUser(
+  userId: string,
+  ids: string[],
+  previousSavedLists: PlaceList[] = []
+): Promise<void> {
   const state = userListsState.get(userId);
   if (!state) {
     return;
@@ -156,11 +187,11 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
       return;
     }
 
-    const hadSavedLists = state.savedLists.length > 0;
+    const hadSavedLists = previousSavedLists.length > 0;
     const { lists: fetched, resolved } = await fetchSavedListsByIds(idsToFetch, listConverter);
 
     if (seq === state.fetchSavedListsSeq) {
-      const removedFromProfile = hasRemovedSavedListIds(ids, state.savedLists, existingIds);
+      const removedFromProfile = hasRemovedSavedListIds(ids, previousSavedLists, existingIds);
       if (
         shouldCommitSavedListFetch(hadSavedLists, fetched.length, resolved) ||
         removedFromProfile
@@ -168,7 +199,7 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
         state.savedLists = reconcileSavedLists({
           profileIds: ids,
           ownedIds: existingIds,
-          previousSavedLists: state.savedLists,
+          previousSavedLists,
           fetched,
           resolved,
         });
@@ -188,15 +219,18 @@ export function setUserSavedListIds(userId: string, savedListIds: string[]): voi
     return;
   }
 
+  const previousSavedLists = state.savedLists;
   state.savedListsHydrated = false;
   state.savedLists = [];
-  void fetchSavedListsForUser(userId, savedListIds);
+  void fetchSavedListsForUser(userId, savedListIds, previousSavedLists);
 }
 
 export function acquireUserOwnedListsSync(userId: string): () => void {
-  initUserListsSyncState(userId);
+  const subscriptionKey = `sync:lists:user:${userId}`;
+  const reusingExistingSubscription = hasSubscriptionEntry(subscriptionKey);
+  initUserListsSyncState(userId, { reseedFromCache: reusingExistingSubscription });
 
-  return acquireSubscription(`sync:lists:user:${userId}`, () => {
+  return acquireSubscription(subscriptionKey, () => {
     initUserListsSyncState(userId);
 
     const listsQuery = query(
