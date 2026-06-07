@@ -45,6 +45,8 @@ import { useToast } from '@/hooks/useToast';
 import { ConnectionIssueCard } from '@/components/Layout/ConnectionIssueCard';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { buildAskListPlacesSummary } from '@/features/places/utils/askListPlacesSummary';
+import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
+import { useInitialCacheHydrationScope } from '@/hooks/useInitialCacheHydrationScope';
 
 export const ListView: React.FunctionComponent = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -68,6 +70,25 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
     loadMorePlaces,
   } = useListDetails(listId);
   const isMobile = useIsMobile();
+  const [hadPlacesCacheInitially, setHadPlacesCacheInitially] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (!listId) {
+      setHadPlacesCacheInitially(null);
+      return;
+    }
+
+    void placeRepository.getForList(listId).then((cachedPlaces) => {
+      setHadPlacesCacheInitially(cachedPlaces.length > 0);
+    });
+  }, [listId]);
+
+  useInitialCacheHydrationScope(listId ? `list:${listId}` : 'list:unknown', {
+    isLoading: loading || placesLoading,
+    hasContent: places.length > 0,
+    hadCacheInitially: hadPlacesCacheInitially,
+    waitForPhotoWarm: true,
+  });
 
   const [showAddPlacesModal, setShowAddPlacesModal] = useState(false);
   const [selectedPlace, setSelectedPlace] = useState<Place | null>(null);
@@ -416,47 +437,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
       error.includes('Failed to load'));
 
   if (loading) {
-    return (
-      <div className={`min-h-screen ${themeColors.background.app}`}>
-        <header
-          className={`shadow-sm border-b ${themeColors.background.card} ${themeColors.border.default}`}
-        >
-          <div className="w-full px-4 sm:px-6 lg:px-12">
-            <div className="flex items-center h-16">
-              <Link
-                to="/"
-                className={`p-2 rounded-md ${themeColors.text.secondary} hover:${themeColors.text.primary} mr-2`}
-              >
-                <ArrowLeft className="h-5 w-5" />
-              </Link>
-              <div
-                className={`animate-pulse ${themeColors.background.card} h-6 w-48 rounded`}
-              ></div>
-            </div>
-          </div>
-        </header>
-        <main className="w-full py-6 px-4 sm:px-6 lg:px-12">
-          <div
-            className={`animate-pulse ${themeColors.background.card} rounded-lg shadow-sm border p-6`}
-          >
-            <div className="space-y-4">
-              <div className={`${themeColors.background.app} h-8 w-64 rounded`}></div>
-              <div className={`${themeColors.background.app} h-4 w-96 rounded`}></div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-8">
-                {[...Array(6)].map((_, i) => (
-                  <div key={i} className={`${themeColors.background.app} h-48 rounded`}></div>
-                ))}
-              </div>
-            </div>
-          </div>
-          {!isOnline && (
-            <p className={`mt-4 text-center text-sm ${themeColors.text.secondary}`}>
-              No internet connection. Showing cached data when available.
-            </p>
-          )}
-        </main>
-      </div>
-    );
+    return <div className={`min-h-screen ${themeColors.background.app}`} aria-hidden="true" />;
   }
 
   if (error || !list || !displayedList) {

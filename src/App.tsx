@@ -9,13 +9,16 @@ import { PlaceDataMigrationBanner } from '@/components/Layout/PlaceDataMigration
 import { PlaceDataMigrationProvider } from '@/features/places/context/PlaceDataMigrationContext';
 import { AppRoutes } from '@/routes';
 import { ListsProvider } from '@/features/lists/context/ListsProvider';
+import { InitialCacheHydrationProvider } from '@/context/InitialCacheHydrationContext';
 
 function AppContent() {
   const { user } = useAuth();
   return (
-    <ListsProvider key={user?.id ?? 'anonymous'} userId={user?.id}>
-      <AppRoutes />
-    </ListsProvider>
+    <InitialCacheHydrationProvider>
+      <ListsProvider key={user?.id ?? 'anonymous'} userId={user?.id}>
+        <AppRoutes />
+      </ListsProvider>
+    </InitialCacheHydrationProvider>
   );
 }
 
