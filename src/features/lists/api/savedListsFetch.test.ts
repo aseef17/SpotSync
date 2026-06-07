@@ -29,7 +29,10 @@ vi.mock('@/hooks/useNetworkStatus', () => ({
 
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import type { FirestoreDataConverter } from 'firebase/firestore';
-import { fetchSavedListsByIds } from '@/features/lists/api/savedListsFetch';
+import {
+  fetchSavedListsByIds,
+  shouldCommitSavedListFetch,
+} from '@/features/lists/api/savedListsFetch';
 import type { PlaceList } from '@/features/lists/types/list';
 
 const listConverter = {
@@ -96,6 +99,13 @@ describe('fetchSavedListsByIds', () => {
 
     expect(result.resolved).toBe(false);
     expect(result.lists).toEqual([{ id: 'saved-1', name: 'First chunk list', isSavedList: true }]);
+  });
+
+  it('commits partial first-load results but not stale refresh regressions', () => {
+    expect(shouldCommitSavedListFetch(false, 10, false)).toBe(true);
+    expect(shouldCommitSavedListFetch(true, 10, false)).toBe(false);
+    expect(shouldCommitSavedListFetch(false, 0, false)).toBe(false);
+    expect(shouldCommitSavedListFetch(true, 12, true)).toBe(true);
   });
 
   it('reads from cache directly when offline', async () => {

@@ -28,11 +28,19 @@ export const useListDetails = (listId: string | undefined) => {
   const extraPlacesRef = useRef<Place[]>([]);
   const listsRef = useRef(lists);
   listsRef.current = lists;
+  const loadTrackingRef = useRef({
+    listLoaded: false,
+    hasCachedData: false,
+    onProgress: null as (() => void) | null,
+  });
 
   useEffect(() => {
     if (listFromContext) {
       setList(listFromContext);
       setError(null);
+      loadTrackingRef.current.listLoaded = true;
+      loadTrackingRef.current.hasCachedData = true;
+      loadTrackingRef.current.onProgress?.();
     }
   }, [listFromContext]);
 
@@ -42,9 +50,11 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
-    let listLoaded = !!listFromContext;
+    loadTrackingRef.current.listLoaded = !!listFromContext;
+    loadTrackingRef.current.hasCachedData = !!listFromContext;
+    let listLoaded = loadTrackingRef.current.listLoaded;
     let placesLoaded = false;
-    let hasCachedData = !!listFromContext;
+    let hasCachedData = loadTrackingRef.current.hasCachedData;
     paginationCursorRef.current = null;
     extraPlacesRef.current = [];
     setPlaces([]);
@@ -54,6 +64,12 @@ export const useListDetails = (listId: string | undefined) => {
       if (!cancelled && listLoaded && placesLoaded) {
         setLoading(false);
       }
+    };
+
+    loadTrackingRef.current.onProgress = () => {
+      listLoaded = loadTrackingRef.current.listLoaded;
+      hasCachedData = loadTrackingRef.current.hasCachedData;
+      finishLoading();
     };
 
     const hydrateFromCache = async () => {
@@ -94,7 +110,7 @@ export const useListDetails = (listId: string | undefined) => {
 
     const timeoutId = window.setTimeout(
       () => {
-        if (!cancelled && !hasCachedData) {
+        if (!cancelled && !hasCachedData && !loadTrackingRef.current.hasCachedData) {
           setLoading(false);
           if (!isBrowserOnline()) {
             setError('You appear to be offline and no cached data was found for this list.');
@@ -171,6 +187,7 @@ export const useListDetails = (listId: string | undefined) => {
 
     return () => {
       cancelled = true;
+      loadTrackingRef.current.onProgress = null;
       window.clearTimeout(timeoutId);
       unsubscribeList?.();
       unsubscribePlaces();
