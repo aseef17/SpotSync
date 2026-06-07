@@ -106,10 +106,7 @@ export async function removeCachedUserListMembership(listId: string): Promise<vo
 }
 
 /** Remove one dashboard row without deleting the shared list cache entry. */
-export async function removeCachedUserDashboardList(
-  userId: string,
-  listId: string
-): Promise<void> {
+export async function removeCachedUserDashboardList(userId: string, listId: string): Promise<void> {
   await runWriteAsync((db) => {
     db.run('DELETE FROM user_lists WHERE user_id = ? AND list_id = ?', [userId, listId]);
   });

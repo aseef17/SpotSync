@@ -31,10 +31,10 @@ function removePendingMutationsForEntity(
   }
 
   const placeholders = types.map(() => '?').join(', ');
-  db.run(
-    `DELETE FROM pending_mutations WHERE entity_id = ? AND type IN (${placeholders})`,
-    [entityId, ...types]
-  );
+  db.run(`DELETE FROM pending_mutations WHERE entity_id = ? AND type IN (${placeholders})`, [
+    entityId,
+    ...types,
+  ]);
 }
 
 function mergeMutationPayload(
@@ -180,8 +180,7 @@ export async function enqueueMutation(input: {
     if (cancelledCreateType) {
       const createMutationId = buildMutationKey(cancelledCreateType, input.entityId);
       if (hasPendingMutation(db, createMutationId)) {
-        const typesToRemove =
-          COALESCE_CANCELLED_ENTITY_TYPES[input.type] ?? [cancelledCreateType];
+        const typesToRemove = COALESCE_CANCELLED_ENTITY_TYPES[input.type] ?? [cancelledCreateType];
         removePendingMutationsForEntity(db, input.entityId, typesToRemove);
         skipped = true;
         return;
