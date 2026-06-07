@@ -23,6 +23,10 @@ import {
   trimPhotoUrlsForStorage,
   type PlaceListAccessFields,
 } from '@/features/places/utils/placeAccess';
+import {
+  isFirebaseStoragePhotoUrl,
+  partitionGoogleSyncUpdates,
+} from '@/features/places/utils/placeGoogleSync';
 import imageCompression from 'browser-image-compression';
 
 export {
@@ -594,10 +598,8 @@ export class PlaceService {
     let changed = false;
     for (let i = 0; i < maxPhotos; i++) {
       const current = updatedPhotoUrls[i];
-      if (
-        current?.includes('firebasestorage.googleapis.com') &&
-        (await PhotoService.storageUrlExists(current))
-      ) {
+      // Never downgrade durable Firebase URLs to ephemeral Google refs when HEAD fails.
+      if (isFirebaseStoragePhotoUrl(current)) {
         continue;
       }
       if (freshRefs[i] && current !== freshRefs[i]) {
@@ -785,10 +787,17 @@ export class PlaceService {
 
     const converted = GoogleMapsService.convertGooglePlaceToPlace(details, place.listId);
     const googleUpdates = this.buildGoogleSyncUpdates(converted);
+    const { metadataUpdates, photoUpdates } = partitionGoogleSyncUpdates(googleUpdates);
 
-    await this.updatePlace(placeId, googleUpdates, userId);
+    // Persist Google metadata first; photo URLs are written only after upload succeeds.
+    await this.updatePlace(placeId, metadataUpdates, userId);
 
-    const mergedPlace: Place = { ...place, ...googleUpdates, id: placeId };
+    const mergedPlace: Place = {
+      ...place,
+      ...metadataUpdates,
+      ...photoUpdates,
+      id: placeId,
+    };
     const photoCache = await this.openPhotoCache();
     const { photoUrls: syncedPhotoUrls, photoFailures } = await this.syncPlacePhotos(
       mergedPlace,
