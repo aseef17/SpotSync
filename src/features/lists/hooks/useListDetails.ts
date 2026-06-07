@@ -11,7 +11,10 @@ import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
-import { shouldClearStaleListView } from '@/features/lists/hooks/listViewAccess';
+import {
+  shouldApplyCachedListDetails,
+  shouldClearStaleListView,
+} from '@/features/lists/hooks/listViewAccess';
 
 const OFFLINE_LOAD_TIMEOUT_MS = 8000;
 
@@ -138,9 +141,9 @@ export const useListDetails = (listId: string | undefined) => {
     };
 
     const hydrateFromCache = async () => {
-      const contextList = listsRef.current.find((entry) => entry.id === listId) ?? null;
-      if (contextList) {
-        setList(contextList);
+      const contextListAtStart = listsRef.current.find((entry) => entry.id === listId) ?? null;
+      if (contextListAtStart) {
+        setList(contextListAtStart);
         setError(null);
         listLoaded = true;
         hasCachedData = true;
@@ -148,13 +151,29 @@ export const useListDetails = (listId: string | undefined) => {
       }
 
       const [cachedList, cachedPlaces] = await Promise.all([
-        contextList ? Promise.resolve(null) : ListService.getListFromCache(listId),
+        contextListAtStart ? Promise.resolve(null) : ListService.getListFromCache(listId),
         PlaceService.getListPlacesFromCache(listId),
       ]);
 
       if (cancelled) return;
 
-      if (!contextList && cachedList) {
+      const contextList = listsRef.current.find((entry) => entry.id === listId) ?? null;
+      const mayApplyCache = shouldApplyCachedListDetails(
+        contextList,
+        listAccessibleRef.current
+      );
+
+      if (!mayApplyCache) {
+        return;
+      }
+
+      if (contextList) {
+        setList(contextList);
+        setError(null);
+        listLoaded = true;
+        hasCachedData = true;
+        finishLoading();
+      } else if (cachedList) {
         setList(cachedList);
         setError(null);
         listLoaded = true;
