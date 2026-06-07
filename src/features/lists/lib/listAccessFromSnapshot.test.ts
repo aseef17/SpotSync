@@ -91,4 +91,15 @@ describe('shouldGrantListAccess', () => {
       })
     ).toBe(true);
   });
+
+  it('denies cached saved lists with stale isPublic after access was revoked', () => {
+    expect(
+      shouldGrantListAccess({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        userId: 'user-c',
+        fromCache: true,
+        accessRevoked: true,
+      })
+    ).toBe(false);
+  });
 });

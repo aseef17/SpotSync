@@ -43,6 +43,11 @@ export function resolveListFromContextAccess(options: {
   if (options.list.isSavedList && !options.list.isPublic) {
     return options.accessRevoked ? 'deny-revoked' : 'deny-saved-private';
   }
+  // Saved-list cache can retain stale isPublic after a list is made private; do not
+  // re-grant once accessRevoked was set (e.g. from a permission-denied subscription).
+  if (options.accessRevoked && options.list.isSavedList) {
+    return 'deny-revoked';
+  }
   // Mirror shouldGrantListAccess: public lists stay readable after saved-list removal.
   if (options.accessRevoked && !options.list.isPublic) {
     return 'deny-revoked';
