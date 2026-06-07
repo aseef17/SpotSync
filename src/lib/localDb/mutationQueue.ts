@@ -16,6 +16,22 @@ const DELETE_CANCELS_CREATE: Partial<Record<MutationType, MutationType>> = {
   deleteList: 'createList',
 };
 
+function removePendingMutationsForCancelledCreate(
+  db: Database,
+  deleteType: MutationType,
+  entityId: string
+): void {
+  if (deleteType === 'deleteList') {
+    db.run('DELETE FROM pending_mutations WHERE entity_id = ? OR entity_id LIKE ?', [
+      entityId,
+      `${entityId}:%`,
+    ]);
+    return;
+  }
+
+  db.run('DELETE FROM pending_mutations WHERE entity_id = ?', [entityId]);
+}
+
 function mergeMutationPayload(
   type: MutationType,
   existing: MutationPayload,
@@ -159,7 +175,7 @@ export async function enqueueMutation(input: {
     if (cancelledCreateType) {
       const createMutationId = buildMutationKey(cancelledCreateType, input.entityId);
       if (hasPendingMutation(db, createMutationId)) {
-        db.run('DELETE FROM pending_mutations WHERE id = ?', [createMutationId]);
+        removePendingMutationsForCancelledCreate(db, input.type, input.entityId);
         skipped = true;
         return;
       }
