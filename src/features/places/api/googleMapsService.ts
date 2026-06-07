@@ -5,8 +5,10 @@ import {
   formatCategoryName,
   findGeneralCategory,
 } from '@/constants/placeCategories';
-import { db } from '@/lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { getDoc, setDoc } from 'firebase/firestore';
+import { googlePlaceDocRef } from '@/features/places/api/googlePlaceFirestore';
+import type { GooglePlace as CanonicalGooglePlace } from '@/features/places/types/googlePlace';
+import { buildGooglePlacePayload } from '@/features/places/utils/placeWriteSplit';
 
 interface GoogleLocation {
   latitude: number;
@@ -130,6 +132,45 @@ export class GoogleMapsService {
     }
   }
 
+  static canonicalGooglePlaceToLegacy(gp: CanonicalGooglePlace): LegacyGooglePlace {
+    const { lat, lng } = gp.location;
+
+    return {
+      place_id: gp.googlePlaceId,
+      name: gp.name,
+      formatted_address: gp.address,
+      rating: gp.rating,
+      price_level: gp.priceLevel,
+      types: gp.types,
+      category: gp.category,
+      cuisines: gp.cuisines,
+      geometry: {
+        location: {
+          lat: () => lat,
+          lng: () => lng,
+        },
+      },
+      photos: gp.photoUrls?.map((url) => ({ getUrl: url })) ?? [],
+      url: gp.googleMapsUrl,
+      formatted_phone_number: gp.phoneNumber,
+      website: gp.website,
+      opening_hours: {
+        weekday_text: gp.openingHours,
+        open_now: gp.openNow,
+      },
+      business_status: gp.businessStatus,
+      user_ratings_total: gp.userRatingsTotal,
+      delivery: gp.delivery,
+      dine_in: gp.dineIn,
+      takeout: gp.takeout,
+      reservable: gp.reservable,
+      serves_beer: gp.servesBeer,
+      serves_wine: gp.servesWine,
+      serves_vegetarian_food: gp.servesVegetarianFood,
+      wheelchair_accessible_entrance: gp.wheelchairAccessible,
+    };
+  }
+
   static extractPhotoResourceNames(place: LegacyGooglePlace, limit = 10): string[] {
     if (!place.photos?.length) {
       return [];
@@ -156,21 +197,17 @@ export class GoogleMapsService {
 
     if (!options?.skipCache) {
       try {
-        const cacheRef = doc(db, 'places_cache', placeId);
-        const cacheSnap = await getDoc(cacheRef);
+        const cacheSnap = await getDoc(googlePlaceDocRef(placeId));
         if (cacheSnap.exists()) {
-          const cachedData = cacheSnap.data() as LegacyGooglePlace & { cacheTimestamp?: number };
-          // Use cache if it's less than 30 days old
-          if (
-            !cachedData.cacheTimestamp ||
-            Date.now() - cachedData.cacheTimestamp < 30 * 24 * 60 * 60 * 1000
-          ) {
+          const cachedData = cacheSnap.data();
+          const fetchedAt = cachedData.detailsFetchedAt ?? cachedData.updatedAt;
+          if (fetchedAt && Date.now() - fetchedAt.getTime() < 30 * 24 * 60 * 60 * 1000) {
             logger.info(`Using cached place details for ${placeId}`);
-            return cachedData;
+            return this.canonicalGooglePlaceToLegacy(cachedData);
           }
         }
       } catch (e) {
-        logger.error('Error reading from places_cache:', e);
+        logger.error('Error reading from googlePlaces cache:', e);
       }
     }
 
@@ -233,23 +270,20 @@ export class GoogleMapsService {
       };
 
       try {
-        const cacheRef = doc(db, 'places_cache', placeId);
-        // Firestore rejects undefined at any depth; stringify drops omitted API fields.
-        const dataToCache = JSON.parse(
-          JSON.stringify({
-            ...legacyPlace,
-            cacheTimestamp: Date.now(),
-            photos: legacyPlace.photos?.map((p) => ({
-              getUrl:
-                typeof p.getUrl === 'function'
-                  ? p.getUrl({ maxWidth: 1200, maxHeight: 1200 })
-                  : p.getUrl,
-            })),
-          })
+        const now = new Date();
+        const placeFields = this.convertGooglePlaceToPlace(legacyPlace, '');
+        const canonicalPlace = buildGooglePlacePayload(
+          { ...placeFields, status: 'not_visited', addedAt: now, updatedAt: now },
+          placeId,
+          { createdAt: now, updatedAt: now }
         );
-        await setDoc(cacheRef, dataToCache);
+        await setDoc(
+          googlePlaceDocRef(placeId),
+          { ...canonicalPlace, detailsFetchedAt: now },
+          { merge: true }
+        );
       } catch (e) {
-        logger.error('Error writing to places_cache:', e);
+        logger.error('Error writing to googlePlaces cache:', e);
       }
 
       // Restore functions for the rest of the app to use

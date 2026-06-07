@@ -347,9 +347,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
 
       let result;
       try {
-        result = await PlaceService.bulkCreatePlaces(listId, placesToCreate, {
-          suppressNotifications: true,
-        });
+        result = await PlaceService.bulkCreatePlaces(listId, placesToCreate);
         await ListService.completeBulkImport(listId, result.successCount, user.id);
       } catch (importError) {
         await ListService.updateList(listId, { importInProgress: false }, user.id);
