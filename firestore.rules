@@ -6,6 +6,13 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // deleteAccount keeps accountDeletions/{uid} permanently; stale ID tokens remain valid
+    // for up to an hour after auth removal, so block client writes while tombstone exists.
+    function hasAccountDeletionTombstone() {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/accountDeletions/$(request.auth.uid));
+    }
+
     function listDoc(listId) {
       return get(/databases/$(database)/documents/lists/$(listId));
     }
@@ -70,10 +77,6 @@ service cloud.firestore {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.username;
     }
 
-    function accountDeletionTombstoneExists(userId) {
-      return exists(/databases/$(database)/documents/accountDeletions/$(userId));
-    }
-
     function isInvitationRecipient(invitation) {
       return isAuthenticated() && (
         (invitation.invitedEmail != null && invitation.invitedEmail == request.auth.token.email) ||
@@ -85,7 +88,9 @@ service cloud.firestore {
     match /lists/{listId} {
       allow read: if resource.data.isPublic == true || isOwner(resource.data) || isCollaborator(resource.data);
 
-      allow create: if isAuthenticated() && request.resource.data.ownerId == request.auth.uid;
+      allow create: if isAuthenticated() &&
+        request.resource.data.ownerId == request.auth.uid &&
+        !hasAccountDeletionTombstone();
 
       allow update: if isOwner(resource.data) || isEditor(resource.data);
 
@@ -129,7 +134,7 @@ service cloud.firestore {
     // USERS
     match /users/{userId} {
       allow read: if isAuthenticated();
-      allow write: if request.auth.uid == userId && !accountDeletionTombstoneExists(userId);
+      allow write: if request.auth.uid == userId && !hasAccountDeletionTombstone();
     }
 
     // ACCOUNT DELETIONS (server-written tombstone; client reads to block orphan recovery)
@@ -142,9 +147,13 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAuthenticated() &&
         request.resource.data.uid == request.auth.uid &&
-        !accountDeletionTombstoneExists(request.auth.uid);
-      allow update: if isAuthenticated() && resource.data.uid == request.auth.uid;
-      allow delete: if isAuthenticated() && resource.data.uid == request.auth.uid;
+        !hasAccountDeletionTombstone();
+      allow update: if isAuthenticated() &&
+        resource.data.uid == request.auth.uid &&
+        !hasAccountDeletionTombstone();
+      allow delete: if isAuthenticated() &&
+        resource.data.uid == request.auth.uid &&
+        !hasAccountDeletionTombstone();
     }
 
     // INVITATIONS
