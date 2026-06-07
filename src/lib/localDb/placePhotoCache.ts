@@ -11,22 +11,38 @@ import {
 
 export { didPlacePhotoFieldsChange } from '@/lib/localDb/placePhotoFields';
 
+const PHOTO_FETCH_TIMEOUT_MS = 30_000;
+
 const inFlight = new Map<string, Promise<Blob | null>>();
 const invalidationGeneration = new Map<string, number>();
-let photoWarmInFlight = 0;
+const photoWarmInFlightByList = new Map<string, number>();
 const photoWarmListeners = new Set<() => void>();
 
 function notifyPhotoWarmListeners(): void {
   photoWarmListeners.forEach((listener) => listener());
 }
 
-function adjustPhotoWarmInFlight(delta: number): void {
-  photoWarmInFlight = Math.max(0, photoWarmInFlight + delta);
+function adjustPhotoWarmInFlight(listId: string, delta: number): void {
+  const next = Math.max(0, (photoWarmInFlightByList.get(listId) ?? 0) + delta);
+  if (next === 0) {
+    photoWarmInFlightByList.delete(listId);
+  } else {
+    photoWarmInFlightByList.set(listId, next);
+  }
   notifyPhotoWarmListeners();
 }
 
+export function getPhotoWarmInFlightForList(listId: string): number {
+  return photoWarmInFlightByList.get(listId) ?? 0;
+}
+
+/** @deprecated Prefer getPhotoWarmInFlightForList — global sum is only for legacy callers. */
 export function getPhotoWarmInFlight(): number {
-  return photoWarmInFlight;
+  let total = 0;
+  for (const count of photoWarmInFlightByList.values()) {
+    total += count;
+  }
+  return total;
 }
 
 export function subscribePhotoWarmInFlight(listener: () => void): () => void {
@@ -60,6 +76,27 @@ async function fetchRemotePhotoBlob(
   }
 
   return PhotoService.fetchPhotoBlob(remoteUrl, null, photoRef);
+}
+
+async function fetchRemotePhotoBlobWithTimeout(
+  photoRef: string,
+  maxWidth = 800,
+  maxHeight = 800
+): Promise<Blob | null> {
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+  try {
+    return await Promise.race([
+      fetchRemotePhotoBlob(photoRef, maxWidth, maxHeight),
+      new Promise<null>((resolve) => {
+        timeoutId = setTimeout(() => resolve(null), PHOTO_FETCH_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timeoutId) {
+      clearTimeout(timeoutId);
+    }
+  }
 }
 
 /**
@@ -106,7 +143,8 @@ export async function loadPlacePhotoBlob(
   photoRef: string | undefined,
   photoIndex: number,
   maxWidth = 800,
-  maxHeight = 800
+  maxHeight = 800,
+  listId?: string
 ): Promise<Blob | null> {
   if (!photoRef) {
     return null;
@@ -126,9 +164,11 @@ export async function loadPlacePhotoBlob(
   const generationAtStart = getInvalidationGeneration(placeId);
 
   const promise = (async () => {
-    adjustPhotoWarmInFlight(1);
+    if (listId) {
+      adjustPhotoWarmInFlight(listId, 1);
+    }
     try {
-      const blob = await fetchRemotePhotoBlob(photoRef, maxWidth, maxHeight);
+      const blob = await fetchRemotePhotoBlobWithTimeout(photoRef, maxWidth, maxHeight);
       if (blob && getInvalidationGeneration(placeId) === generationAtStart) {
         await writePlacePhotoBlob(placeId, photoIndex, blob);
       }
@@ -137,7 +177,9 @@ export async function loadPlacePhotoBlob(
       logger.debug('Failed to load place photo into cache:', error);
       return null;
     } finally {
-      adjustPhotoWarmInFlight(-1);
+      if (listId) {
+        adjustPhotoWarmInFlight(listId, -1);
+      }
       inFlight.delete(inFlightKey);
     }
   })();
@@ -147,13 +189,17 @@ export async function loadPlacePhotoBlob(
 }
 
 /** Warm the primary thumbnail in the background after SQL place data is stored. */
-export function warmPlaceThumbnailCache(placeId: string, thumbnailRef: string | undefined): void {
+export function warmPlaceThumbnailCache(
+  listId: string,
+  placeId: string,
+  thumbnailRef: string | undefined
+): void {
   if (!thumbnailRef || typeof window === 'undefined') {
     return;
   }
 
   const run = () => {
-    void loadPlacePhotoBlob(placeId, thumbnailRef, 0, 400, 400);
+    void loadPlacePhotoBlob(placeId, thumbnailRef, 0, 400, 400, listId);
   };
 
   if (typeof window.requestIdleCallback === 'function') {

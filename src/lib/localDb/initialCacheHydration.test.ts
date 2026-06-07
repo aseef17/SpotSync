@@ -34,6 +34,28 @@ describe('initialCacheHydration', () => {
     ).toBe(true);
   });
 
+  it('keeps hydrating while cache probe is pending', () => {
+    expect(
+      isInitialCacheHydrating({
+        hadCacheInitially: null,
+        isLoading: true,
+        hasContent: false,
+        waitForPhotoWarm: false,
+        photoWarmInFlight: 0,
+      })
+    ).toBe(true);
+
+    expect(
+      isInitialCacheHydrating({
+        hadCacheInitially: null,
+        isLoading: false,
+        hasContent: true,
+        waitForPhotoWarm: true,
+        photoWarmInFlight: 0,
+      })
+    ).toBe(true);
+  });
+
   it('stops hydrating for empty lists once loading finishes', () => {
     expect(
       isInitialCacheHydrating({
@@ -64,6 +86,19 @@ describe('initialCacheHydration', () => {
         hasContent: true,
         waitForPhotoWarm: true,
         photoWarmInFlight: 0,
+      })
+    ).toBe(false);
+  });
+
+  it('stops hydrating when forced complete', () => {
+    expect(
+      isInitialCacheHydrating({
+        hadCacheInitially: false,
+        isLoading: false,
+        hasContent: true,
+        waitForPhotoWarm: true,
+        photoWarmInFlight: 3,
+        forcedComplete: true,
       })
     ).toBe(false);
   });
