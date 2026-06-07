@@ -38,13 +38,37 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 const REGISTRATION_IN_PROGRESS_KEY = 'spotsync_registration_in_progress';
+const REGISTRATION_STALE_MS = 60_000;
+
+interface RegistrationProgress {
+  uid: string;
+  startedAt: number;
+}
 
 const isEmailPasswordUser = (fbUser: FirebaseUser): boolean =>
   fbUser.providerData.some((provider) => provider.providerId === 'password');
 
+const setRegistrationInProgress = (uid: string): void => {
+  const payload: RegistrationProgress = { uid, startedAt: Date.now() };
+  sessionStorage.setItem(REGISTRATION_IN_PROGRESS_KEY, JSON.stringify(payload));
+};
+
+const clearRegistrationInProgress = (): void => {
+  sessionStorage.removeItem(REGISTRATION_IN_PROGRESS_KEY);
+};
+
 const isRegistrationInProgress = (uid: string): boolean => {
-  const value = sessionStorage.getItem(REGISTRATION_IN_PROGRESS_KEY);
-  return value === uid || value === 'pending';
+  const raw = sessionStorage.getItem(REGISTRATION_IN_PROGRESS_KEY);
+  if (!raw) return false;
+
+  try {
+    const parsed = JSON.parse(raw) as RegistrationProgress;
+    if (parsed.uid !== uid && parsed.uid !== 'pending') return false;
+    return Date.now() - parsed.startedAt < REGISTRATION_STALE_MS;
+  } catch {
+    // Legacy flag from a crashed registration in a previous page load — treat as stale.
+    return false;
+  }
 };
 
 const waitForUserProfile = async (
@@ -153,7 +177,10 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
           if (profile) {
             setUser(profile);
-          } else if (!registrationInProgress) {
+          } else {
+            // Profile never appeared — clear any stale registration flag and recover
+            // orphaned auth-only accounts (e.g. after a tab crash mid-registration).
+            clearRegistrationInProgress();
             await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
             const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
             if (provisionedUserDoc.exists()) {
@@ -183,12 +210,12 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
   const register = useCallback(
     async (email: string, password: string, username: string, displayName: string) => {
-      sessionStorage.setItem(REGISTRATION_IN_PROGRESS_KEY, 'pending');
+      setRegistrationInProgress('pending');
 
       let userCredential: UserCredential;
       try {
         userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        sessionStorage.setItem(REGISTRATION_IN_PROGRESS_KEY, userCredential.user.uid);
+        setRegistrationInProgress(userCredential.user.uid);
         await updateProfile(userCredential.user, { displayName });
 
         const normalizedUsername = username.toLowerCase().trim();
@@ -230,7 +257,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
         await sendEmailVerification(userCredential.user);
       } finally {
-        sessionStorage.removeItem(REGISTRATION_IN_PROGRESS_KEY);
+        clearRegistrationInProgress();
       }
     },
     []
