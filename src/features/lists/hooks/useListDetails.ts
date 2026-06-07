@@ -11,6 +11,10 @@ import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
+import {
+  listDroppedFromContext,
+  type ListContextSnapshot,
+} from '@/features/lists/hooks/listContextAccess';
 
 const OFFLINE_LOAD_TIMEOUT_MS = 8000;
 
@@ -34,6 +38,14 @@ export const useListDetails = (listId: string | undefined) => {
     onProgress: null as (() => void) | null,
   });
   const listAccessibleRef = useRef(true);
+  const listContextSnapshotRef = useRef<ListContextSnapshot>({ hadContext: false });
+
+  const markListInaccessible = () => {
+    listAccessibleRef.current = false;
+    setList(null);
+    setPlaces([]);
+    loadTrackingRef.current.hasCachedData = false;
+  };
 
   useEffect(() => {
     if (listFromContext) {
@@ -43,8 +55,20 @@ export const useListDetails = (listId: string | undefined) => {
       loadTrackingRef.current.listLoaded = true;
       loadTrackingRef.current.hasCachedData = true;
       loadTrackingRef.current.onProgress?.();
+    } else if (
+      listDroppedFromContext(listId, listContextSnapshotRef.current, !!listFromContext)
+    ) {
+      markListInaccessible();
+      setError('List not found');
+      loadTrackingRef.current.listLoaded = false;
+      loadTrackingRef.current.onProgress?.();
     }
-  }, [listFromContext]);
+
+    listContextSnapshotRef.current = {
+      listId,
+      hadContext: !!listFromContext,
+    };
+  }, [listFromContext, listId]);
 
   useEffect(() => {
     if (!listId || listFromContext) {
@@ -60,11 +84,8 @@ export const useListDetails = (listId: string | undefined) => {
       (listData) => {
         if (cancelled) return;
         if (!listData) {
-          listAccessibleRef.current = false;
-          setList(null);
-          setPlaces([]);
+          markListInaccessible();
           setError('List not found');
-          loadTrackingRef.current.hasCachedData = false;
         } else {
           listAccessibleRef.current = true;
           setList(listData);
@@ -77,6 +98,7 @@ export const useListDetails = (listId: string | undefined) => {
       (err) => {
         if (cancelled) return;
         logger.error('Error listening to list:', err);
+        markListInaccessible();
         setError(
           `Failed to load list data: ${err instanceof Error ? err.message : 'Unknown error'}`
         );
