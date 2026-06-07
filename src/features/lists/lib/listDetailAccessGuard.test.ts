@@ -253,3 +253,32 @@ describe('shouldClearAccessRevokedOnContextReturn', () => {
     ).toBe(false);
   });
 });
+
+describe('useListDetails context access ordering', () => {
+  it('does not clear accessRevoked before denying stale saved public context', () => {
+    const staleSavedPublic = list({
+      isSavedList: true,
+      isPublic: true,
+      collaboratorIds: [],
+    });
+    let accessRevoked = true;
+
+    if (
+      shouldClearAccessRevokedOnContextReturn({
+        hadListFromContext: false,
+        list: staleSavedPublic,
+        userId: 'user-c',
+      })
+    ) {
+      accessRevoked = false;
+    }
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPublic,
+        userId: 'user-c',
+        accessRevoked,
+      })
+    ).toBe('deny-revoked');
+  });
+});
