@@ -250,8 +250,15 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             setUser(profile);
           } else {
             // loadUserProfile can return null while a tombstone exists even though
-            // shouldRetainUserOnAuthChange kept a cached profile above.
-            setUser((prev) => (prev?.id === fbUser.uid ? null : prev));
+            // shouldRetainUserOnAuthChange kept a cached profile above. Only clear the
+            // retained profile for tombstoned sessions — transient load failures should
+            // keep the cached user so ListsProvider does not remount mid-recovery.
+            if (await isAccountDeletionInProgress(fbUser.uid)) {
+              if (!isCurrentAuthStateHandler(handlerGeneration)) {
+                return;
+              }
+              setUser((prev) => (prev?.id === fbUser.uid ? null : prev));
+            }
 
             if (isEmailPasswordUser(fbUser)) {
               // Email/password registration creates the Firestore profile in register().
