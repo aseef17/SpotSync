@@ -3,6 +3,7 @@ import { clearInvitationListSubscriptions } from '@/features/lists/api/invitatio
 import { clearInvitationRecipientSubscriptions } from '@/features/lists/api/invitationRecipientSubscriptionStore';
 import { clearPlaceListSubscriptions } from '@/features/places/api/placeListSubscriptionStore';
 import { clearLocalDatabase, initLocalDatabase } from '@/lib/localDb/database';
+import { clearCompletedHydrationScopes } from '@/lib/localDb/initialCacheHydration';
 import { clearAllChangeListeners } from '@/lib/localDb/changeBus';
 import { clearAllUserListsSyncState } from '@/lib/localDb/sync/listSync';
 import { clearUserProfileSyncState } from '@/lib/localDb/sync/userProfileSync';
@@ -38,6 +39,7 @@ export async function resetLocalDataRuntime(): Promise<void> {
   clearAllChangeListeners();
   clearAllUserListsSyncState();
   clearUserProfileSyncState();
+  clearCompletedHydrationScopes();
   initPromise = null;
   await clearLocalDatabase();
 }
