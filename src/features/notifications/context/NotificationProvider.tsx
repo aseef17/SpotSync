@@ -124,20 +124,28 @@ export const NotificationProvider: React.FunctionComponent<{ children: React.Rea
 
   // Listen for FCM Messages (Foreground)
   useEffect(() => {
-    if (permissionGranted && !notificationsDisabled) {
-      let unsubscribe: (() => void) | undefined;
-      NotificationService.onMessageListener((payload) => {
-        const { title, body } = payload.notification || {};
-        if (title && body) {
-          addToast('info', body, title, 5000);
-        }
-      }).then((unsub) => {
-        unsubscribe = unsub;
-      });
-      return () => {
-        unsubscribe?.();
-      };
-    }
+    if (!permissionGranted || notificationsDisabled) return;
+
+    let cancelled = false;
+    let unsubscribe: (() => void) | undefined;
+
+    NotificationService.onMessageListener((payload) => {
+      const { title, body } = payload.notification || {};
+      if (title && body) {
+        addToast('info', body, title, 5000);
+      }
+    }).then((unsub) => {
+      if (cancelled) {
+        unsub?.();
+        return;
+      }
+      unsubscribe = unsub;
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [permissionGranted, notificationsDisabled, addToast]);
 
   return (

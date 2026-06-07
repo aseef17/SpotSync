@@ -37,11 +37,22 @@ export const Dashboard: React.FunctionComponent = () => {
   const [optimisticLists, setOptimisticLists] = useState<PlaceList[]>([]);
   const { trigger: triggerAction } = useDeferredAction();
 
-  // Drop optimistic entries once the real list document arrives
+  // Drop optimistic entries once Firestore confirms the list (or it is deleted elsewhere)
   const activeOptimisticLists = useMemo(() => {
-    if (lists.length === 0) return optimisticLists;
     const realIds = new Set(lists.map((l) => l.id));
-    return optimisticLists.filter((l) => !realIds.has(l.id));
+    const realClientIds = new Set(
+      lists.map((l) => l.clientId).filter((id): id is string => Boolean(id))
+    );
+
+    return optimisticLists.filter((l) => {
+      if (l.id.startsWith('temp-')) {
+        return !realClientIds.has(l.clientId || l.id);
+      }
+      if (realIds.has(l.id)) {
+        return false;
+      }
+      return lists.length === 0;
+    });
   }, [lists, optimisticLists]);
 
   // Merge optimistic lists with real lists, apply updates, and filter hidden
@@ -172,6 +183,8 @@ export const Dashboard: React.FunctionComponent = () => {
   const confirmDeleteList = async () => {
     if (!showDeleteConfirm || !user) return;
     const listId = showDeleteConfirm;
+
+    setOptimisticLists((prev) => prev.filter((l) => l.id !== listId));
 
     setHiddenListIds((prev) => {
       const next = new Set(prev);
