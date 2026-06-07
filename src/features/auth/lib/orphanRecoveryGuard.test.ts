@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { REGISTRATION_HEARTBEAT_MS, REGISTRATION_STALE_MS } from './registrationGuard';
+import {
+  REGISTRATION_HEARTBEAT_MS,
+  REGISTRATION_STALE_MS,
+  isRegistrationActiveForUid,
+} from './registrationGuard';
 
 /**
  * Orphan recovery must not run while another tab's register() heartbeat keeps the
@@ -24,5 +28,18 @@ describe('orphan recovery timing guard', () => {
       wallClockWaitExpiredAt - lastHeartbeatAt < REGISTRATION_STALE_MS;
 
     expect(registrationStillActive).toBe(true);
+  });
+
+  it('requires re-waiting when a heartbeat refreshes the flag after a stale read', () => {
+    const uid = 'user-1';
+    const staleProgress = { uid, startedAt: 0 };
+    const staleReadAt = REGISTRATION_STALE_MS + 1;
+
+    expect(isRegistrationActiveForUid(staleProgress, uid, staleReadAt)).toBe(false);
+
+    const refreshedProgress = { uid, startedAt: staleReadAt + 5 };
+    const recheckAt = staleReadAt + 10;
+
+    expect(isRegistrationActiveForUid(refreshedProgress, uid, recheckAt)).toBe(true);
   });
 });

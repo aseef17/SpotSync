@@ -180,23 +180,21 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
               registrationInProgress ? 250 : 0
             );
 
-            if (!profile && !isRegistrationInFlight() && registrationInProgress) {
-              profile = await waitForCrossTabRegistration(fbUser.uid);
-            }
-
             if (profile) {
               setUser(profile);
             } else if (!isRegistrationInFlight()) {
-              // Heartbeat in another tab can refresh the flag after a stale read — re-check before
-              // orphan recovery so we do not race register() and roll back a newly created account.
-              if (isRegistrationInProgress(fbUser.uid)) {
+              // Heartbeat in another tab can refresh the flag after a stale read — keep waiting
+              // until register() finishes so we do not race orphan recovery, but do not stop early
+              // if the flag is refreshed between waitForCrossTabRegistration and this check.
+              while (isRegistrationInProgress(fbUser.uid)) {
                 profile = await waitForCrossTabRegistration(fbUser.uid);
+                if (profile) {
+                  break;
+                }
               }
 
               if (profile) {
                 setUser(profile);
-              } else if (isRegistrationInProgress(fbUser.uid)) {
-                // Another tab is still heartbeating register(); defer orphan recovery.
               } else {
                 // Profile never appeared and register() is not running on this page — clear any
                 // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
