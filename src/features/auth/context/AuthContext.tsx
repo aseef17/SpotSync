@@ -174,13 +174,23 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           if (profile) {
             setUser(profile);
           } else if (!isRegistrationInFlight()) {
-            // Profile never appeared and register() is not running on this page — clear any
-            // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
-            clearRegistrationProgress();
-            await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
-            const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
-            if (provisionedUserDoc.exists()) {
-              setUser(provisionedUserDoc.data() as User);
+            // Heartbeat in another tab can refresh the flag after a stale read — re-check before
+            // orphan recovery so we do not race register() and roll back a newly created account.
+            if (isRegistrationInProgress(fbUser.uid)) {
+              profile = await waitForCrossTabRegistration(fbUser.uid);
+            }
+
+            if (profile) {
+              setUser(profile);
+            } else {
+              // Profile never appeared and register() is not running on this page — clear any
+              // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
+              clearRegistrationProgress();
+              await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
+              const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
+              if (provisionedUserDoc.exists()) {
+                setUser(provisionedUserDoc.data() as User);
+              }
             }
           }
         } else {
