@@ -4,3 +4,10 @@ export function shouldClearStaleListView(
 ): boolean {
   return !!listId && !listFromContext;
 }
+
+export function shouldApplyListDataUpdate(
+  listAccessible: boolean,
+  cancelled = false
+): boolean {
+  return listAccessible && !cancelled;
+}

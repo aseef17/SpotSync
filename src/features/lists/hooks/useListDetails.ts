@@ -5,17 +5,22 @@ import {
   PLACES_PAGE_SIZE,
   PLACES_SUBSCRIPTION_LIMIT,
 } from '@/features/places/api/placeService';
+import { useAuth } from '@/features/auth/context/AuthContext';
 import { useListsContext } from '@/features/lists/context/useListsContext';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
-import { shouldClearStaleListView } from '@/features/lists/hooks/listViewAccess';
+import {
+  shouldApplyListDataUpdate,
+  shouldClearStaleListView,
+} from '@/features/lists/hooks/listViewAccess';
 
 const OFFLINE_LOAD_TIMEOUT_MS = 8000;
 
 export const useListDetails = (listId: string | undefined) => {
+  const { user } = useAuth();
   const { lists } = useListsContext();
   const listFromContext = listId ? lists.find((entry) => entry.id === listId) : undefined;
 
@@ -114,7 +119,6 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
-    listAccessibleRef.current = true;
     loadTrackingRef.current.listLoaded = !!listFromContext;
     loadTrackingRef.current.hasCachedData = !!listFromContext;
     let listLoaded = loadTrackingRef.current.listLoaded;
@@ -152,7 +156,9 @@ export const useListDetails = (listId: string | undefined) => {
         PlaceService.getListPlacesFromCache(listId),
       ]);
 
-      if (cancelled) return;
+      if (!shouldApplyListDataUpdate(listAccessibleRef.current, cancelled)) {
+        return;
+      }
 
       if (!contextList && cachedList) {
         setList(cachedList);
@@ -190,7 +196,7 @@ export const useListDetails = (listId: string | undefined) => {
     const unsubscribePlaces = PlaceService.subscribeToListPlaces(
       listId,
       (placesData) => {
-        if (cancelled || !listAccessibleRef.current) return;
+        if (!shouldApplyListDataUpdate(listAccessibleRef.current, cancelled)) return;
         const merged = [...placesData, ...extraPlacesRef.current];
         const seen = new Set<string>();
         const deduped = merged.filter((place) => {
@@ -220,12 +226,12 @@ export const useListDetails = (listId: string | undefined) => {
       window.clearTimeout(timeoutId);
       unsubscribePlaces();
     };
-    // Only re-subscribe when the viewed list changes. List metadata syncs via the effect above.
+    // Re-subscribe when the viewed list or signed-in user changes. List metadata syncs in the effect above.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- listFromContext syncs in the effect above; lists via listsRef
-  }, [listId]);
+  }, [listId, user?.id]);
 
   const loadMorePlaces = useCallback(async () => {
-    if (!listId || loadingMore) return;
+    if (!listId || loadingMore || !listAccessibleRef.current) return;
 
     setLoadingMore(true);
     try {
@@ -247,6 +253,10 @@ export const useListDetails = (listId: string | undefined) => {
       const page = await PlaceService.loadMoreListPlaces(listId, cursor, PLACES_PAGE_SIZE);
       paginationCursorRef.current = page.lastDoc;
       extraPlacesRef.current = [...extraPlacesRef.current, ...page.places];
+
+      if (!listAccessibleRef.current) {
+        return;
+      }
 
       setPlaces((current) => {
         const seen = new Set(current.map((place) => place.id));
