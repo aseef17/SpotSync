@@ -101,7 +101,9 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
+    listAccessibleRef.current = false;
     loadTrackingRef.current.listLoaded = false;
+    loadTrackingRef.current.hasCachedData = false;
     loadTrackingRef.current.onProgress?.();
 
     const unsubscribeList = ListService.subscribeToList(
@@ -157,9 +159,11 @@ export const useListDetails = (listId: string | undefined) => {
     let cancelled = false;
     pendingPlacesSnapshotRef.current = undefined;
     applyPendingPlacesRef.current = null;
-    listAccessibleRef.current = !!listFromContext;
-    loadTrackingRef.current.listLoaded = !!listFromContext;
-    loadTrackingRef.current.hasCachedData = !!listFromContext;
+    if (listFromContext) {
+      listAccessibleRef.current = true;
+      loadTrackingRef.current.listLoaded = true;
+      loadTrackingRef.current.hasCachedData = true;
+    }
     let listLoaded = loadTrackingRef.current.listLoaded;
     let placesLoaded = false;
     let hasCachedData = loadTrackingRef.current.hasCachedData;
@@ -268,6 +272,10 @@ export const useListDetails = (listId: string | undefined) => {
       }
     );
 
+    if (loadTrackingRef.current.listLoaded) {
+      flushPendingPlacesSnapshot();
+    }
+
     return () => {
       cancelled = true;
       applyPendingPlacesRef.current = null;
@@ -277,7 +285,7 @@ export const useListDetails = (listId: string | undefined) => {
     };
     // Re-subscribe when the viewed list or signed-in user changes. List metadata syncs in the effect above.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- listFromContext syncs in the effect above; lists via listsRef
-  }, [listId, user?.id]);
+  }, [listId, user?.id, flushPendingPlacesSnapshot]);
 
   const loadMorePlaces = useCallback(async () => {
     if (!listId || loadingMore || !listAccessibleRef.current) return;

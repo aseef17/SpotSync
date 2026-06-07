@@ -10,7 +10,7 @@ const place = (id: string): Place =>
     id,
     listId: 'list-1',
     name: `Place ${id}`,
-    addedAt: new Date(),
+    addedAt: new Date('2026-01-01T00:00:00.000Z'),
   }) as Place;
 
 describe('mergeSubscribedPlaces', () => {
