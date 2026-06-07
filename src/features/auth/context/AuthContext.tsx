@@ -18,6 +18,7 @@ import { auth, db } from '@/lib/firebase';
 import type { User } from '@/features/auth/types/user';
 import {
   REGISTRATION_HEARTBEAT_MS,
+  REGISTRATION_STALE_MS,
   beginRegistrationSession,
   clearRegistrationProgress,
   endRegistrationSession,
@@ -73,7 +74,11 @@ const waitForUserProfile = async (
 // registrationInFlightCount is per-tab; localStorage is shared. Poll until the other
 // tab clears its flag or it goes stale before running orphan recovery.
 const waitForCrossTabRegistration = async (uid: string): Promise<User | null> => {
+  const deadline = Date.now() + REGISTRATION_STALE_MS;
   while (isRegistrationInProgress(uid)) {
+    if (Date.now() >= deadline) {
+      break;
+    }
     const profile = await waitForUserProfile(uid, 1, 0);
     if (profile) {
       return profile;
@@ -154,60 +159,65 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        setFirebaseUser(fbUser);
-        // Fetch or create user document in Firestore
-        const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
-        if (userDoc.exists()) {
-          setUser(userDoc.data() as User);
-        } else if (isEmailPasswordUser(fbUser)) {
-          // Email/password registration creates the Firestore profile in register().
-          // Wait for that transaction before recovering orphaned auth-only accounts.
-          const registrationInProgress = isRegistrationInProgress(fbUser.uid);
-          let profile = await waitForUserProfile(
-            fbUser.uid,
-            registrationInProgress ? 12 : 2,
-            registrationInProgress ? 250 : 0
-          );
+      try {
+        if (fbUser) {
+          setFirebaseUser(fbUser);
+          // Fetch or create user document in Firestore
+          const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
+          if (userDoc.exists()) {
+            setUser(userDoc.data() as User);
+          } else if (isEmailPasswordUser(fbUser)) {
+            // Email/password registration creates the Firestore profile in register().
+            // Wait for that transaction before recovering orphaned auth-only accounts.
+            const registrationInProgress = isRegistrationInProgress(fbUser.uid);
+            let profile = await waitForUserProfile(
+              fbUser.uid,
+              registrationInProgress ? 12 : 2,
+              registrationInProgress ? 250 : 0
+            );
 
-          if (!profile && !isRegistrationInFlight() && registrationInProgress) {
-            profile = await waitForCrossTabRegistration(fbUser.uid);
-          }
-
-          if (profile) {
-            setUser(profile);
-          } else if (!isRegistrationInFlight()) {
-            // Heartbeat in another tab can refresh the flag after a stale read — re-check before
-            // orphan recovery so we do not race register() and roll back a newly created account.
-            if (isRegistrationInProgress(fbUser.uid)) {
+            if (!profile && !isRegistrationInFlight() && registrationInProgress) {
               profile = await waitForCrossTabRegistration(fbUser.uid);
             }
 
             if (profile) {
               setUser(profile);
-            } else {
-              // Profile never appeared and register() is not running on this page — clear any
-              // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
-              clearRegistrationProgress(fbUser.uid);
-              await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
-              const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
-              if (provisionedUserDoc.exists()) {
-                setUser(provisionedUserDoc.data() as User);
+            } else if (!isRegistrationInFlight()) {
+              // Heartbeat in another tab can refresh the flag after a stale read — re-check before
+              // orphan recovery so we do not race register() and roll back a newly created account.
+              if (isRegistrationInProgress(fbUser.uid)) {
+                profile = await waitForCrossTabRegistration(fbUser.uid);
               }
+
+              if (profile) {
+                setUser(profile);
+              } else {
+                // Profile never appeared and register() is not running on this page — clear any
+                // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
+                clearRegistrationProgress(fbUser.uid);
+                await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
+                const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
+                if (provisionedUserDoc.exists()) {
+                  setUser(provisionedUserDoc.data() as User);
+                }
+              }
+            }
+          } else {
+            await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
+            const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
+            if (provisionedUserDoc.exists()) {
+              setUser(provisionedUserDoc.data() as User);
             }
           }
         } else {
-          await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
-          const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
-          if (provisionedUserDoc.exists()) {
-            setUser(provisionedUserDoc.data() as User);
-          }
+          setFirebaseUser(null);
+          setUser(null);
         }
-      } else {
-        setFirebaseUser(null);
-        setUser(null);
+      } catch (error) {
+        logger.error('Auth state handler failed:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return unsubscribe;
