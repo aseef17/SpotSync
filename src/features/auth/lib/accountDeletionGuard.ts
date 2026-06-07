@@ -15,3 +15,17 @@ export async function isAccountDeletionInProgress(uid: string): Promise<boolean>
     return true;
   }
 }
+
+/** Ignore cached or stale profile docs while accountDeletions/{uid} tombstone exists. */
+export async function resolveProfileUnlessDeletionPending<T>(
+  uid: string,
+  profile: T | null
+): Promise<T | null> {
+  if (!profile) {
+    return null;
+  }
+  if (await isAccountDeletionInProgress(uid)) {
+    return null;
+  }
+  return profile;
+}
