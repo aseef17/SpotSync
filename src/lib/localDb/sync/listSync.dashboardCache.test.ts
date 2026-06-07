@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { User } from '@/features/auth/types/user';
 import type { PlaceList } from '@/features/lists/types/list';
 
 const syncCachedUserListsMock = vi.fn();
@@ -195,6 +196,48 @@ describe('dashboard cache publish gating', () => {
     await Promise.resolve();
 
     expect(getCachedUserMock).not.toHaveBeenCalled();
+  });
+
+  it('does not let stale profile cache reseed overwrite fresher profile sync during grace resubscribe', async () => {
+    fetchSavedListsByIdsMock.mockResolvedValue({ lists: [], resolved: true });
+
+    let resolveCachedUser: (value: User) => void = () => {};
+    const cachedUserDeferred = new Promise<User>((resolve) => {
+      resolveCachedUser = resolve;
+    });
+    getCachedUserMock.mockReturnValueOnce(cachedUserDeferred);
+
+    acquireUserOwnedListsSync('user-1');
+    releaseOwnedListsSync?.();
+    clearUserListsSyncState('user-1');
+    fetchSavedListsByIdsMock.mockClear();
+
+    acquireUserOwnedListsSync('user-1');
+    await Promise.resolve();
+    await Promise.resolve();
+
+    setUserSavedListIds('user-1', ['fresh-1']);
+    resolveCachedUser({
+      id: 'user-1',
+      email: 'user@example.com',
+      displayName: 'User',
+      username: 'user',
+      savedLists: ['stale-1', 'stale-2'],
+      fcmTokens: [],
+      notificationsDisabled: false,
+      createdAt: new Date('2024-01-01'),
+      updatedAt: new Date('2024-01-01'),
+    });
+
+    await cachedUserDeferred;
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fetchSavedListsByIdsMock).toHaveBeenCalledWith(['fresh-1'], {});
+    expect(fetchSavedListsByIdsMock).not.toHaveBeenCalledWith(
+      ['stale-1', 'stale-2'],
+      expect.anything()
+    );
   });
 
   it('reseeds saved-list ids from profile cache when sync state is cleared and reacquired', async () => {
