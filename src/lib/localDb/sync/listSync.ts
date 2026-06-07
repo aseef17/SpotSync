@@ -6,7 +6,11 @@ import { acquireSubscription } from '@/lib/localDb/subscriptionRegistry';
 import { removeCachedList, upsertCachedList } from '@/lib/localDb/listCache';
 import { enqueueSnapshotTask } from '@/lib/localDb/snapshotQueue';
 import { getCachedUser } from '@/lib/localDb/userCache';
-import { removeCachedUserList, writeUserListsForDashboard } from '@/lib/localDb/userListsCache';
+import {
+  getCachedUserLists,
+  removeCachedUserList,
+  writeUserListsForDashboard,
+} from '@/lib/localDb/userListsCache';
 import { listConverter } from '@/features/lists/api/listFirestore';
 import {
   fetchSavedListsByIds,
@@ -69,6 +73,22 @@ const pendingSavedListIds = new Map<string, string[]>();
 const ownedListsSnapshotChains = new Map<string, Promise<void>>();
 const listSnapshotChains = new Map<string, Promise<void>>();
 
+async function hydrateOwnedListsFromCache(userId: string): Promise<void> {
+  const state = userListsState.get(userId);
+  if (!state || state.ownedListsHydrated) {
+    return;
+  }
+
+  const cachedLists = await getCachedUserLists(userId);
+  if (!cachedLists) {
+    return;
+  }
+
+  state.ownedLists = cachedLists.filter((list) => list.isSavedList !== true);
+  state.ownedListsHydrated = true;
+  await publishUserLists(userId);
+}
+
 function initUserListsSyncState(userId: string): void {
   if (userListsState.has(userId)) {
     return;
@@ -85,11 +105,14 @@ function initUserListsSyncState(userId: string): void {
   const pendingIds = pendingSavedListIds.get(userId);
   if (pendingIds) {
     pendingSavedListIds.delete(userId);
+    void hydrateOwnedListsFromCache(userId);
     void fetchSavedListsForUser(userId, pendingIds);
     return;
   }
 
   void (async () => {
+    await hydrateOwnedListsFromCache(userId);
+
     const user = await getCachedUser(userId);
     if (!user) {
       return;
