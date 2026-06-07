@@ -18,7 +18,6 @@ import { auth, db } from '@/lib/firebase';
 import type { User } from '@/features/auth/types/user';
 import {
   REGISTRATION_HEARTBEAT_MS,
-  REGISTRATION_STALE_MS,
   beginRegistrationSession,
   clearRegistrationProgress,
   endRegistrationSession,
@@ -73,13 +72,11 @@ const waitForUserProfile = async (
 };
 
 // registrationInFlightCount is per-tab; localStorage is shared. Poll until the other
-// tab clears its flag or it goes stale before running orphan recovery.
+// tab clears its flag or the heartbeat goes stale before running orphan recovery.
+// Do not cap this with a wall-clock deadline: register() heartbeats refresh startedAt,
+// so an active signup can outlive any fixed wait and orphan recovery would race it.
 const waitForCrossTabRegistration = async (uid: string): Promise<User | null> => {
-  const deadline = Date.now() + REGISTRATION_STALE_MS;
   while (isRegistrationInProgress(uid)) {
-    if (Date.now() >= deadline) {
-      break;
-    }
     const profile = await waitForUserProfile(uid, 1, 0);
     if (profile) {
       return profile;
@@ -198,6 +195,8 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
               if (profile) {
                 setUser(profile);
+              } else if (isRegistrationInProgress(fbUser.uid)) {
+                // Another tab is still heartbeating register(); defer orphan recovery.
               } else {
                 // Profile never appeared and register() is not running on this page — clear any
                 // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).

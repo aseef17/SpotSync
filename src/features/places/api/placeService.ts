@@ -234,6 +234,27 @@ export class PlaceService {
     }
   }
 
+  /** Paginate through every place in a list (used for import duplicate detection). */
+  static async getAllListPlaces(listId: string): Promise<Place[]> {
+    try {
+      const allPlaces: Place[] = [];
+      let cursor: QueryDocumentSnapshot<DocumentData> | undefined;
+      let hasMore = true;
+
+      while (hasMore) {
+        const page = await this.getListPlacesPage(listId, PLACES_PAGE_SIZE, cursor);
+        allPlaces.push(...page.places);
+        hasMore = page.hasMore;
+        cursor = page.lastDoc ?? undefined;
+      }
+
+      return allPlaces;
+    } catch (error) {
+      logger.error('Error getting all list places:', error);
+      throw error;
+    }
+  }
+
   static async getListPlacesPage(
     listId: string,
     pageSize: number = PLACES_PAGE_SIZE,
