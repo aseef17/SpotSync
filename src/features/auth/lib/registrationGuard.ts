@@ -1,4 +1,5 @@
 export const REGISTRATION_IN_PROGRESS_KEY = 'spotsync_registration_in_progress';
+export const REGISTRATION_TAB_COUNT_KEY = 'spotsync_registration_tab_count';
 // Must stay well above throttled setInterval gaps (up to 60s in background tabs) so a slow
 // registration heartbeat cannot expire while register() is still running in another tab.
 export const REGISTRATION_STALE_MS = 120_000;
@@ -63,6 +64,28 @@ export function clearRegistrationProgress(uid?: string): void {
 
   localStorage.removeItem(REGISTRATION_IN_PROGRESS_KEY);
   localStorage.removeItem(registrationKey('pending'));
+}
+
+export function getRegistrationTabCount(): number {
+  const raw = localStorage.getItem(REGISTRATION_TAB_COUNT_KEY);
+  const count = Number(raw ?? 0);
+  return Number.isFinite(count) && count > 0 ? count : 0;
+}
+
+export function incrementRegistrationTabCount(): number {
+  const next = getRegistrationTabCount() + 1;
+  localStorage.setItem(REGISTRATION_TAB_COUNT_KEY, String(next));
+  return next;
+}
+
+export function decrementRegistrationTabCount(): number {
+  const next = Math.max(0, getRegistrationTabCount() - 1);
+  if (next === 0) {
+    localStorage.removeItem(REGISTRATION_TAB_COUNT_KEY);
+  } else {
+    localStorage.setItem(REGISTRATION_TAB_COUNT_KEY, String(next));
+  }
+  return next;
 }
 
 export function isRegistrationInProgress(uid: string, now = Date.now()): boolean {

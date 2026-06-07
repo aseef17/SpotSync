@@ -4,6 +4,9 @@ import {
   REGISTRATION_IN_PROGRESS_KEY,
   REGISTRATION_STALE_MS,
   clearRegistrationProgress,
+  decrementRegistrationTabCount,
+  getRegistrationTabCount,
+  incrementRegistrationTabCount,
   isRegistrationActiveForUid,
   isRegistrationInProgress,
   parseRegistrationProgress,
@@ -105,6 +108,39 @@ describe('registrationGuard', () => {
 
     clearRegistrationProgress('user-a');
 
+    expect(localStorage.getItem(registrationKey('pending'))).not.toBeNull();
+    expect(isRegistrationInProgress('user-b', 5_000)).toBe(true);
+  });
+
+  it('tracks cross-tab registration count', () => {
+    expect(getRegistrationTabCount()).toBe(0);
+
+    incrementRegistrationTabCount();
+    incrementRegistrationTabCount();
+    expect(getRegistrationTabCount()).toBe(2);
+
+    expect(decrementRegistrationTabCount()).toBe(1);
+    expect(getRegistrationTabCount()).toBe(1);
+
+    expect(decrementRegistrationTabCount()).toBe(0);
+    expect(getRegistrationTabCount()).toBe(0);
+  });
+
+  it('does not underflow cross-tab registration count', () => {
+    expect(decrementRegistrationTabCount()).toBe(0);
+    expect(getRegistrationTabCount()).toBe(0);
+  });
+
+  it('keeps pending while another tab registration is still active', () => {
+    writeRegistrationProgress('pending');
+    incrementRegistrationTabCount();
+    incrementRegistrationTabCount();
+
+    writeRegistrationProgress('user-a');
+    decrementRegistrationTabCount();
+    clearRegistrationProgress('user-a');
+
+    expect(getRegistrationTabCount()).toBe(1);
     expect(localStorage.getItem(registrationKey('pending'))).not.toBeNull();
     expect(isRegistrationInProgress('user-b', 5_000)).toBe(true);
   });
