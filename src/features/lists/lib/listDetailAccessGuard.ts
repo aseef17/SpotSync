@@ -38,19 +38,16 @@ export function resolveListFromContextAccess(options: {
   return 'grant';
 }
 
-/** Clear sticky revocation when a list reappears in live context after being absent. */
+/** Clear sticky revocation when a public list reappears in live context after being absent. */
 export function shouldClearAccessRevokedOnContextReturn(options: {
   hadListFromContext: boolean;
   list: PlaceList;
   userId: string | undefined;
 }): boolean {
-  if (options.hadListFromContext || !userCanReadList(options.list, options.userId)) {
+  // Private lists can linger in persistent cache with stale collaboratorIds after revocation.
+  // Those are cleared only after server-confirmed access in useListDetails.
+  if (!options.list.isPublic) {
     return false;
   }
-  // Saved private rows may be stale Firestore cache after revocation; only owned/collaborator
-  // query rows (isSavedList unset) indicate live membership was restored.
-  if (options.list.isSavedList && !options.list.isPublic) {
-    return false;
-  }
-  return true;
+  return !options.hadListFromContext && userCanReadList(options.list, options.userId);
 }

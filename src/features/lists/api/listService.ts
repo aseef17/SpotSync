@@ -11,6 +11,7 @@ import {
   orderBy,
   getDocs,
   getDocFromCache,
+  getDocFromServer,
   getDocsFromCache,
   arrayUnion,
   arrayRemove,
@@ -151,6 +152,19 @@ export class ListService {
       return null;
     } catch (error) {
       logger.error('Error getting list:', error);
+      throw error;
+    }
+  }
+
+  static async getListFromServer(listId: string): Promise<PlaceList | null> {
+    try {
+      const listDoc = await getDocFromServer(doc(db, 'lists', listId).withConverter(listConverter));
+      if (listDoc.exists()) {
+        return listDoc.data();
+      }
+      return null;
+    } catch (error) {
+      logger.error('Error getting list from server:', error);
       throw error;
     }
   }
