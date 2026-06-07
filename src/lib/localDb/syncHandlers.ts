@@ -41,6 +41,7 @@ import type {
   UpdateUserPayload,
 } from '@/lib/localDb/types';
 import type { Place } from '@/features/places/types/place';
+import { planListDeleteBatches } from '@/lib/localDb/listDeleteBatch';
 import { omit } from '@/utils/objectUtils';
 import { Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -160,15 +161,17 @@ async function applyDeleteList(payload: DeleteListPayload): Promise<void> {
   const membershipsSnapshot = await getDocs(membershipsQuery);
   const memberships = membershipsSnapshot.docs;
 
-  if (memberships.length === 0) {
-    await deleteDoc(doc(db, 'lists', payload.listId));
-    return;
-  }
+  const deletePlans = planListDeleteBatches(memberships.length);
 
-  const batch = writeBatch(db);
-  memberships.forEach((membershipDoc) => batch.delete(membershipDoc.ref));
-  batch.delete(doc(db, 'lists', payload.listId));
-  await batch.commit();
+  for (const plan of deletePlans) {
+    const batch = writeBatch(db);
+    const chunk = memberships.slice(plan.startIndex, plan.endIndex);
+    chunk.forEach((membershipDoc) => batch.delete(membershipDoc.ref));
+    if (plan.deleteList) {
+      batch.delete(doc(db, 'lists', payload.listId));
+    }
+    await batch.commit();
+  }
 }
 
 async function applyUpdateUser(payload: UpdateUserPayload): Promise<void> {
