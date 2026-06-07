@@ -2,11 +2,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   REGISTRATION_HEARTBEAT_MS,
   REGISTRATION_IN_PROGRESS_KEY,
+  REGISTRATION_SESSION_COUNT_KEY,
   REGISTRATION_STALE_MS,
+  beginRegistrationSession,
   clearRegistrationProgress,
+  endRegistrationSession,
   isRegistrationActiveForUid,
   isRegistrationInProgress,
   parseRegistrationProgress,
+  reconcileRegistrationSessionCount,
   writeRegistrationProgress,
 } from './registrationGuard';
 
@@ -15,6 +19,10 @@ const registrationKey = (uid: string): string => `${REGISTRATION_IN_PROGRESS_KEY
 const createLocalStorageMock = () => {
   const store = new Map<string, string>();
   return {
+    get length() {
+      return store.size;
+    },
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
     getItem: (key: string) => store.get(key) ?? null,
     setItem: (key: string, value: string) => {
       store.set(key, value);
@@ -108,5 +116,45 @@ describe('registrationGuard', () => {
     expect(localStorage.getItem(registrationKey('pending'))).toBeNull();
     expect(isRegistrationInProgress('user-b', 5_000)).toBe(false);
     expect(isRegistrationInProgress('user-a', 5_000)).toBe(true);
+  });
+
+  it('tracks cross-tab registration sessions so pending survives unrelated tab completion', () => {
+    writeRegistrationProgress('pending');
+    beginRegistrationSession();
+    beginRegistrationSession();
+
+    endRegistrationSession();
+
+    expect(localStorage.getItem(REGISTRATION_SESSION_COUNT_KEY)).toBe('1');
+    expect(localStorage.getItem(registrationKey('pending'))).not.toBeNull();
+    expect(isRegistrationInProgress('user-b', 5_000)).toBe(true);
+  });
+
+  it('clears pending only after the last cross-tab registration session ends', () => {
+    writeRegistrationProgress('pending');
+    beginRegistrationSession();
+    beginRegistrationSession();
+
+    endRegistrationSession();
+    const remainingSessions = endRegistrationSession();
+
+    expect(remainingSessions).toBe(0);
+    expect(localStorage.getItem(REGISTRATION_SESSION_COUNT_KEY)).toBeNull();
+    clearRegistrationProgress();
+    expect(localStorage.getItem(registrationKey('pending'))).toBeNull();
+  });
+
+  it('reconciles stale session counts after a crashed tab stops heartbeating', () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(5_000);
+
+    beginRegistrationSession();
+    writeRegistrationProgress('pending');
+
+    vi.setSystemTime(5_000 + REGISTRATION_STALE_MS + 1);
+    reconcileRegistrationSessionCount();
+
+    expect(localStorage.getItem(REGISTRATION_SESSION_COUNT_KEY)).toBeNull();
+    vi.useRealTimers();
   });
 });
