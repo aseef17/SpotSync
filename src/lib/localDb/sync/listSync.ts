@@ -75,6 +75,10 @@ const pendingSavedListIds = new Map<string, string[]>();
 const ownedListsSnapshotChains = new Map<string, Promise<void>>();
 const listSnapshotChains = new Map<string, Promise<void>>();
 
+function isCurrentUserListsState(userId: string, state: UserListsSyncState): boolean {
+  return userListsState.get(userId) === state;
+}
+
 async function hydrateOwnedListsFromCache(userId: string): Promise<void> {
   const state = userListsState.get(userId);
   if (!state || state.ownedListsHydrated) {
@@ -126,7 +130,8 @@ function initUserListsSyncState(userId: string, options?: { reseedFromCache?: bo
     return;
   }
 
-  const savedListFetchSeqAtReseedStart = userListsState.get(userId)?.fetchSavedListsSeq ?? 0;
+  const stateAtReseedStart = userListsState.get(userId);
+  const savedListFetchSeqAtReseedStart = stateAtReseedStart?.fetchSavedListsSeq ?? 0;
 
   void (async () => {
     await hydrateOwnedListsFromCache(userId);
@@ -139,6 +144,7 @@ function initUserListsSyncState(userId: string, options?: { reseedFromCache?: bo
     const stateAfterCacheRead = userListsState.get(userId);
     if (
       !stateAfterCacheRead ||
+      stateAfterCacheRead !== stateAtReseedStart ||
       stateAfterCacheRead.fetchSavedListsSeq !== savedListFetchSeqAtReseedStart
     ) {
       return;
@@ -189,7 +195,7 @@ async function fetchSavedListsForUser(
 
   if (!ids.length) {
     state.savedLists = [];
-    if (seq === state.fetchSavedListsSeq) {
+    if (seq === state.fetchSavedListsSeq && isCurrentUserListsState(userId, state)) {
       markSavedListsHydrated(userId);
       await publishUserLists(userId);
     }
@@ -202,7 +208,7 @@ async function fetchSavedListsForUser(
 
     if (!idsToFetch.length) {
       state.savedLists = [];
-      if (seq === state.fetchSavedListsSeq) {
+      if (seq === state.fetchSavedListsSeq && isCurrentUserListsState(userId, state)) {
         markSavedListsHydrated(userId);
         await publishUserLists(userId);
       }
@@ -212,7 +218,7 @@ async function fetchSavedListsForUser(
     const hadSavedLists = previousSavedLists.length > 0;
     const { lists: fetched, resolved } = await fetchSavedListsByIds(idsToFetch, listConverter);
 
-    if (seq === state.fetchSavedListsSeq) {
+    if (seq === state.fetchSavedListsSeq && isCurrentUserListsState(userId, state)) {
       const removedFromProfile = hasRemovedSavedListIds(ids, previousSavedLists, existingIds);
       if (
         shouldCommitSavedListFetch(hadSavedLists, fetched.length, resolved) ||
