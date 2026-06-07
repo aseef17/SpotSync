@@ -12,7 +12,7 @@ import { ListsProvider } from '@/features/lists/context/ListsProvider';
 function AppContent() {
   const { user } = useAuth();
   return (
-    <ListsProvider userId={user?.id}>
+    <ListsProvider key={user?.id ?? 'anonymous'} userId={user?.id}>
       <AppRoutes />
     </ListsProvider>
   );
