@@ -40,9 +40,7 @@ export const listPlaceMembershipRepository = {
         .then(onUpdate)
         .catch((error) => {
           onError(
-            error instanceof Error
-              ? error
-              : new Error('Failed to read list place memberships')
+            error instanceof Error ? error : new Error('Failed to read list place memberships')
           );
         });
       return () => {};

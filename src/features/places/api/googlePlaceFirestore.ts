@@ -28,9 +28,7 @@ export const googlePlaceConverter: FirestoreDataConverter<GooglePlace> = {
       },
       createdAt: data.createdAt?.toDate ? data.createdAt.toDate() : new Date(),
       updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate() : new Date(),
-      detailsFetchedAt: data.detailsFetchedAt?.toDate
-        ? data.detailsFetchedAt.toDate()
-        : undefined,
+      detailsFetchedAt: data.detailsFetchedAt?.toDate ? data.detailsFetchedAt.toDate() : undefined,
     } as GooglePlace;
   },
 };

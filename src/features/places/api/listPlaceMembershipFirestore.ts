@@ -37,9 +37,7 @@ export const listPlaceMembershipConverter: FirestoreDataConverter<ListPlaceMembe
 };
 
 export function listPlaceMembershipDocRef(membershipId: string) {
-  return doc(db, LIST_PLACES_COLLECTION, membershipId).withConverter(
-    listPlaceMembershipConverter
-  );
+  return doc(db, LIST_PLACES_COLLECTION, membershipId).withConverter(listPlaceMembershipConverter);
 }
 
 export function buildListPlaceMembershipsQuery(listId: string) {

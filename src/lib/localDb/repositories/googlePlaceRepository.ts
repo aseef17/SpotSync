@@ -1,8 +1,5 @@
 import type { GooglePlace } from '@/features/places/types/googlePlace';
-import {
-  fetchGooglePlaceById,
-  fetchGooglePlacesByIds,
-} from '@/lib/localDb/sync/googlePlaceFetch';
+import { fetchGooglePlaceById, fetchGooglePlacesByIds } from '@/lib/localDb/sync/googlePlaceFetch';
 
 export const googlePlaceRepository = {
   async getById(googlePlaceId: string): Promise<GooglePlace | null> {
