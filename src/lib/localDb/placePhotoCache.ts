@@ -108,10 +108,7 @@ export async function loadPlacePhotoBlob(
 }
 
 /** Warm the primary thumbnail in the background after SQL place data is stored. */
-export function warmPlaceThumbnailCache(
-  placeId: string,
-  thumbnailRef: string | undefined
-): void {
+export function warmPlaceThumbnailCache(placeId: string, thumbnailRef: string | undefined): void {
   if (!thumbnailRef || typeof window === 'undefined') {
     return;
   }

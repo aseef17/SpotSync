@@ -3,7 +3,11 @@ import { motion } from 'framer-motion';
 import { MapIcon, Star, Edit3 } from 'lucide-react';
 import { CachedPlacePhoto } from '@/features/places/components/CachedPlacePhoto';
 import { PlaceStatusSelector } from '@/features/places/components/PlaceStatusSelector';
-import { getTodayHoursText, isPlaceOpen, getPlaceThumbnail } from '@/features/places/utils/placeHelpers';
+import {
+  getTodayHoursText,
+  isPlaceOpen,
+  getPlaceThumbnail,
+} from '@/features/places/utils/placeHelpers';
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList } from '@/features/lists/types/list';
 import { themeColors } from '@/styles/colors';

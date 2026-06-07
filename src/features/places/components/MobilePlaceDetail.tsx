@@ -306,9 +306,7 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
               disabled={isSyncingFromGoogle}
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg border ${themeColors.border.default} ${themeColors.text.primary} text-xs font-medium hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors disabled:opacity-50`}
             >
-              <RefreshCw
-                className={`h-3.5 w-3.5 ${isSyncingFromGoogle ? 'animate-spin' : ''}`}
-              />
+              <RefreshCw className={`h-3.5 w-3.5 ${isSyncingFromGoogle ? 'animate-spin' : ''}`} />
               {isSyncingFromGoogle ? 'Syncing...' : 'Sync'}
             </button>
           )}

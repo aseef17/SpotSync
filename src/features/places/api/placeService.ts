@@ -542,7 +542,9 @@ export class PlaceService {
   }
 
   private static async listFreshGooglePhotoRefs(googlePlaceId: string): Promise<string[]> {
-    const freshDetails = await GoogleMapsService.getPlaceDetails(googlePlaceId, { skipCache: true });
+    const freshDetails = await GoogleMapsService.getPlaceDetails(googlePlaceId, {
+      skipCache: true,
+    });
     if (!freshDetails) {
       return [];
     }
@@ -625,9 +627,7 @@ export class PlaceService {
 
     const googlePlaceId = place.googlePlaceId;
     if (!googlePlaceId) {
-      logger.warn(
-        `Place ${place.id} (${place.name}) has no googlePlaceId; skipping photo sync`
-      );
+      logger.warn(`Place ${place.id} (${place.name}) has no googlePlaceId; skipping photo sync`);
       return { photoUrls: null, photoFailures: maxPhotos };
     }
 

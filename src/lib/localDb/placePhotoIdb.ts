@@ -26,7 +26,8 @@ function openPhotoIdb(): Promise<IDBDatabase> {
     };
 
     request.onsuccess = () => resolve(request.result);
-    request.onerror = () => reject(request.error ?? new Error('Failed to open place photo IndexedDB'));
+    request.onerror = () =>
+      reject(request.error ?? new Error('Failed to open place photo IndexedDB'));
   });
 }
 

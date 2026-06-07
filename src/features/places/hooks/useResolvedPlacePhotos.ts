@@ -24,13 +24,10 @@ export function useResolvedPlacePhotos(
 
       const resolved = await Promise.all(
         photoRefs.map(async (photoRef, photoIndex) => {
-          const blob = await loadPlacePhotoBlob(
-            placeId,
-            photoRef,
-            photoIndex,
-            maxWidth,
-            maxHeight
-          );
+          const blob = await loadPlacePhotoBlob(placeId, photoRef, photoIndex, maxWidth, maxHeight);
+          if (cancelled) {
+            return '';
+          }
           if (blob) {
             const objectUrl = URL.createObjectURL(blob);
             objectUrls.push(objectUrl);
@@ -57,7 +54,7 @@ export function useResolvedPlacePhotos(
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [placeId, refsKey, maxWidth, maxHeight, photoRefs]);
+  }, [placeId, refsKey, maxWidth, maxHeight]);
 
   return urls;
 }

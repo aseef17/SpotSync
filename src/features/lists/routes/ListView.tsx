@@ -731,7 +731,10 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                               toast.info('Syncing photos in the background...');
                               try {
                                 const syncResult = await PlaceService.syncListPhotos(list.id);
-                                if (syncResult.photoFailures > 0 || syncResult.placePersistFailures > 0) {
+                                if (
+                                  syncResult.photoFailures > 0 ||
+                                  syncResult.placePersistFailures > 0
+                                ) {
                                   toast.warning(
                                     `Photo sync finished with issues: ${syncResult.placesUpdated}/${syncResult.placesProcessed} places updated, ${syncResult.photoFailures} photo failures.`
                                   );
@@ -783,7 +786,10 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                               toast.info('Syncing photos in the background...');
                               try {
                                 const syncResult = await PlaceService.syncListPhotos(list.id);
-                                if (syncResult.photoFailures > 0 || syncResult.placePersistFailures > 0) {
+                                if (
+                                  syncResult.photoFailures > 0 ||
+                                  syncResult.placePersistFailures > 0
+                                ) {
                                   toast.warning(
                                     `Photo sync finished with issues: ${syncResult.placesUpdated}/${syncResult.placesProcessed} places updated, ${syncResult.photoFailures} photo failures.`
                                   );

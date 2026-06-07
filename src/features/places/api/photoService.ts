@@ -254,11 +254,7 @@ export class PhotoService {
             return;
           }
           ctx.drawImage(img, 0, 0);
-          canvas.toBlob(
-            (blob) => resolve(blob),
-            'image/jpeg',
-            0.92
-          );
+          canvas.toBlob((blob) => resolve(blob), 'image/jpeg', 0.92);
         } catch (error) {
           logger.debug('Canvas export failed for photo URL:', error);
           resolve(null);
