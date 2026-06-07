@@ -116,10 +116,7 @@ export const useListDetails = (listId: string | undefined) => {
     setLoadingMore(true);
     try {
       if (!paginationCursorRef.current) {
-        const initialPage = await PlaceService.getListPlacesPage(
-          listId,
-          PLACES_SUBSCRIPTION_LIMIT
-        );
+        const initialPage = await PlaceService.getListPlacesPage(listId, PLACES_SUBSCRIPTION_LIMIT);
         paginationCursorRef.current = initialPage.lastDoc;
         if (!initialPage.hasMore) {
           setHasMorePlaces(false);
