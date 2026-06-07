@@ -153,6 +153,56 @@ describe('resolveListFromContextAccess', () => {
       })
     ).toBe('deny-revoked');
   });
+
+  it('grants saved context when server confirms access after stale isPublic private row', () => {
+    const staleSavedPrivate = list({
+      isSavedList: true,
+      isPublic: false,
+      collaboratorIds: [],
+    });
+    const serverPublic = list({ isPublic: true, collaboratorIds: [] });
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPrivate,
+        userId: 'user-c',
+        accessRevoked: true,
+        serverVerifiedList: serverPublic,
+      })
+    ).toBe('grant');
+  });
+
+  it('grants saved private context when server confirms collaborator access', () => {
+    const staleSavedPrivate = list({ isSavedList: true, collaboratorIds: [] });
+    const serverPrivate = list({ collaboratorIds: ['collab-b'] });
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPrivate,
+        userId: 'collab-b',
+        accessRevoked: true,
+        serverVerifiedList: serverPrivate,
+      })
+    ).toBe('grant');
+  });
+
+  it('still denies saved context when server verification fails', () => {
+    const staleSavedPrivate = list({
+      isSavedList: true,
+      isPublic: false,
+      collaboratorIds: [],
+    });
+    const serverPrivate = list({ collaboratorIds: [] });
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPrivate,
+        userId: 'user-c',
+        accessRevoked: true,
+        serverVerifiedList: serverPrivate,
+      })
+    ).toBe('deny-revoked');
+  });
 });
 
 describe('shouldClearAccessRevokedOnContextReturn', () => {

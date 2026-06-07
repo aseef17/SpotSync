@@ -68,6 +68,7 @@ export const useListDetails = (listId: string | undefined) => {
           if (!list || !userCanReadList(list, userId)) {
             return;
           }
+          serverVerifiedListRef.current = list;
           privateListServerVerifiedRef.current = true;
           setAccessRevoked(false);
         })
@@ -102,6 +103,7 @@ export const useListDetails = (listId: string | undefined) => {
   const listAccessibleRef = useRef(true);
   const accessRevokedRef = useRef(false);
   const privateListServerVerifiedRef = useRef(false);
+  const serverVerifiedListRef = useRef<PlaceList | null>(null);
   const pendingPlacesSnapshotRef = useRef<PendingPlacesSnapshot>(undefined);
   const applyPendingPlacesRef = useRef<((placesData: Place[]) => void) | null>(null);
   const hadListFromContextRef = useRef(!!listFromContext);
@@ -128,6 +130,7 @@ export const useListDetails = (listId: string | undefined) => {
     hadListFromContextRef.current = false;
     accessRevokedRef.current = readPersistedListAccessRevoked(user?.id, listId);
     privateListServerVerifiedRef.current = false;
+    serverVerifiedListRef.current = null;
   }, [listId, user?.id]);
 
   useEffect(() => {
@@ -154,10 +157,12 @@ export const useListDetails = (listId: string | undefined) => {
         confirmPrivateAccessFromServer(listId, user.id);
       }
 
+      const serverVerifiedList = serverVerifiedListRef.current;
       const contextAccess = resolveListFromContextAccess({
         list: listFromContext,
         userId: user?.id,
         accessRevoked: accessRevokedRef.current,
+        serverVerifiedList,
       });
 
       if (contextAccess !== 'grant') {
@@ -178,7 +183,7 @@ export const useListDetails = (listId: string | undefined) => {
 
       listAccessibleRef.current = true;
       flushPendingPlacesSnapshot();
-      setList(listFromContext);
+      setList(serverVerifiedList ?? listFromContext);
       setError(null);
       loadTrackingRef.current.listLoaded = true;
       loadTrackingRef.current.hasCachedData = true;

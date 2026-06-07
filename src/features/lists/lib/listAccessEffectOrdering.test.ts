@@ -110,6 +110,29 @@ describe('places effect access baseline', () => {
     ).toBe('deny-revoked');
   });
 
+  it('restores saved context after server confirms a re-publicized list', () => {
+    const staleSavedPrivate = {
+      ...list(),
+      isSavedList: true,
+      isPublic: false,
+      collaboratorIds: [],
+    } as PlaceList;
+    const serverPublic = {
+      ...list(),
+      isPublic: true,
+      collaboratorIds: [],
+    } as PlaceList;
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPrivate,
+        userId: 'user-c',
+        accessRevoked: true,
+        serverVerifiedList: serverPublic,
+      })
+    ).toBe('grant');
+  });
+
   it('restores access when owned context replaces an untrusted saved-private row', () => {
     const savedPrivateContext = { ...list(), isSavedList: true } as PlaceList;
     const ownedContext = list();

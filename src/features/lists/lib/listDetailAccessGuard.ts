@@ -34,22 +34,40 @@ export function resolveListFromContextAccess(options: {
   list: PlaceList;
   userId: string | undefined;
   accessRevoked: boolean;
+  serverVerifiedList?: PlaceList | null;
 }): ListFromContextAccess {
-  if (!userCanReadList(options.list, options.userId)) {
-    return 'deny-no-access';
-  }
+  const serverAccess = Boolean(
+    options.serverVerifiedList &&
+      userCanReadList(options.serverVerifiedList, options.userId)
+  );
+
   // Saved private rows come from saved-list fetches and may retain stale collaboratorIds
-  // after revocation; only owned/collaborator query rows (isSavedList unset) are trustworthy.
+  // or isPublic after visibility changes; only server-confirmed metadata is trustworthy.
   if (options.list.isSavedList && !options.list.isPublic) {
+    if (serverAccess) {
+      return 'grant';
+    }
     return options.accessRevoked ? 'deny-revoked' : 'deny-saved-private';
   }
   // Saved-list cache can retain stale isPublic after a list is made private; do not
   // re-grant once accessRevoked was set (e.g. from a permission-denied subscription).
   if (options.accessRevoked && options.list.isSavedList) {
+    if (serverAccess) {
+      return 'grant';
+    }
     return 'deny-revoked';
+  }
+  if (!userCanReadList(options.list, options.userId)) {
+    if (options.list.isSavedList && serverAccess) {
+      return 'grant';
+    }
+    return 'deny-no-access';
   }
   // Mirror shouldGrantListAccess: public lists stay readable after saved-list removal.
   if (options.accessRevoked && !options.list.isPublic) {
+    if (serverAccess) {
+      return 'grant';
+    }
     return 'deny-revoked';
   }
   return 'grant';
