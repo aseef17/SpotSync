@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveListFromContextAccess,
   shouldClearAccessRevokedOnContextReturn,
+  shouldConfirmPrivateAccessFromTrustedContext,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import type { PlaceList } from '@/features/lists/types/list';
 
@@ -105,6 +106,28 @@ describe('places effect access baseline', () => {
       resolveListFromContextAccess({
         list: staleSavedPublic,
         userId: 'user-c',
+        accessRevoked,
+      })
+    ).toBe('deny-revoked');
+  });
+
+  it('confirms server access when owned context replaces a lingering saved-private row', () => {
+    const ownedContext = list();
+    const accessRevoked = true;
+
+    expect(
+      shouldConfirmPrivateAccessFromTrustedContext({
+        list: ownedContext,
+        userId: 'collab-b',
+        accessRevoked,
+        isOnline: true,
+      })
+    ).toBe(true);
+
+    expect(
+      resolveListFromContextAccess({
+        list: ownedContext,
+        userId: 'collab-b',
         accessRevoked,
       })
     ).toBe('deny-revoked');
