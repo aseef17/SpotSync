@@ -275,9 +275,12 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
         window.clearInterval(heartbeat);
         const completedUid = heartbeatUid;
         registrationInFlightCount--;
-        clearRegistrationProgress(completedUid);
+        // Only drop this registration's uid key; keep pending while another register() is in flight.
+        if (completedUid !== 'pending') {
+          clearRegistrationProgress(completedUid);
+        }
         if (registrationInFlightCount === 0) {
-          clearRegistrationProgress('pending');
+          clearRegistrationProgress();
         }
       }
     },

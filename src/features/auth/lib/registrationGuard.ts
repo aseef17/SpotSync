@@ -53,17 +53,11 @@ export function writeRegistrationProgress(uid: string): void {
   localStorage.setItem(registrationKey(uid), JSON.stringify(payload));
   // One registration flag per uid so parallel signups in different tabs do not overwrite each other.
   localStorage.removeItem(REGISTRATION_IN_PROGRESS_KEY);
-  if (uid !== 'pending') {
-    localStorage.removeItem(registrationKey('pending'));
-  }
 }
 
 export function clearRegistrationProgress(uid?: string): void {
   if (uid) {
     localStorage.removeItem(registrationKey(uid));
-    if (uid !== 'pending') {
-      localStorage.removeItem(registrationKey('pending'));
-    }
     return;
   }
 
