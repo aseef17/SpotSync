@@ -35,6 +35,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useMapSearch } from '@/features/places/hooks/useMapSearch';
 import { MapSearchOverlay } from '@/features/places/components/MapSearchOverlay';
 import type { LegacyGooglePlace } from '@/features/places/api/googleMapsService';
+import { buildAskListPlacesSummary } from '@/features/places/utils/askListPlacesSummary';
 
 interface MobileListViewProps {
   list: PlaceList;
@@ -52,6 +53,9 @@ interface MobileListViewProps {
   onPlaceHidden?: (placeId: string) => void;
   onPlaceRestored?: (placeId: string) => void;
   canEditList?: boolean;
+  hasMorePlaces?: boolean;
+  loadingMore?: boolean;
+  onLoadMorePlaces?: () => void | Promise<void>;
 }
 
 const ScrollRestorer = ({ scrollPos }: { scrollPos: number }) => {
@@ -83,6 +87,9 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   onPlaceHidden,
   onPlaceRestored,
   canEditList = true,
+  hasMorePlaces = false,
+  loadingMore = false,
+  onLoadMorePlaces,
 }) => {
   const { user } = useAuth();
   const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
@@ -183,15 +190,11 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
     setIsAiSearching(true);
 
     try {
-      const placesSummary = places.map((place) => ({
-        id: place.id,
-        name: place.name,
-        notes: place.notes,
-        category: place.category,
-        status: place.status,
-        address: place.address,
-      }));
-      const result = await PlaceService.askList(list.id, query, placesSummary);
+      const result = await PlaceService.askList(
+        list.id,
+        query,
+        buildAskListPlacesSummary(places, hasMorePlaces)
+      );
       if (result.placeIds.length > 0) {
         setAiMatchedIds(result.placeIds);
         toast.success(`Found ${result.placeIds.length} matches!`);
@@ -478,6 +481,18 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
               ))}
             </motion.div>
           </AnimatePresence>
+        )}
+        {hasMorePlaces && aiMatchedIds === null && onLoadMorePlaces && (
+          <div className="flex justify-center pt-4 pb-2">
+            <button
+              type="button"
+              onClick={() => void onLoadMorePlaces()}
+              disabled={loadingMore}
+              className="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+            >
+              {loadingMore ? 'Loading…' : 'Load more places'}
+            </button>
+          </div>
         )}
       </div>
     </div>

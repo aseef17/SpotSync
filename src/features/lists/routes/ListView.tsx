@@ -40,6 +40,7 @@ import { useListDetails } from '@/features/lists/hooks/useListDetails';
 import { usePlaceFilters } from '@/features/places/hooks/usePlaceFilters';
 import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useToast } from '@/hooks/useToast';
+import { buildAskListPlacesSummary } from '@/features/places/utils/askListPlacesSummary';
 
 export const ListView: React.FunctionComponent = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -214,15 +215,11 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
     setIsAiSearching(true);
 
     try {
-      const placesSummary = places.map((place) => ({
-        id: place.id,
-        name: place.name,
-        notes: place.notes,
-        category: place.category,
-        status: place.status,
-        address: place.address,
-      }));
-      const result = await PlaceService.askList(listId!, query, placesSummary);
+      const result = await PlaceService.askList(
+        listId!,
+        query,
+        buildAskListPlacesSummary(places, hasMorePlaces)
+      );
       if (result.placeIds.length > 0) {
         setAiMatchedIds(result.placeIds);
         toast.success(`Found ${result.placeIds.length} matches!`);
@@ -467,6 +464,9 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
             onPlaceRestored={handlePlaceRestored}
             highlightedPlaceId={selectedPlace?.id}
             canEditList={canEditList}
+            hasMorePlaces={hasMorePlaces}
+            loadingMore={loadingMore}
+            onLoadMorePlaces={loadMorePlaces}
           />
 
           {/* Shared modals for mobile */}
