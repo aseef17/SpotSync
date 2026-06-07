@@ -94,10 +94,7 @@ export class PhotoService {
    * Returns true when the remote photo URL returns loadable image data.
    * Uses the browser Cache API (`places-photo-cache`) when available.
    */
-  static async remotePhotoUrlLoads(
-    fetchUrl: string,
-    photoCache: Cache | null
-  ): Promise<boolean> {
+  static async remotePhotoUrlLoads(fetchUrl: string, photoCache: Cache | null): Promise<boolean> {
     if (photoCache) {
       const cached = await photoCache.match(fetchUrl);
       if (cached?.ok) {
@@ -132,10 +129,7 @@ export class PhotoService {
   /**
    * Fetch image bytes for upload. Reuses cache when the URL was validated earlier.
    */
-  static async fetchPhotoBlob(
-    fetchUrl: string,
-    photoCache: Cache | null
-  ): Promise<Blob | null> {
+  static async fetchPhotoBlob(fetchUrl: string, photoCache: Cache | null): Promise<Blob | null> {
     if (photoCache) {
       const cached = await photoCache.match(fetchUrl);
       if (cached?.ok) {
