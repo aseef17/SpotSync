@@ -116,6 +116,23 @@ async function syncPlaceAccessFields(_listId, _listData) {
   return;
 }
 
+async function resolveGooglePlaceName(googlePlaceId, fallback = 'A place') {
+  if (!googlePlaceId) {
+    return fallback;
+  }
+
+  const googlePlaceDoc = await getFirestore()
+    .collection('googlePlaces')
+    .doc(googlePlaceId)
+    .get();
+
+  if (googlePlaceDoc.exists) {
+    return googlePlaceDoc.data().name || fallback;
+  }
+
+  return fallback;
+}
+
 /**
  * Triggers when a new invitation is created.
  * Sends a notification to the invited user if they have FCM tokens.
@@ -367,7 +384,7 @@ exports.onPlaceAdded = onDocumentCreated(
 
     const listData = listDoc.data();
     if (listData.importInProgress) {
-      console.log(`Skipping notification for "${name}" — bulk import in progress`);
+      console.log(`Skipping notification for list ${listId} — bulk import in progress`);
       return;
     }
 
@@ -376,16 +393,7 @@ exports.onPlaceAdded = onDocumentCreated(
       return;
     }
 
-    let name = 'A place';
-    if (googlePlaceId) {
-      const googlePlaceDoc = await getFirestore()
-        .collection('googlePlaces')
-        .doc(googlePlaceId)
-        .get();
-      if (googlePlaceDoc.exists) {
-        name = googlePlaceDoc.data().name || name;
-      }
-    }
+    const name = await resolveGooglePlaceName(googlePlaceId);
 
     console.log(`Place "${name}" added to list ${listId} by ${addedBy}`);
 
@@ -454,7 +462,7 @@ exports.onPlaceAdded = onDocumentCreated(
  */
 exports.onPlaceUpdated = onDocumentUpdated(
   {
-    document: 'places/{placeId}',
+    document: 'listPlaces/{membershipId}',
     region: 'us-east4',
     database: '(default)',
   },
@@ -469,7 +477,8 @@ exports.onPlaceUpdated = onDocumentUpdated(
 
     if (!statusChanged && !notesChanged) return;
 
-    const { listId, name, updatedBy } = after;
+    const { listId, googlePlaceId, updatedBy } = after;
+    const name = await resolveGooglePlaceName(googlePlaceId);
 
     // Exclude the user who made the update
     const result = await getCollaboratorTokens(listId, updatedBy || null);
@@ -509,7 +518,7 @@ exports.onPlaceUpdated = onDocumentUpdated(
         body: String(bodyText),
         type: 'place_update',
         listId: String(listId),
-        placeId: String(event.params.placeId),
+        placeId: String(event.params.membershipId),
       },
       webpush: {
         headers: { Urgency: 'high' },
@@ -630,17 +639,18 @@ exports.onListUpdated = onDocumentUpdated(
  */
 exports.onPlaceDeleted = onDocumentDeleted(
   {
-    document: 'places/{placeId}',
+    document: 'listPlaces/{membershipId}',
     region: 'us-east4',
     database: '(default)',
   },
   async (event) => {
-    const deletedPlace = event.data.data();
-    if (!deletedPlace) return;
+    const deletedMembership = event.data.data();
+    if (!deletedMembership) return;
 
-    const { listId, name, deletedBy } = deletedPlace;
+    const { listId, googlePlaceId, updatedBy } = deletedMembership;
+    const name = await resolveGooglePlaceName(googlePlaceId);
 
-    const result = await getCollaboratorTokens(listId, deletedBy || null);
+    const result = await getCollaboratorTokens(listId, updatedBy || null);
     if (!result || result.tokens.length === 0) return;
 
     const { tokens, listName } = result;
@@ -847,20 +857,23 @@ async function batchDeleteDocRefs(db, docRefs) {
 }
 
 async function deleteListAndPlaces(db, listId) {
-  const placesSnapshot = await db.collection('places').where('listId', '==', listId).get();
+  const membershipsSnapshot = await db
+    .collection('listPlaces')
+    .where('listId', '==', listId)
+    .get();
   const BATCH_SIZE = 499;
-  const placeDocs = placesSnapshot.docs;
+  const membershipDocs = membershipsSnapshot.docs;
 
-  if (placeDocs.length === 0) {
+  if (membershipDocs.length === 0) {
     await db.collection('lists').doc(listId).delete();
     return;
   }
 
-  for (let i = 0; i < placeDocs.length; i += BATCH_SIZE) {
+  for (let i = 0; i < membershipDocs.length; i += BATCH_SIZE) {
     const batch = db.batch();
-    const chunk = placeDocs.slice(i, i + BATCH_SIZE);
-    chunk.forEach((placeDoc) => batch.delete(placeDoc.ref));
-    if (i + BATCH_SIZE >= placeDocs.length) {
+    const chunk = membershipDocs.slice(i, i + BATCH_SIZE);
+    chunk.forEach((membershipDoc) => batch.delete(membershipDoc.ref));
+    if (i + BATCH_SIZE >= membershipDocs.length) {
       batch.delete(db.collection('lists').doc(listId));
     }
     await batch.commit();
