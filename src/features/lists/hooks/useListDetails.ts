@@ -588,13 +588,21 @@ export const useListDetails = (listId: string | undefined) => {
       return;
     }
 
+    let readGeneration = 0;
+
     return subscribeLocalDataChanges(() => {
+      const generation = ++readGeneration;
+
       void (async () => {
         if (!listAccessibleRef.current) {
           return;
         }
 
         const cachedPlaces = await placeRepository.getForList(listId);
+        if (generation !== readGeneration) {
+          return;
+        }
+
         setPlaces(mergeSubscribedPlaces(cachedPlaces, extraPlacesRef.current));
       })();
     });
