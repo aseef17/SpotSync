@@ -46,12 +46,42 @@ describe('enqueueMutation create/delete coalescing', () => {
       payload: { placeId: 'place-new', listId: 'list-1' },
     });
 
-    expect(mockDb.run).toHaveBeenCalledWith('DELETE FROM pending_mutations WHERE id = ?', [
-      'createPlace:place-new',
-    ]);
+    expect(mockDb.run).toHaveBeenCalledWith(
+      'DELETE FROM pending_mutations WHERE entity_id = ? AND type IN (?, ?, ?, ?)',
+      ['place-new', 'createPlace', 'updatePlace', 'updatePlaceStatus', 'deletePlace']
+    );
     expect(mockDb.run).not.toHaveBeenCalledWith(
       expect.stringContaining('INSERT INTO pending_mutations'),
       expect.anything()
+    );
+  });
+
+  it('drops orphan update mutations when delete cancels an unsynced create', async () => {
+    mockDb.prepare.mockImplementation((sql: string) => {
+      if (sql.includes('SELECT 1')) {
+        return {
+          bind: vi.fn(),
+          step: vi.fn().mockReturnValue(true),
+          free: vi.fn(),
+        };
+      }
+
+      return {
+        bind: vi.fn(),
+        step: vi.fn().mockReturnValue(false),
+        free: vi.fn(),
+      };
+    });
+
+    await enqueueMutation({
+      type: 'deletePlace',
+      entityId: 'place-new',
+      payload: { placeId: 'place-new', listId: 'list-1' },
+    });
+
+    expect(mockDb.run).toHaveBeenCalledWith(
+      'DELETE FROM pending_mutations WHERE entity_id = ? AND type IN (?, ?, ?, ?)',
+      ['place-new', 'createPlace', 'updatePlace', 'updatePlaceStatus', 'deletePlace']
     );
   });
 });

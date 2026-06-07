@@ -14,7 +14,9 @@ export {
   getCachedUserLists,
   upsertCachedUserLists,
   syncCachedUserLists,
+  writeUserListsForDashboard,
   removeCachedUserList,
+  removeCachedUserDashboardList,
   removeCachedUserListMembership,
 } from '@/lib/localDb/userListsCache';
 export {

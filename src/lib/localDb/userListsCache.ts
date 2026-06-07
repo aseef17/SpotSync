@@ -66,6 +66,19 @@ export async function upsertCachedUserLists(userId: string, lists: PlaceList[]):
   });
 }
 
+export async function writeUserListsForDashboard(
+  userId: string,
+  lists: PlaceList[],
+  pruneOrphans: boolean
+): Promise<void> {
+  if (pruneOrphans) {
+    await syncCachedUserLists(userId, lists);
+    return;
+  }
+
+  await upsertCachedUserLists(userId, lists);
+}
+
 /** Replace the user's dashboard list rows so deleted/unsaved lists do not linger locally. */
 export async function syncCachedUserLists(userId: string, lists: PlaceList[]): Promise<void> {
   await runWriteAsync((db) => {
@@ -89,6 +102,13 @@ export async function syncCachedUserLists(userId: string, lists: PlaceList[]): P
 export async function removeCachedUserListMembership(listId: string): Promise<void> {
   await runWriteAsync((db) => {
     db.run('DELETE FROM user_lists WHERE list_id = ?', [listId]);
+  });
+}
+
+/** Remove one dashboard row without deleting the shared list cache entry. */
+export async function removeCachedUserDashboardList(userId: string, listId: string): Promise<void> {
+  await runWriteAsync((db) => {
+    db.run('DELETE FROM user_lists WHERE user_id = ? AND list_id = ?', [userId, listId]);
   });
 }
 

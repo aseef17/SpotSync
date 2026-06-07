@@ -16,6 +16,27 @@ const DELETE_CANCELS_CREATE: Partial<Record<MutationType, MutationType>> = {
   deleteList: 'createList',
 };
 
+const COALESCE_CANCELLED_ENTITY_TYPES: Partial<Record<MutationType, MutationType[]>> = {
+  deletePlace: ['createPlace', 'updatePlace', 'updatePlaceStatus', 'deletePlace'],
+  deleteList: ['createList', 'updateList', 'deleteList'],
+};
+
+function removePendingMutationsForEntity(
+  db: Database,
+  entityId: string,
+  types: MutationType[]
+): void {
+  if (types.length === 0) {
+    return;
+  }
+
+  const placeholders = types.map(() => '?').join(', ');
+  db.run(`DELETE FROM pending_mutations WHERE entity_id = ? AND type IN (${placeholders})`, [
+    entityId,
+    ...types,
+  ]);
+}
+
 function mergeMutationPayload(
   type: MutationType,
   existing: MutationPayload,
@@ -159,7 +180,8 @@ export async function enqueueMutation(input: {
     if (cancelledCreateType) {
       const createMutationId = buildMutationKey(cancelledCreateType, input.entityId);
       if (hasPendingMutation(db, createMutationId)) {
-        db.run('DELETE FROM pending_mutations WHERE id = ?', [createMutationId]);
+        const typesToRemove = COALESCE_CANCELLED_ENTITY_TYPES[input.type] ?? [cancelledCreateType];
+        removePendingMutationsForEntity(db, input.entityId, typesToRemove);
         skipped = true;
         return;
       }
