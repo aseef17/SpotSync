@@ -15,7 +15,11 @@ vi.mock('@/lib/localDb/database', () => ({
   ),
 }));
 
-import { syncCachedUserLists } from '@/lib/localDb/userListsCache';
+import {
+  removeCachedUserDashboardList,
+  syncCachedUserLists,
+  writeUserListsForDashboard,
+} from '@/lib/localDb/userListsCache';
 
 const list = {
   id: 'list-1',
@@ -56,5 +60,41 @@ describe('syncCachedUserLists', () => {
     expect(runs).toHaveLength(1);
     expect(runs[0]?.sql).toBe('DELETE FROM user_lists WHERE user_id = ?');
     expect(runs[0]?.params).toEqual(['user-1']);
+  });
+});
+
+describe('writeUserListsForDashboard', () => {
+  beforeEach(() => {
+    runs.length = 0;
+  });
+
+  it('upserts without pruning before saved lists are hydrated', async () => {
+    await writeUserListsForDashboard('user-1', [list], false);
+
+    expect(runs.some((entry) => entry.sql.includes('DELETE FROM user_lists'))).toBe(false);
+    expect(runs.some((entry) => entry.sql.includes('INSERT INTO user_lists'))).toBe(true);
+  });
+
+  it('prunes stale rows once saved lists are hydrated', async () => {
+    await writeUserListsForDashboard('user-1', [list], true);
+
+    expect(runs[0]?.sql).toContain('DELETE FROM user_lists WHERE user_id = ? AND list_id NOT IN');
+  });
+});
+
+describe('removeCachedUserDashboardList', () => {
+  beforeEach(() => {
+    runs.length = 0;
+  });
+
+  it('removes only the user dashboard row and leaves the shared list cache alone', async () => {
+    await removeCachedUserDashboardList('user-1', 'list-1');
+
+    expect(runs).toEqual([
+      {
+        sql: 'DELETE FROM user_lists WHERE user_id = ? AND list_id = ?',
+        params: ['user-1', 'list-1'],
+      },
+    ]);
   });
 });
