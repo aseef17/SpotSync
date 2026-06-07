@@ -1,8 +1,24 @@
 import type { Database } from 'sql.js';
 import type { PlaceList } from '@/features/lists/types/list';
+import { isIncomingCacheUpdateNewer } from '@/lib/localDb/cacheFreshness';
 import { getLocalDatabase, runWriteAsync } from '@/lib/localDb/database';
 import { deserializeRecord, serializeRecord } from '@/lib/localDb/serialization';
 import { toMilliseconds } from '@/utils/date';
+
+function readListFromDb(db: Database, listId: string): PlaceList | null {
+  const statement = db.prepare('SELECT data FROM lists WHERE id = ? LIMIT 1');
+  statement.bind([listId]);
+
+  let list: PlaceList | null = null;
+  if (statement.step()) {
+    const row = statement.getAsObject() as { data?: string };
+    if (typeof row.data === 'string') {
+      list = deserializeRecord<PlaceList>(row.data);
+    }
+  }
+  statement.free();
+  return list;
+}
 
 function readUserListsFromDb(db: Database, userId: string): PlaceList[] {
   const statement = db.prepare('SELECT data FROM user_lists WHERE user_id = ?');
@@ -45,14 +61,17 @@ function upsertUserListRows(
          updated_at = excluded.updated_at`,
       [userId, list.id, serializeRecord(list), updatedAt]
     );
-    db.run(
-      `INSERT INTO lists (id, data, updated_at)
-       VALUES (?, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET
-         data = excluded.data,
-         updated_at = excluded.updated_at`,
-      [list.id, serializeRecord(list), updatedAt]
-    );
+    const existingList = readListFromDb(db, list.id);
+    if (isIncomingCacheUpdateNewer(existingList, list)) {
+      db.run(
+        `INSERT INTO lists (id, data, updated_at)
+         VALUES (?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           data = excluded.data,
+           updated_at = excluded.updated_at`,
+        [list.id, serializeRecord(list), updatedAt]
+      );
+    }
   }
 }
 
