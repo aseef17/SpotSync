@@ -32,9 +32,52 @@ service cloud.firestore {
       return data.isPublic == true || isOwner(data) || isCollaborator(data);
     }
 
+    // Denorm fields optimize owner reads on private lists, but public/collaborator
+    // access must always be checked against the parent list to avoid stale denorm
+    // leaking data after access is revoked (e.g. public -> private).
+    function canReadPlace() {
+      if (!(resource.data.listOwnerId is string)) {
+        return canReadList(resource.data.listId);
+      }
+
+      if (resource.data.listIsPublic != true &&
+          isAuthenticated() &&
+          resource.data.listOwnerId == request.auth.uid) {
+        return true;
+      }
+
+      return canReadList(resource.data.listId);
+    }
+
     function canWriteList(listId) {
       let data = listData(listId);
       return isOwner(data) || isEditor(data);
+    }
+
+    function normalizedCollaboratorIds(list) {
+      return list.collaboratorIds != null ? list.collaboratorIds : [list.ownerId];
+    }
+
+    // Denormalized place access fields must mirror the parent list on writes.
+    function placeDenormMatchesList(listId) {
+      let list = listData(listId);
+      let data = request.resource.data;
+
+      if (!(data.listOwnerId is string)) {
+        return true;
+      }
+
+      return data.listOwnerId == list.ownerId &&
+        data.listIsPublic == (list.isPublic == true) &&
+        data.listCollaboratorIds == normalizedCollaboratorIds(list);
+    }
+
+    function placeDenormUpdateValid(listId) {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      if (!affected.hasAny(['listOwnerId', 'listIsPublic', 'listCollaboratorIds'])) {
+        return true;
+      }
+      return placeDenormMatchesList(listId);
     }
 
     function currentUsername() {
@@ -69,20 +112,28 @@ service cloud.firestore {
     match /places/{placeId} {
       allow read: if isAuthenticated() &&
                      resource.data.listId is string &&
-                     canReadList(resource.data.listId);
+                     canReadPlace();
 
       allow create: if isAuthenticated() &&
                        request.resource.data.listId is string &&
-                       canWriteList(request.resource.data.listId);
+                       canWriteList(request.resource.data.listId) &&
+                       placeDenormMatchesList(request.resource.data.listId);
 
       allow update: if isAuthenticated() &&
                        resource.data.listId is string &&
                        canWriteList(resource.data.listId) &&
-                       request.resource.data.listId == resource.data.listId;
+                       request.resource.data.listId == resource.data.listId &&
+                       placeDenormUpdateValid(resource.data.listId);
 
       allow delete: if isAuthenticated() &&
                        resource.data.listId is string &&
                        canWriteList(resource.data.listId);
+    }
+
+    // PLACES CACHE
+    match /places_cache/{placeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
 
     // USERS

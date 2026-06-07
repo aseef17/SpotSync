@@ -1,4 +1,4 @@
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { ref, uploadBytes, getDownloadURL, deleteObject, getMetadata } from 'firebase/storage';
 import { logger } from '@/utils/logger';
 import { storage } from '@/lib/firebase';
 
@@ -73,18 +73,82 @@ export class PhotoService {
     googlePlaceId: string,
     photoId: string
   ): Promise<string | null> {
+    const webpPath = `places/shared/${googlePlaceId}/photo_${photoId}.webp`;
+    const webpRef = ref(storage, webpPath);
+
     try {
-      const storageRef = ref(storage, `places/shared/${googlePlaceId}/photo_${photoId}.webp`);
-      const downloadURL = await getDownloadURL(storageRef);
-      return downloadURL;
+      await getMetadata(webpRef);
+      return await getDownloadURL(webpRef);
     } catch {
-      // Also try fallback to legacy .jpg
       try {
         const legacyRef = ref(storage, `places/shared/${googlePlaceId}/photo_1.jpg`);
+        await getMetadata(legacyRef);
         return await getDownloadURL(legacyRef);
       } catch {
         return null;
       }
+    }
+  }
+
+  /**
+   * Returns true when the remote photo URL returns loadable image data.
+   * Uses the browser Cache API (`places-photo-cache`) when available.
+   */
+  static async remotePhotoUrlLoads(fetchUrl: string, photoCache: Cache | null): Promise<boolean> {
+    if (photoCache) {
+      const cached = await photoCache.match(fetchUrl);
+      if (cached?.ok) {
+        return true;
+      }
+    }
+
+    try {
+      const headResponse = await fetch(fetchUrl, { method: 'HEAD' });
+      if (headResponse.ok) {
+        return true;
+      }
+    } catch {
+      // HEAD is often blocked cross-origin; fall through to GET.
+    }
+
+    try {
+      const response = await fetch(fetchUrl);
+      if (response.ok) {
+        if (photoCache) {
+          await photoCache.put(fetchUrl, response.clone());
+        }
+        return true;
+      }
+    } catch (error) {
+      logger.debug('Photo URL validation failed:', error);
+    }
+
+    return false;
+  }
+
+  /**
+   * Fetch image bytes for upload. Reuses cache when the URL was validated earlier.
+   */
+  static async fetchPhotoBlob(fetchUrl: string, photoCache: Cache | null): Promise<Blob | null> {
+    if (photoCache) {
+      const cached = await photoCache.match(fetchUrl);
+      if (cached?.ok) {
+        return cached.blob();
+      }
+    }
+
+    try {
+      const response = await fetch(fetchUrl);
+      if (!response.ok) {
+        return null;
+      }
+      if (photoCache) {
+        await photoCache.put(fetchUrl, response.clone());
+      }
+      return response.blob();
+    } catch (error) {
+      logger.debug('Photo fetch failed:', error);
+      return null;
     }
   }
 

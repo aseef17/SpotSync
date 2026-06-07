@@ -9,6 +9,7 @@
     "build": "node scripts/generate-sw.js && vite build",
     "preview": "vite preview",
     "check": "npm run check:types && npm run check:lint && npm run check:format",
+    "test": "vitest run",
     "check:types": "tsc --build",
     "check:lint": "eslint .",
     "check:format": "prettier . --check",
@@ -44,6 +45,7 @@
     "prettier": "^3.8.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.2.4"
+    "vite": "^7.2.4",
+    "vitest": "^3.2.4"
   }
 }

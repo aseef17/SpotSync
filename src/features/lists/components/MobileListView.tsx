@@ -183,7 +183,15 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
     setIsAiSearching(true);
 
     try {
-      const result = await PlaceService.askList(list.id, query);
+      const placesSummary = places.map((place) => ({
+        id: place.id,
+        name: place.name,
+        notes: place.notes,
+        category: place.category,
+        status: place.status,
+        address: place.address,
+      }));
+      const result = await PlaceService.askList(list.id, query, placesSummary);
       if (result.placeIds.length > 0) {
         setAiMatchedIds(result.placeIds);
         toast.success(`Found ${result.placeIds.length} matches!`);

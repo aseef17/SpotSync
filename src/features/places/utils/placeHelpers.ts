@@ -3,6 +3,9 @@ import type { PlaceList, Collaborator } from '@/features/lists/types/list';
 import { formatCategoryName } from '@/constants/placeCategories';
 import { calculateDistance } from '@/utils/geo';
 
+export const getPlaceThumbnail = (place: Place): string | undefined =>
+  place.thumbnailUrl || place.photoUrls?.[0];
+
 export const formatPrice = (level?: number | string | null) => {
   let numLevel = level;
 

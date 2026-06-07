@@ -32,4 +32,8 @@ export interface PlaceList {
   updatedAt: Date;
   createdBy?: string;
   updatedBy?: string;
+  /** True while a bulk import is in progress — Cloud Functions skip per-place notifications. */
+  importInProgress?: boolean;
+  /** Set when importInProgress clears; triggers a single summary notification. */
+  lastImportCount?: number;
 }

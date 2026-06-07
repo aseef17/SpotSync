@@ -13,9 +13,20 @@ import {
   type User as FirebaseUser,
   type UserCredential,
 } from 'firebase/auth';
-import { doc, setDoc, getDoc, runTransaction } from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocFromServer, runTransaction } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/features/auth/types/user';
+import {
+  REGISTRATION_HEARTBEAT_MS,
+  REGISTRATION_STALE_MS,
+  beginRegistrationSession,
+  clearRegistrationProgress,
+  endRegistrationSession,
+  isRegistrationInProgress,
+  isUsernameOwnedByUid,
+  shouldDeleteAuthUserOnRegistrationFailure,
+  writeRegistrationProgress,
+} from '@/features/auth/lib/registrationGuard';
 
 interface AuthContextType {
   user: User | null;
@@ -37,39 +48,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const REGISTRATION_IN_PROGRESS_KEY = 'spotsync_registration_in_progress';
-const REGISTRATION_STALE_MS = 60_000;
+let registrationInFlightCount = 0;
 
-interface RegistrationProgress {
-  uid: string;
-  startedAt: number;
-}
+const isRegistrationInFlight = (): boolean => registrationInFlightCount > 0;
 
 const isEmailPasswordUser = (fbUser: FirebaseUser): boolean =>
   fbUser.providerData.some((provider) => provider.providerId === 'password');
-
-const setRegistrationInProgress = (uid: string): void => {
-  const payload: RegistrationProgress = { uid, startedAt: Date.now() };
-  sessionStorage.setItem(REGISTRATION_IN_PROGRESS_KEY, JSON.stringify(payload));
-};
-
-const clearRegistrationInProgress = (): void => {
-  sessionStorage.removeItem(REGISTRATION_IN_PROGRESS_KEY);
-};
-
-const isRegistrationInProgress = (uid: string): boolean => {
-  const raw = sessionStorage.getItem(REGISTRATION_IN_PROGRESS_KEY);
-  if (!raw) return false;
-
-  try {
-    const parsed = JSON.parse(raw) as RegistrationProgress;
-    if (parsed.uid !== uid && parsed.uid !== 'pending') return false;
-    return Date.now() - parsed.startedAt < REGISTRATION_STALE_MS;
-  } catch {
-    // Legacy flag from a crashed registration in a previous page load — treat as stale.
-    return false;
-  }
-};
 
 const waitForUserProfile = async (
   uid: string,
@@ -86,6 +70,23 @@ const waitForUserProfile = async (
     }
   }
   return null;
+};
+
+// registrationInFlightCount is per-tab; localStorage is shared. Poll until the other
+// tab clears its flag or it goes stale before running orphan recovery.
+const waitForCrossTabRegistration = async (uid: string): Promise<User | null> => {
+  const deadline = Date.now() + REGISTRATION_STALE_MS;
+  while (isRegistrationInProgress(uid)) {
+    if (Date.now() >= deadline) {
+      break;
+    }
+    const profile = await waitForUserProfile(uid, 1, 0);
+    if (profile) {
+      return profile;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
+  }
+  return waitForUserProfile(uid, 4, 250);
 };
 
 const buildDefaultUsername = (fbUser: FirebaseUser): string => {
@@ -117,6 +118,12 @@ const claimUsernameForUser = async (
       if (!usernameDoc.exists()) {
         claimedUsername = candidate;
         transaction.set(usernameRef, { uid: fbUser.uid });
+        break;
+      }
+
+      const ownerUid = usernameDoc.data()?.uid as string | undefined;
+      if (ownerUid === fbUser.uid) {
+        claimedUsername = candidate;
         break;
       }
     }
@@ -159,28 +166,50 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        setFirebaseUser(fbUser);
-        // Fetch or create user document in Firestore
-        const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
-        if (userDoc.exists()) {
-          setUser(userDoc.data() as User);
-        } else if (isEmailPasswordUser(fbUser)) {
-          // Email/password registration creates the Firestore profile in register().
-          // Wait for that transaction before recovering orphaned auth-only accounts.
-          const registrationInProgress = isRegistrationInProgress(fbUser.uid);
-          const profile = await waitForUserProfile(
-            fbUser.uid,
-            registrationInProgress ? 12 : 2,
-            registrationInProgress ? 250 : 0
-          );
+      try {
+        if (fbUser) {
+          setFirebaseUser(fbUser);
+          // Fetch or create user document in Firestore
+          const userDoc = await getDoc(doc(db, 'users', fbUser.uid));
+          if (userDoc.exists()) {
+            setUser(userDoc.data() as User);
+          } else if (isEmailPasswordUser(fbUser)) {
+            // Email/password registration creates the Firestore profile in register().
+            // Wait for that transaction before recovering orphaned auth-only accounts.
+            const registrationInProgress = isRegistrationInProgress(fbUser.uid);
+            let profile = await waitForUserProfile(
+              fbUser.uid,
+              registrationInProgress ? 12 : 2,
+              registrationInProgress ? 250 : 0
+            );
 
-          if (profile) {
-            setUser(profile);
+            if (!profile && !isRegistrationInFlight() && registrationInProgress) {
+              profile = await waitForCrossTabRegistration(fbUser.uid);
+            }
+
+            if (profile) {
+              setUser(profile);
+            } else if (!isRegistrationInFlight()) {
+              // Heartbeat in another tab can refresh the flag after a stale read — re-check before
+              // orphan recovery so we do not race register() and roll back a newly created account.
+              if (isRegistrationInProgress(fbUser.uid)) {
+                profile = await waitForCrossTabRegistration(fbUser.uid);
+              }
+
+              if (profile) {
+                setUser(profile);
+              } else {
+                // Profile never appeared and register() is not running on this page — clear any
+                // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
+                clearRegistrationProgress(fbUser.uid);
+                await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
+                const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
+                if (provisionedUserDoc.exists()) {
+                  setUser(provisionedUserDoc.data() as User);
+                }
+              }
+            }
           } else {
-            // Profile never appeared — clear any stale registration flag and recover
-            // orphaned auth-only accounts (e.g. after a tab crash mid-registration).
-            clearRegistrationInProgress();
             await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
             const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
             if (provisionedUserDoc.exists()) {
@@ -188,17 +217,14 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             }
           }
         } else {
-          await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
-          const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
-          if (provisionedUserDoc.exists()) {
-            setUser(provisionedUserDoc.data() as User);
-          }
+          setFirebaseUser(null);
+          setUser(null);
         }
-      } else {
-        setFirebaseUser(null);
-        setUser(null);
+      } catch (error) {
+        logger.error('Auth state handler failed:', error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     });
 
     return unsubscribe;
@@ -210,12 +236,22 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
   const register = useCallback(
     async (email: string, password: string, username: string, displayName: string) => {
-      setRegistrationInProgress('pending');
+      registrationInFlightCount++;
+      beginRegistrationSession();
+      writeRegistrationProgress('pending');
+
+      // Refresh the cross-tab registration flag while register() is still running so a second
+      // tab does not treat a slow signup as stale and run orphan recovery in parallel.
+      let heartbeatUid = 'pending';
+      const heartbeat = window.setInterval(() => {
+        writeRegistrationProgress(heartbeatUid);
+      }, REGISTRATION_HEARTBEAT_MS);
 
       let userCredential: UserCredential;
       try {
         userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        setRegistrationInProgress(userCredential.user.uid);
+        heartbeatUid = userCredential.user.uid;
+        writeRegistrationProgress(userCredential.user.uid);
         await updateProfile(userCredential.user, { displayName });
 
         const normalizedUsername = username.toLowerCase().trim();
@@ -230,22 +266,81 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
         try {
           await runTransaction(db, async (transaction) => {
+            const userRef = doc(db, 'users', userCredential.user.uid);
             const usernameRef = doc(db, 'usernames', normalizedUsername);
             const usernameDoc = await transaction.get(usernameRef);
 
             if (usernameDoc.exists()) {
+              const usernameOwnerUid = usernameDoc.data()?.uid as string | undefined;
+              if (usernameOwnerUid === userCredential.user.uid) {
+                const userDoc = await transaction.get(userRef);
+                if (userDoc.exists()) {
+                  // Orphan recovery may have already provisioned this account in another tab.
+                  transaction.update(userRef, {
+                    displayName,
+                    email,
+                    updatedAt: new Date(),
+                  });
+                  return;
+                }
+
+                // Username already reserved for this uid; complete the missing profile.
+                transaction.set(userRef, newUser);
+                return;
+              }
               throw new Error('Username is not available');
             }
 
-            transaction.set(doc(db, 'users', userCredential.user.uid), newUser);
+            transaction.set(userRef, newUser);
             transaction.set(usernameRef, { uid: userCredential.user.uid });
           });
         } catch (error) {
-          try {
-            await deleteUser(userCredential.user);
-          } catch (deleteError) {
-            logger.error('Failed to roll back auth user after registration failure:', deleteError);
-            await signOut(auth);
+          const userRef = doc(db, 'users', userCredential.user.uid);
+          const usernameRef = doc(db, 'usernames', normalizedUsername);
+          // Persistent cache may still show "no profile" after cross-tab orphan recovery.
+          const [userDoc, usernameDoc] = await Promise.all([
+            getDocFromServer(userRef),
+            getDocFromServer(usernameRef),
+          ]);
+          const usernameOwnerUid = usernameDoc.data()?.uid as string | undefined;
+          const rollbackOptions = {
+            userProfileExists: userDoc.exists(),
+            usernameExists: usernameDoc.exists(),
+            usernameOwnerUid,
+            registeringUid: userCredential.user.uid,
+          };
+
+          if (!shouldDeleteAuthUserOnRegistrationFailure(rollbackOptions)) {
+            if (userDoc.exists()) {
+              setUser(userDoc.data() as User);
+              await sendEmailVerification(userCredential.user);
+              return;
+            }
+
+            if (
+              usernameDoc.exists() &&
+              isUsernameOwnedByUid(usernameOwnerUid, userCredential.user.uid)
+            ) {
+              await claimUsernameForUser(userCredential.user, normalizedUsername);
+              const provisionedUserDoc = await getDocFromServer(userRef);
+              if (provisionedUserDoc.exists()) {
+                setUser(provisionedUserDoc.data() as User);
+                await sendEmailVerification(userCredential.user);
+                return;
+              }
+            }
+          }
+
+          if (shouldDeleteAuthUserOnRegistrationFailure(rollbackOptions)) {
+            try {
+              await deleteUser(userCredential.user);
+            } catch (deleteError) {
+              logger.error(
+                'Failed to roll back auth user after registration failure:',
+                deleteError
+              );
+              await signOut(auth);
+            }
           }
           throw error;
         }
@@ -257,7 +352,17 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
         await sendEmailVerification(userCredential.user);
       } finally {
-        clearRegistrationInProgress();
+        window.clearInterval(heartbeat);
+        const completedUid = heartbeatUid;
+        registrationInFlightCount--;
+        const remainingSessions = endRegistrationSession();
+        // Only drop this registration's uid key; keep pending while another register() is in flight.
+        if (completedUid !== 'pending') {
+          clearRegistrationProgress(completedUid);
+        }
+        if (registrationInFlightCount === 0 && remainingSessions === 0) {
+          clearRegistrationProgress();
+        }
       }
     },
     []
