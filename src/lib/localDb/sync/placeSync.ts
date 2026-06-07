@@ -1,27 +1,31 @@
-import { doc, getDoc, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getDoc, onSnapshot } from 'firebase/firestore';
 import { logger } from '@/utils/logger';
 import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { acquireSubscription } from '@/lib/localDb/subscriptionRegistry';
 import { removeCachedPlace, upsertCachedPlace } from '@/lib/localDb/placeCache';
-import { buildListPlacesQuery } from '@/features/places/api/placeFirestore';
+import {
+  buildListPlaceMembershipsQuery,
+  listPlaceMembershipDocRef,
+} from '@/features/places/api/listPlaceMembershipFirestore';
+import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
 import type { PlaceListAccessQuery } from '@/features/places/utils/placeAccess';
+import { resolvePlacesFromMemberships } from '@/lib/localDb/sync/placeViewFetch';
 
 export async function shouldRemovePlaceAfterSnapshotRemoval(
-  placeId: string,
+  membershipId: string,
   subscriptionLimit: number
 ): Promise<boolean> {
   if (subscriptionLimit <= 0) {
     return true;
   }
 
-  const placeSnap = await getDoc(doc(db, 'places', placeId));
-  return !placeSnap.exists();
+  const membershipSnap = await getDoc(listPlaceMembershipDocRef(membershipId));
+  return !membershipSnap.exists();
 }
 
 function buildPlacesSyncKey(access: PlaceListAccessQuery, subscriptionLimit: number): string {
   return [
-    'sync:places',
+    'sync:listPlaces',
     access.listId,
     access.userId,
     access.ownerId,
@@ -30,30 +34,38 @@ function buildPlacesSyncKey(access: PlaceListAccessQuery, subscriptionLimit: num
   ].join(':');
 }
 
-async function applyPlaceDocChanges(
+async function applyMembershipDocChanges(
   listId: string,
   changes: Array<{
     type: 'added' | 'modified' | 'removed';
-    placeId: string;
-    place?: Parameters<typeof upsertCachedPlace>[0];
+    membershipId: string;
+    membership?: ListPlaceMembership;
   }>,
   subscriptionLimit: number
 ): Promise<void> {
-  for (const change of changes) {
-    if (change.type === 'removed') {
-      if (!(await shouldRemovePlaceAfterSnapshotRemoval(change.placeId, subscriptionLimit))) {
-        continue;
-      }
+  const upsertMemberships = changes
+    .filter((change) => change.type !== 'removed' && change.membership)
+    .map((change) => change.membership!);
 
-      await removeCachedPlace(change.placeId);
-      emitChange(changeTopics.place(change.placeId));
+  if (upsertMemberships.length > 0) {
+    const places = await resolvePlacesFromMemberships(upsertMemberships);
+    for (const place of places) {
+      await upsertCachedPlace(place);
+      emitChange(changeTopics.place(place.id));
+    }
+  }
+
+  for (const change of changes) {
+    if (change.type !== 'removed') {
       continue;
     }
 
-    if (change.place) {
-      await upsertCachedPlace(change.place);
-      emitChange(changeTopics.place(change.placeId));
+    if (!(await shouldRemovePlaceAfterSnapshotRemoval(change.membershipId, subscriptionLimit))) {
+      continue;
     }
+
+    await removeCachedPlace(change.membershipId);
+    emitChange(changeTopics.place(change.membershipId));
   }
 
   if (changes.length > 0) {
@@ -68,7 +80,7 @@ export function acquireListPlacesSync(
   const key = buildPlacesSyncKey(access, subscriptionLimit);
 
   return acquireSubscription(key, () => {
-    const q = buildListPlacesQuery(access, subscriptionLimit);
+    const q = buildListPlaceMembershipsQuery(access.listId, { subscriptionLimit });
 
     return onSnapshot(
       q,
@@ -77,21 +89,21 @@ export function acquireListPlacesSync(
           try {
             const changes = snapshot.docChanges().map((change) => ({
               type: change.type,
-              placeId: change.doc.id,
-              place: change.type === 'removed' ? undefined : change.doc.data(),
+              membershipId: change.doc.id,
+              membership: change.type === 'removed' ? undefined : change.doc.data(),
             }));
             if (changes.length > 0) {
-              await applyPlaceDocChanges(access.listId, changes, subscriptionLimit);
+              await applyMembershipDocChanges(access.listId, changes, subscriptionLimit);
             }
             // Always notify so empty lists and first server snapshots resolve loading state.
             emitChange(changeTopics.placesForList(access.listId));
           } catch (error) {
-            logger.error('Failed to apply place snapshot changes:', error);
+            logger.error('Failed to apply list place membership snapshot changes:', error);
           }
         })();
       },
       (error) => {
-        logger.error('Place sync subscription error:', error);
+        logger.error('List place membership sync subscription error:', error);
       }
     );
   });

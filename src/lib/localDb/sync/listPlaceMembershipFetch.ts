@@ -16,7 +16,7 @@ export async function fetchListPlaceMembershipById(
 export async function fetchListPlaceMembershipsForList(
   listId: string
 ): Promise<ListPlaceMembership[]> {
-  const snapshot = await getDocs(buildListPlaceMembershipsQuery(listId));
+  const snapshot = await getDocs(buildListPlaceMembershipsQuery(listId, {}));
   return snapshot.docs.map((docSnap) => docSnap.data());
 }
 

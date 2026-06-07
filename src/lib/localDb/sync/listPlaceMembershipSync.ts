@@ -25,7 +25,7 @@ export function acquireListPlaceMembershipsSync(
   const key = buildListPlaceMembershipsSyncKey(access);
 
   return acquireSubscription(key, () => {
-    const q = buildListPlaceMembershipsQuery(access.listId);
+    const q = buildListPlaceMembershipsQuery(access.listId, {});
 
     return onSnapshot(
       q,

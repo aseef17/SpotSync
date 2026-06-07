@@ -143,6 +143,27 @@ export async function removeCachedPlace(placeId: string): Promise<void> {
   });
 }
 
+const PLACE_MUTATION_TYPES = [
+  'createPlace',
+  'updatePlace',
+  'updatePlaceStatus',
+  'deletePlace',
+] as const;
+
+/** Clears all cached places, place-related pending mutations, and photo blobs. */
+export async function clearAllCachedPlaces(): Promise<void> {
+  const { clearPlacePhotoCache } = await import('@/lib/localDb/placePhotoCache');
+  await clearPlacePhotoCache();
+
+  await runWriteAsync((db) => {
+    db.run('DELETE FROM places');
+    const placeholders = PLACE_MUTATION_TYPES.map(() => '?').join(', ');
+    db.run(`DELETE FROM pending_mutations WHERE type IN (${placeholders})`, [
+      ...PLACE_MUTATION_TYPES,
+    ]);
+  });
+}
+
 export async function removeCachedPlacesForList(listId: string): Promise<void> {
   const db = await getLocalDatabase();
   if (db) {

@@ -5,6 +5,8 @@ import { NotificationProvider } from '@/features/notifications/context';
 import { ThemeProvider } from '@/providers/ThemeContext';
 import { ToastProvider } from '@/providers/ToastContext';
 import { OfflineBanner } from '@/components/Layout/OfflineBanner';
+import { PlaceDataMigrationBanner } from '@/components/Layout/PlaceDataMigrationBanner';
+import { PlaceDataMigrationProvider } from '@/features/places/context/PlaceDataMigrationProvider';
 import { AppRoutes } from '@/routes';
 import { ListsProvider } from '@/features/lists/context/ListsProvider';
 
@@ -25,20 +27,23 @@ function App() {
           <NotificationProvider>
             <ThemeProvider>
               <div className="flex min-h-screen flex-col light-bg-app transition-colors">
-                <OfflineBanner />
-                <Toaster
-                  position="top-center"
-                  richColors
-                  toastOptions={{
-                    classNames: {
-                      actionButton:
-                        '!bg-transparent !border !border-current !text-inherit hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors',
-                    },
-                  }}
-                />
-                <div className="flex min-h-0 flex-1 flex-col">
-                  <AppContent />
-                </div>
+                <PlaceDataMigrationProvider>
+                  <PlaceDataMigrationBanner />
+                  <OfflineBanner />
+                  <Toaster
+                    position="top-center"
+                    richColors
+                    toastOptions={{
+                      classNames: {
+                        actionButton:
+                          '!bg-transparent !border !border-current !text-inherit hover:!bg-black/5 dark:hover:!bg-white/10 transition-colors',
+                      },
+                    }}
+                  />
+                  <div className="flex min-h-0 flex-1 flex-col">
+                    <AppContent />
+                  </div>
+                </PlaceDataMigrationProvider>
               </div>
             </ThemeProvider>
           </NotificationProvider>
