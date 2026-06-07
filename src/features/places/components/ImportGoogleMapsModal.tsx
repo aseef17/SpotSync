@@ -71,9 +71,11 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
         clearTimeout(autoCloseTimeoutRef.current);
         autoCloseTimeoutRef.current = null;
       }
-      resetImportState();
+      if (!resolving) {
+        resetImportState();
+      }
     }
-  }, [isOpen, resetImportState]);
+  }, [isOpen, resetImportState, resolving]);
 
   useEffect(() => {
     const isFinished = importComplete && !resolving;
@@ -120,7 +122,15 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
   };
 
   const handleClose = () => {
-    handleReset();
+    if (resolving) {
+      successNotified.current = false;
+      if (autoCloseTimeoutRef.current) {
+        clearTimeout(autoCloseTimeoutRef.current);
+        autoCloseTimeoutRef.current = null;
+      }
+    } else {
+      handleReset();
+    }
     onClose();
   };
 
@@ -408,66 +418,72 @@ export const ImportGoogleMapsModal: React.FunctionComponent<ImportGoogleMapsModa
                     {importComplete ? 'Done' : 'Start Import'}
                   </LoadingButton>
 
-                  {importComplete && !enriching && (
-                    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                      <div
-                        className={`p-5 rounded-2xl text-center border-2 ${
-                          importStatus.failed > 0
-                            ? 'bg-red-50/50 border-red-100 text-red-900 dark:bg-red-900/10 dark:text-red-300 dark:border-red-900/20'
-                            : importStatus.skipped > 0
-                              ? 'bg-amber-50/50 border-amber-100 text-amber-900 dark:bg-amber-900/10 dark:text-amber-300 dark:border-amber-900/20'
-                              : 'bg-emerald-50/50 border-emerald-100 text-emerald-900 dark:bg-emerald-900/10 dark:text-emerald-300 dark:border-emerald-900/20'
-                        }`}
-                      >
-                        <p className="font-black text-xl mb-1 flex items-center justify-center gap-2">
-                          {importStatus.failed === 0 ? '🎉 Success!' : '⚠️ Partial Success'}
-                        </p>
-                        <p className="text-sm font-medium opacity-80 mb-3">
-                          The import process has finished.
-                        </p>
-                        <div className="flex justify-center gap-6 text-sm font-bold">
-                          <span className="text-emerald-600 dark:text-emerald-400">
-                            {importStatus.success} Success
-                          </span>
-                          {importStatus.skipped > 0 && (
-                            <span className="text-amber-600 dark:text-amber-400">
-                              {importStatus.skipped} Duplicates
+                  {importComplete &&
+                    !enriching &&
+                    (importStatus.success > 0 ||
+                      importStatus.skipped > 0 ||
+                      importStatus.failed > 0) && (
+                      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div
+                          className={`p-5 rounded-2xl text-center border-2 ${
+                            importStatus.failed > 0
+                              ? 'bg-red-50/50 border-red-100 text-red-900 dark:bg-red-900/10 dark:text-red-300 dark:border-red-900/20'
+                              : importStatus.skipped > 0
+                                ? 'bg-amber-50/50 border-amber-100 text-amber-900 dark:bg-amber-900/10 dark:text-amber-300 dark:border-amber-900/20'
+                                : 'bg-emerald-50/50 border-emerald-100 text-emerald-900 dark:bg-emerald-900/10 dark:text-emerald-300 dark:border-emerald-900/20'
+                          }`}
+                        >
+                          <p className="font-black text-xl mb-1 flex items-center justify-center gap-2">
+                            {importStatus.failed === 0 ? '🎉 Success!' : '⚠️ Partial Success'}
+                          </p>
+                          <p className="text-sm font-medium opacity-80 mb-3">
+                            The import process has finished.
+                          </p>
+                          <div className="flex justify-center gap-6 text-sm font-bold">
+                            <span className="text-emerald-600 dark:text-emerald-400">
+                              {importStatus.success} Success
                             </span>
+                            {importStatus.skipped > 0 && (
+                              <span className="text-amber-600 dark:text-amber-400">
+                                {importStatus.skipped} Duplicates
+                              </span>
+                            )}
+                            {importStatus.failed > 0 && (
+                              <span className="text-red-600 dark:text-red-400">
+                                {importStatus.failed} Failed
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-2">
+                          {failedPlaces.length > 0 && (
+                            <ImportReportSection
+                              title="Failed to Import"
+                              places={failedPlaces}
+                              type="failed"
+                              isOpen={expandedSection === 'failed'}
+                              onToggle={() =>
+                                setExpandedSection((prev) => (prev === 'failed' ? null : 'failed'))
+                              }
+                            />
                           )}
-                          {importStatus.failed > 0 && (
-                            <span className="text-red-600 dark:text-red-400">
-                              {importStatus.failed} Failed
-                            </span>
+                          {skippedPlaces.length > 0 && (
+                            <ImportReportSection
+                              title="Skipped (Already in List)"
+                              places={skippedPlaces}
+                              type="skipped"
+                              isOpen={expandedSection === 'skipped'}
+                              onToggle={() =>
+                                setExpandedSection((prev) =>
+                                  prev === 'skipped' ? null : 'skipped'
+                                )
+                              }
+                            />
                           )}
                         </div>
                       </div>
-
-                      <div className="space-y-2">
-                        {failedPlaces.length > 0 && (
-                          <ImportReportSection
-                            title="Failed to Import"
-                            places={failedPlaces}
-                            type="failed"
-                            isOpen={expandedSection === 'failed'}
-                            onToggle={() =>
-                              setExpandedSection((prev) => (prev === 'failed' ? null : 'failed'))
-                            }
-                          />
-                        )}
-                        {skippedPlaces.length > 0 && (
-                          <ImportReportSection
-                            title="Skipped (Already in List)"
-                            places={skippedPlaces}
-                            type="skipped"
-                            isOpen={expandedSection === 'skipped'}
-                            onToggle={() =>
-                              setExpandedSection((prev) => (prev === 'skipped' ? null : 'skipped'))
-                            }
-                          />
-                        )}
-                      </div>
-                    </div>
-                  )}
+                    )}
                 </motion.div>
               )}
             </div>
