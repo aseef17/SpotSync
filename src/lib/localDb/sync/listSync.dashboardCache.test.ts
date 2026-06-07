@@ -77,11 +77,15 @@ vi.mock('@/lib/localDb/changeBus', () => ({
   emitChange: vi.fn(),
 }));
 
-vi.mock('@/features/lists/api/savedListsFetch', () => ({
-  fetchSavedListsByIds: (...args: unknown[]) => fetchSavedListsByIdsMock(...args),
-  hasRemovedSavedListIds: vi.fn(() => false),
-  shouldCommitSavedListFetch: vi.fn(() => true),
-}));
+vi.mock('@/features/lists/api/savedListsFetch', async () => {
+  const actual = await vi.importActual<typeof import('@/features/lists/api/savedListsFetch')>(
+    '@/features/lists/api/savedListsFetch'
+  );
+  return {
+    ...actual,
+    fetchSavedListsByIds: (...args: unknown[]) => fetchSavedListsByIdsMock(...args),
+  };
+});
 
 vi.mock('@/features/lists/api/listFirestore', () => ({
   listConverter: {},
@@ -194,6 +198,44 @@ describe('dashboard cache publish gating', () => {
     await Promise.resolve();
 
     expect(fetchSavedListsByIdsMock).toHaveBeenCalledWith(['saved-1'], {});
+  });
+
+  it('commits saved-list removals when refresh fetch is unresolved', async () => {
+    const savedListA = {
+      ...ownedList,
+      id: 'saved-a',
+      ownerId: 'other-user',
+      isSavedList: true,
+    } as PlaceList;
+    const savedListB = {
+      ...ownedList,
+      id: 'saved-b',
+      ownerId: 'other-user',
+      isSavedList: true,
+    } as PlaceList;
+
+    fetchSavedListsByIdsMock
+      .mockResolvedValueOnce({ lists: [savedListA, savedListB], resolved: true })
+      .mockResolvedValueOnce({ lists: [], resolved: false });
+
+    acquireUserOwnedListsSync('user-1');
+    setUserSavedListIds('user-1', ['saved-a', 'saved-b']);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    ownedListsSnapshotHandler?.(makeOwnedListsSnapshot());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    upsertCachedUserListsMock.mockClear();
+    syncCachedUserListsMock.mockClear();
+
+    setUserSavedListIds('user-1', ['saved-a']);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(syncCachedUserListsMock).toHaveBeenCalledWith('user-1', [ownedList, savedListA]);
+    expect(upsertCachedUserListsMock).not.toHaveBeenCalled();
   });
 
   it('does not merge stale saved lists while profile ids are being refreshed', async () => {
