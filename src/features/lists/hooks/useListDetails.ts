@@ -22,6 +22,7 @@ import {
   shouldApplyCachedListDetails,
   shouldClearAccessRevokedOnContextReturn,
   shouldConfirmPrivateAccessFromTrustedContext,
+  shouldConfirmSavedListAccessFromServer,
   shouldHydrateCachedListSnapshot,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import {
@@ -150,12 +151,17 @@ export const useListDetails = (listId: string | undefined) => {
       } else if (
         listId &&
         user?.id &&
-        shouldConfirmPrivateAccessFromTrustedContext({
+        (shouldConfirmPrivateAccessFromTrustedContext({
           list: listFromContext,
           userId: user.id,
           accessRevoked: accessRevokedRef.current,
           isOnline: isBrowserOnline(),
-        })
+        }) ||
+          shouldConfirmSavedListAccessFromServer({
+            list: listFromContext,
+            accessRevoked: accessRevokedRef.current,
+            isOnline: isBrowserOnline(),
+          }))
       ) {
         const confirmKey = `${user.id}:${listId}`;
         if (privateAccessConfirmKeyRef.current !== confirmKey) {

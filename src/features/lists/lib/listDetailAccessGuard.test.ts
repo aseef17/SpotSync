@@ -4,6 +4,7 @@ import {
   shouldApplyCachedListDetails,
   shouldClearAccessRevokedOnContextReturn,
   shouldConfirmPrivateAccessFromTrustedContext,
+  shouldConfirmSavedListAccessFromServer,
   shouldHydrateCachedListSnapshot,
 } from '@/features/lists/lib/listDetailAccessGuard';
 import type { PlaceList } from '@/features/lists/types/list';
@@ -156,6 +157,48 @@ describe('resolveListFromContextAccess', () => {
   });
 });
 
+describe('shouldConfirmSavedListAccessFromServer', () => {
+  it('confirms server access for saved lists while revocation is sticky', () => {
+    expect(
+      shouldConfirmSavedListAccessFromServer({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        accessRevoked: true,
+        isOnline: true,
+      })
+    ).toBe(true);
+  });
+
+  it('does not confirm when revocation is already cleared', () => {
+    expect(
+      shouldConfirmSavedListAccessFromServer({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        accessRevoked: false,
+        isOnline: true,
+      })
+    ).toBe(false);
+  });
+
+  it('does not confirm while offline because server reads are unavailable', () => {
+    expect(
+      shouldConfirmSavedListAccessFromServer({
+        list: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        accessRevoked: true,
+        isOnline: false,
+      })
+    ).toBe(false);
+  });
+
+  it('does not confirm for trusted owned rows handled separately', () => {
+    expect(
+      shouldConfirmSavedListAccessFromServer({
+        list: list(),
+        accessRevoked: true,
+        isOnline: true,
+      })
+    ).toBe(false);
+  });
+});
+
 describe('shouldConfirmPrivateAccessFromTrustedContext', () => {
   it('confirms server access when a trusted owned row appears after sticky revocation', () => {
     expect(
@@ -280,5 +323,40 @@ describe('useListDetails context access ordering', () => {
         accessRevoked,
       })
     ).toBe('deny-revoked');
+  });
+
+  it('keeps denying saved context until server confirmation clears revocation', () => {
+    const staleSavedPublic = list({
+      isSavedList: true,
+      isPublic: true,
+      collaboratorIds: [],
+    });
+    let accessRevoked = true;
+
+    expect(
+      shouldConfirmSavedListAccessFromServer({
+        list: staleSavedPublic,
+        accessRevoked,
+        isOnline: true,
+      })
+    ).toBe(true);
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPublic,
+        userId: 'user-c',
+        accessRevoked,
+      })
+    ).toBe('deny-revoked');
+
+    accessRevoked = false;
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPublic,
+        userId: 'user-c',
+        accessRevoked,
+      })
+    ).toBe('grant');
   });
 });

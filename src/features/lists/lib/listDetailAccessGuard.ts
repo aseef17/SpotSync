@@ -71,6 +71,15 @@ export function shouldConfirmPrivateAccessFromTrustedContext(options: {
   );
 }
 
+/** Re-check server access for saved-list rows; cached isPublic may be stale after visibility changes. */
+export function shouldConfirmSavedListAccessFromServer(options: {
+  list: PlaceList;
+  accessRevoked: boolean;
+  isOnline: boolean;
+}): boolean {
+  return Boolean(options.accessRevoked && options.isOnline && options.list.isSavedList);
+}
+
 /** Clear sticky revocation when a public list reappears in live context after being absent. */
 export function shouldClearAccessRevokedOnContextReturn(options: {
   hadListFromContext: boolean;
