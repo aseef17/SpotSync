@@ -57,6 +57,14 @@ export function resolveListFromContextAccess(options: {
   return 'grant';
 }
 
+/** Keep server-confirmed list metadata; saved rows may carry stale isPublic. */
+export function shouldApplyContextListSnapshot(options: {
+  listFromContext: PlaceList;
+  serverVerified: boolean;
+}): boolean {
+  return !(options.serverVerified && options.listFromContext.isSavedList);
+}
+
 /** Ignore late server confirmations after navigation or mismatched payloads. */
 export function shouldApplyServerConfirmedPrivateAccess(options: {
   targetListId: string;

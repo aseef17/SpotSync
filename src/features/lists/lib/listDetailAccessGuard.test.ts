@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
+  shouldApplyContextListSnapshot,
   shouldApplyServerConfirmedPrivateAccess,
   shouldClearAccessRevokedOnContextReturn,
   shouldConfirmPrivateAccessFromTrustedContext,
@@ -41,41 +42,72 @@ describe('shouldApplyCachedListDetails', () => {
 
   it('blocks late pagination after access is revoked', () => {
     expect(shouldApplyCachedListDetails(false, false)).toBe(false);
+  });
+});
 
-    it('keeps denying saved context until server confirmation clears revocation', () => {
-      const staleSavedPublic = list({
-        isSavedList: true,
-        isPublic: true,
-        collaboratorIds: [],
-      });
-      let accessRevoked = true;
+describe('shouldApplyContextListSnapshot', () => {
+  it('keeps server-confirmed metadata when context still has a stale saved row', () => {
+    expect(
+      shouldApplyContextListSnapshot({
+        listFromContext: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        serverVerified: true,
+      })
+    ).toBe(false);
+  });
 
-      expect(
-        shouldConfirmSavedListAccessFromServer({
-          list: staleSavedPublic,
-          accessRevoked,
-          isOnline: true,
-        })
-      ).toBe(true);
+  it('applies trusted owned/collaborator context rows after server confirmation', () => {
+    expect(
+      shouldApplyContextListSnapshot({
+        listFromContext: list({ isPublic: false }),
+        serverVerified: true,
+      })
+    ).toBe(true);
+  });
 
-      expect(
-        resolveListFromContextAccess({
-          list: staleSavedPublic,
-          userId: 'user-c',
-          accessRevoked,
-        })
-      ).toBe('deny-revoked');
+  it('applies saved context before server verification completes', () => {
+    expect(
+      shouldApplyContextListSnapshot({
+        listFromContext: list({ isSavedList: true, isPublic: true, collaboratorIds: [] }),
+        serverVerified: false,
+      })
+    ).toBe(true);
+  });
+});
 
-      accessRevoked = false;
-
-      expect(
-        resolveListFromContextAccess({
-          list: staleSavedPublic,
-          userId: 'user-c',
-          accessRevoked,
-        })
-      ).toBe('grant');
+describe('saved list server confirmation flow', () => {
+  it('keeps denying saved context until server confirmation clears revocation', () => {
+    const staleSavedPublic = list({
+      isSavedList: true,
+      isPublic: true,
+      collaboratorIds: [],
     });
+    let accessRevoked = true;
+
+    expect(
+      shouldConfirmSavedListAccessFromServer({
+        list: staleSavedPublic,
+        accessRevoked,
+        isOnline: true,
+      })
+    ).toBe(true);
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPublic,
+        userId: 'user-c',
+        accessRevoked,
+      })
+    ).toBe('deny-revoked');
+
+    accessRevoked = false;
+
+    expect(
+      resolveListFromContextAccess({
+        list: staleSavedPublic,
+        userId: 'user-c',
+        accessRevoked,
+      })
+    ).toBe('grant');
   });
 });
 

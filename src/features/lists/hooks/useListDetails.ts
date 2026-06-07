@@ -23,6 +23,7 @@ import {
 import {
   resolveListFromContextAccess,
   shouldApplyCachedListDetails,
+  shouldApplyContextListSnapshot,
   shouldApplyServerConfirmedPrivateAccess,
   shouldClearAccessRevokedOnContextReturn,
   shouldConfirmPrivateAccessFromTrustedContext,
@@ -225,7 +226,14 @@ export const useListDetails = (listId: string | undefined) => {
       setSavedPrivateDenied(false);
       listAccessibleRef.current = true;
       flushPendingPlacesSnapshot();
-      setList(listFromContext);
+      if (
+        shouldApplyContextListSnapshot({
+          listFromContext,
+          serverVerified: privateListServerVerifiedRef.current,
+        })
+      ) {
+        setList(listFromContext);
+      }
       setError(null);
       loadTrackingRef.current.listLoaded = true;
       loadTrackingRef.current.hasCachedData = true;
