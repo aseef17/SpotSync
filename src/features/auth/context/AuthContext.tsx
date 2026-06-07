@@ -16,6 +16,12 @@ import {
 import { doc, setDoc, getDoc, runTransaction } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import type { User } from '@/features/auth/types/user';
+import {
+  REGISTRATION_HEARTBEAT_MS,
+  clearRegistrationProgress,
+  isRegistrationInProgress,
+  writeRegistrationProgress,
+} from '@/features/auth/lib/registrationGuard';
 
 interface AuthContextType {
   user: User | null;
@@ -37,43 +43,12 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const REGISTRATION_IN_PROGRESS_KEY = 'spotsync_registration_in_progress';
-const REGISTRATION_STALE_MS = 60_000;
 let registrationInFlightCount = 0;
 
 const isRegistrationInFlight = (): boolean => registrationInFlightCount > 0;
 
-interface RegistrationProgress {
-  uid: string;
-  startedAt: number;
-}
-
 const isEmailPasswordUser = (fbUser: FirebaseUser): boolean =>
   fbUser.providerData.some((provider) => provider.providerId === 'password');
-
-const setRegistrationInProgress = (uid: string): void => {
-  const payload: RegistrationProgress = { uid, startedAt: Date.now() };
-  // localStorage is shared across tabs so other tabs defer orphan recovery during registration.
-  localStorage.setItem(REGISTRATION_IN_PROGRESS_KEY, JSON.stringify(payload));
-};
-
-const clearRegistrationInProgress = (): void => {
-  localStorage.removeItem(REGISTRATION_IN_PROGRESS_KEY);
-};
-
-const isRegistrationInProgress = (uid: string): boolean => {
-  const raw = localStorage.getItem(REGISTRATION_IN_PROGRESS_KEY);
-  if (!raw) return false;
-
-  try {
-    const parsed = JSON.parse(raw) as RegistrationProgress;
-    if (parsed.uid !== uid && parsed.uid !== 'pending') return false;
-    return Date.now() - parsed.startedAt < REGISTRATION_STALE_MS;
-  } catch {
-    // Legacy flag from a crashed registration in a previous page load — treat as stale.
-    return false;
-  }
-};
 
 const waitForUserProfile = async (
   uid: string,
@@ -201,7 +176,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           } else if (!isRegistrationInFlight()) {
             // Profile never appeared and register() is not running on this page — clear any
             // stale registration flag and recover orphaned auth-only accounts (e.g. tab crash).
-            clearRegistrationInProgress();
+            clearRegistrationProgress();
             await claimUsernameForUser(fbUser, buildDefaultUsername(fbUser));
             const provisionedUserDoc = await getDoc(doc(db, 'users', fbUser.uid));
             if (provisionedUserDoc.exists()) {
@@ -232,12 +207,20 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
   const register = useCallback(
     async (email: string, password: string, username: string, displayName: string) => {
       registrationInFlightCount++;
-      setRegistrationInProgress('pending');
+      writeRegistrationProgress('pending');
+
+      // Refresh the cross-tab registration flag while register() is still running so a second
+      // tab does not treat a slow signup as stale and run orphan recovery in parallel.
+      let heartbeatUid = 'pending';
+      const heartbeat = window.setInterval(() => {
+        writeRegistrationProgress(heartbeatUid);
+      }, REGISTRATION_HEARTBEAT_MS);
 
       let userCredential: UserCredential;
       try {
         userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        setRegistrationInProgress(userCredential.user.uid);
+        heartbeatUid = userCredential.user.uid;
+        writeRegistrationProgress(userCredential.user.uid);
         await updateProfile(userCredential.user, { displayName });
 
         const normalizedUsername = username.toLowerCase().trim();
@@ -279,9 +262,10 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
         await sendEmailVerification(userCredential.user);
       } finally {
+        window.clearInterval(heartbeat);
         registrationInFlightCount--;
         if (registrationInFlightCount === 0) {
-          clearRegistrationInProgress();
+          clearRegistrationProgress();
         }
       }
     },
