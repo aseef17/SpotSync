@@ -1,5 +1,6 @@
 import type { Database } from 'sql.js';
 import type { PlaceList } from '@/features/lists/types/list';
+import { isIncomingCacheUpdateNewer } from '@/lib/localDb/cacheFreshness';
 import { getLocalDatabase, runWriteAsync } from '@/lib/localDb/database';
 import { deserializeRecord, serializeRecord } from '@/lib/localDb/serialization';
 
@@ -35,6 +36,11 @@ export async function removeCachedList(listId: string): Promise<void> {
 
 export async function upsertCachedList(list: PlaceList): Promise<void> {
   await runWriteAsync((db) => {
+    const existing = readListFromDb(db, list.id);
+    if (!isIncomingCacheUpdateNewer(existing, list)) {
+      return;
+    }
+
     db.run(
       `INSERT INTO lists (id, data, updated_at)
        VALUES (?, ?, ?)

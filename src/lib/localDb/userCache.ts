@@ -1,5 +1,6 @@
 import type { Database } from 'sql.js';
 import type { User } from '@/features/auth/types/user';
+import { isIncomingCacheUpdateNewer } from '@/lib/localDb/cacheFreshness';
 import { getLocalDatabase, runWriteAsync } from '@/lib/localDb/database';
 import { deserializeRecord, serializeRecord } from '@/lib/localDb/serialization';
 
@@ -29,6 +30,11 @@ export async function getCachedUser(userId: string): Promise<User | null> {
 
 export async function upsertCachedUser(user: User): Promise<void> {
   await runWriteAsync((db) => {
+    const existing = readUserFromDb(db, user.id);
+    if (!isIncomingCacheUpdateNewer(existing, user)) {
+      return;
+    }
+
     db.run(
       `INSERT INTO user_profiles (user_id, data, updated_at)
        VALUES (?, ?, ?)

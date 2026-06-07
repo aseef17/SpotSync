@@ -1,5 +1,6 @@
 import type { Database } from 'sql.js';
 import type { Place } from '@/features/places/types/place';
+import { isIncomingCacheUpdateNewer } from '@/lib/localDb/cacheFreshness';
 import { getLocalDatabase, runWriteAsync } from '@/lib/localDb/database';
 import { deserializeRecord, serializeRecord } from '@/lib/localDb/serialization';
 import { toMilliseconds } from '@/utils/date';
@@ -71,6 +72,10 @@ export async function getCachedPlacesForList(listId: string): Promise<Place[] | 
 
 export async function upsertCachedPlace(place: Place): Promise<void> {
   await runWriteAsync((db) => {
+    const existing = readPlaceFromDb(db, place.id);
+    if (!isIncomingCacheUpdateNewer(existing, place)) {
+      return;
+    }
     upsertPlaceInDb(db, place);
   });
 }
@@ -82,6 +87,10 @@ export async function upsertCachedPlaces(places: Place[]): Promise<void> {
 
   await runWriteAsync((db) => {
     for (const place of places) {
+      const existing = readPlaceFromDb(db, place.id);
+      if (!isIncomingCacheUpdateNewer(existing, place)) {
+        continue;
+      }
       upsertPlaceInDb(db, place);
     }
   });
