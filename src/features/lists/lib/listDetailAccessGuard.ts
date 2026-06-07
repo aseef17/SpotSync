@@ -12,6 +12,7 @@ export function shouldHydrateCachedListSnapshot(options: {
   list: PlaceList | null;
   userId: string | undefined;
   accessRevoked: boolean;
+  savedPrivateDenied?: boolean;
 }): boolean {
   if (options.list?.isSavedList && !options.list.isPublic) {
     return false;
@@ -21,6 +22,7 @@ export function shouldHydrateCachedListSnapshot(options: {
     userId: options.userId,
     fromCache: true,
     accessRevoked: options.accessRevoked,
+    savedPrivateDenied: options.savedPrivateDenied,
   });
 }
 
