@@ -59,3 +59,12 @@ export async function fetchSavedListsByIds(
 
   return { lists: fetched, resolved: allChunksResolved };
 }
+
+/** Commit fetch results when complete, or on first load when partial data beats showing none. */
+export function shouldCommitSavedListFetch(
+  hadSavedLists: boolean,
+  fetchedCount: number,
+  resolved: boolean
+): boolean {
+  return resolved || (!hadSavedLists && fetchedCount > 0);
+}
