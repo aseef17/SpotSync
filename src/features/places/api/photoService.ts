@@ -206,7 +206,8 @@ export class PhotoService {
 
   static async getSharedPlacePhotoUrl(
     googlePlaceId: string,
-    photoId: string
+    photoId: string,
+    allowLegacyFallback = false
   ): Promise<string | null> {
     const webpPath = `places/shared/${googlePlaceId}/photo_${photoId}.webp`;
     const webpRef = ref(storage, webpPath);
@@ -215,6 +216,10 @@ export class PhotoService {
       await getMetadata(webpRef);
       return await getDownloadURL(webpRef);
     } catch {
+      if (!allowLegacyFallback) {
+        return null;
+      }
+
       try {
         const legacyRef = ref(storage, `places/shared/${googlePlaceId}/photo_1.jpg`);
         await getMetadata(legacyRef);
