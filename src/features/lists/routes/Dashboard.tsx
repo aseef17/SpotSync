@@ -21,6 +21,7 @@ import { subscribeToRecipientInvitationsShared } from '@/features/lists/api/invi
 import { prefetchListView } from '@/features/lists/lib/prefetchListView';
 import { listRepository } from '@/lib/localDb/repositories/listRepository';
 import { useInitialCacheHydrationScope } from '@/hooks/useInitialCacheHydrationScope';
+import { useDashboardPlaceCounts } from '@/features/lists/hooks/useDashboardPlaceCounts';
 
 const isPendingOptimisticList = (
   list: PlaceList,
@@ -155,6 +156,8 @@ export const Dashboard: React.FunctionComponent = () => {
 
   const myLists = useMemo(() => displayedLists.filter((l) => !l.isSavedList), [displayedLists]);
   const savedLists = useMemo(() => displayedLists.filter((l) => l.isSavedList), [displayedLists]);
+  const dashboardListIds = useMemo(() => displayedLists.map((list) => list.id), [displayedLists]);
+  const placeCountsByListId = useDashboardPlaceCounts(dashboardListIds);
 
   useInitialCacheHydrationScope('dashboard', {
     isLoading: loading,
@@ -592,7 +595,7 @@ export const Dashboard: React.FunctionComponent = () => {
                                 <span
                                   className={`text-sm ${themeColors.text.secondary} whitespace-nowrap`}
                                 >
-                                  {list.places?.length || 0} places
+                                  {placeCountsByListId[list.id] ?? list.places?.length ?? 0} places
                                 </span>
                                 <span
                                   className={`flex items-center text-sm ${themeColors.text.secondary} whitespace-nowrap`}
@@ -685,7 +688,8 @@ export const Dashboard: React.FunctionComponent = () => {
                                   <span
                                     className={`text-sm ${themeColors.text.secondary} whitespace-nowrap`}
                                   >
-                                    {list.places?.length || 0} places
+                                    {placeCountsByListId[list.id] ?? list.places?.length ?? 0}{' '}
+                                    places
                                   </span>
                                   <span
                                     className={`flex items-center text-sm ${themeColors.text.secondary} whitespace-nowrap`}
