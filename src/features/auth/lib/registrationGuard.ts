@@ -98,10 +98,7 @@ export function reconcileRegistrationSessionCount(now = Date.now()): void {
 /** Shared across tabs so one tab cannot clear pending while another register() is active. */
 export function beginRegistrationSession(): void {
   reconcileRegistrationSessionCount();
-  localStorage.setItem(
-    REGISTRATION_SESSION_COUNT_KEY,
-    String(readRegistrationSessionCount() + 1)
-  );
+  localStorage.setItem(REGISTRATION_SESSION_COUNT_KEY, String(readRegistrationSessionCount() + 1));
 }
 
 export function endRegistrationSession(): number {

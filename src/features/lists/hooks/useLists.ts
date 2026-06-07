@@ -9,14 +9,11 @@ export const useLists = (userId: string | undefined) => {
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const loadUserLists = useCallback(
-    async () => {
-      // Legacy stub: no longer needed because of real-time subscriptions,
-      // but kept to prevent breaking child components that pass it to modals.
-      return Promise.resolve();
-    },
-    []
-  );
+  const loadUserLists = useCallback(async () => {
+    // Legacy stub: no longer needed because of real-time subscriptions,
+    // but kept to prevent breaking child components that pass it to modals.
+    return Promise.resolve();
+  }, []);
 
   useEffect(() => {
     if (!userId) {
