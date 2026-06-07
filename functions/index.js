@@ -12,6 +12,7 @@ const { getAuth } = require('firebase-admin/auth');
 const { getMessaging } = require('firebase-admin/messaging');
 const { shouldPruneAccountDeletionTombstone } = require('./lib/accountDeletionTombstonePrune');
 const { shouldSkipPlaceAddedNotification } = require('./lib/placeNotificationGate');
+const { shouldNotifyImportCompleted } = require('./lib/importCompletionGate');
 
 initializeApp();
 
@@ -546,10 +547,7 @@ exports.onListUpdated = onDocumentUpdated(
 
     if (!before || !after) return;
 
-    const importCompleted =
-      before.importInProgress === true &&
-      after.importInProgress !== true &&
-      (after.lastImportCount || 0) > 0;
+    const importCompleted = shouldNotifyImportCompleted(before, after);
 
     if (importCompleted) {
       const updatedBy = after.updatedBy || null;
