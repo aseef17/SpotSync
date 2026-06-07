@@ -43,6 +43,7 @@ import { useIsMobile } from '@/hooks/useMediaQuery';
 import { useToast } from '@/hooks/useToast';
 import { ConnectionIssueCard } from '@/components/Layout/ConnectionIssueCard';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { buildAskListPlacesSummary } from '@/features/places/utils/askListPlacesSummary';
 
 export const ListView: React.FunctionComponent = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -53,7 +54,8 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const { list, places, loading, error, updateList } = useListDetails(listId);
+  const { list, places, loading, error, updateList, hasMorePlaces, loadingMore, loadMorePlaces } =
+    useListDetails(listId);
   const isMobile = useIsMobile();
 
   const [showAddPlacesModal, setShowAddPlacesModal] = useState(false);
@@ -216,7 +218,11 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
     setIsAiSearching(true);
 
     try {
-      const result = await PlaceService.askList(listId!, query);
+      const result = await PlaceService.askList(
+        listId!,
+        query,
+        buildAskListPlacesSummary(places, hasMorePlaces)
+      );
       if (result.placeIds.length > 0) {
         setAiMatchedIds(result.placeIds);
         toast.success(`Found ${result.placeIds.length} matches!`);
@@ -462,7 +468,6 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
               <ConnectionIssueCard
                 title="Unable to load list"
                 message={error || 'Please check your connection and try again.'}
-                onRetry={() => window.location.reload()}
               />
             ) : (
               <div className="text-center py-12">
@@ -513,6 +518,9 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
             onPlaceRestored={handlePlaceRestored}
             highlightedPlaceId={selectedPlace?.id}
             canEditList={canEditList}
+            hasMorePlaces={hasMorePlaces}
+            loadingMore={loadingMore}
+            onLoadMorePlaces={loadMorePlaces}
           />
 
           {/* Shared modals for mobile */}
@@ -939,6 +947,18 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                           )
                         )}
                       </motion.div>
+                      {hasMorePlaces && aiMatchedIds === null && (
+                        <div className="flex justify-center pt-6">
+                          <button
+                            type="button"
+                            onClick={() => void loadMorePlaces()}
+                            disabled={loadingMore}
+                            className="rounded-lg border border-gray-200 dark:border-gray-700 px-4 py-2 text-sm font-medium hover:bg-gray-50 dark:hover:bg-gray-800 disabled:opacity-50"
+                          >
+                            {loadingMore ? 'Loading…' : 'Load more places'}
+                          </button>
+                        </div>
+                      )}
                     </AnimatePresence>
                   )}
                 </>

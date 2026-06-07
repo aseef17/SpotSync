@@ -10,11 +10,11 @@ interface PrivateRouteProps {
 export const PrivateRoute: React.FunctionComponent<PrivateRouteProps> = ({ children }) => {
   const { firebaseUser, loading, requiresEmailVerification } = useAuth();
 
-  if (loading) {
+  if (loading && !firebaseUser) {
     return (
       <AppLoadingScreen
-        title="Loading your account"
-        message="Restoring your session and profile..."
+        title="Signing you in..."
+        message="Please wait while we load your account."
       />
     );
   }

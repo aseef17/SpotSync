@@ -25,7 +25,8 @@ function App() {
         <ToastProvider>
           <NotificationProvider>
             <ThemeProvider>
-              <div className="min-h-screen light-bg-app transition-colors">
+              <div className="flex min-h-screen flex-col light-bg-app transition-colors">
+                <OfflineBanner />
                 <ThemeLoader />
                 <OfflineBanner />
                 <Toaster
@@ -38,7 +39,9 @@ function App() {
                     },
                   }}
                 />
-                <AppContent />
+                <div className="flex min-h-0 flex-1 flex-col">
+                  <AppContent />
+                </div>
               </div>
             </ThemeProvider>
           </NotificationProvider>

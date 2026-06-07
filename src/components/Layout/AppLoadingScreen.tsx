@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { WifiOff, RefreshCw } from 'lucide-react';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
+import { retryConnection } from '@/utils/retryConnection';
 import { themeColors } from '@/styles/colors';
 
 interface AppLoadingScreenProps {
@@ -15,6 +16,16 @@ export const AppLoadingScreen: React.FunctionComponent<AppLoadingScreenProps> = 
   showRetry = true,
 }) => {
   const isOnline = useNetworkStatus();
+  const [isChecking, setIsChecking] = useState(false);
+
+  const handleRetry = async () => {
+    setIsChecking(true);
+    try {
+      await retryConnection();
+    } finally {
+      setIsChecking(false);
+    }
+  };
 
   return (
     <div
@@ -41,11 +52,12 @@ export const AppLoadingScreen: React.FunctionComponent<AppLoadingScreenProps> = 
         {!isOnline && showRetry && (
           <button
             type="button"
-            onClick={() => window.location.reload()}
-            className={`mt-6 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${themeColors.button.secondary}`}
+            onClick={() => void handleRetry()}
+            disabled={isChecking}
+            className={`mt-6 inline-flex items-center gap-2 rounded-md px-4 py-2 text-sm font-medium transition-colors ${themeColors.button.secondary} disabled:opacity-60`}
           >
-            <RefreshCw className="h-4 w-4" />
-            Retry
+            <RefreshCw className={`h-4 w-4 ${isChecking ? 'animate-spin' : ''}`} />
+            {isChecking ? 'Checking...' : 'Retry'}
           </button>
         )}
       </div>

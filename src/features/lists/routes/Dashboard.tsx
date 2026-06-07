@@ -462,13 +462,9 @@ export const Dashboard: React.FunctionComponent = () => {
             </p>
           </div>
           <div className="p-6">
-            {error ? (
-              <ConnectionIssueCard
-                title="Unable to load lists"
-                message={error}
-                onRetry={() => window.location.reload()}
-              />
-            ) : loading ? (
+            {error && displayedLists.length === 0 ? (
+              <ConnectionIssueCard title="Unable to load lists" message={error} />
+            ) : loading && displayedLists.length === 0 ? (
               <div className="text-center py-12">
                 <div
                   className={`animate-spin rounded-full h-8 w-8 border-b-2 ${themeColors.text.primary} mx-auto`}

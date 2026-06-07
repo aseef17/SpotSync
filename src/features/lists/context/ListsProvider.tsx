@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ListService } from '@/features/lists/api/listService';
-import { logger } from '@/utils/logger';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
+import { logger } from '@/utils/logger';
 import type { PlaceList } from '@/features/lists/types/list';
 import { ListsContext, type ListsContextValue } from '@/features/lists/context/ListsContext';
+
+const OFFLINE_LOAD_TIMEOUT_MS = 8000;
 
 interface ListsProviderProps {
   userId: string | undefined;
@@ -18,30 +20,80 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isOfflineView, setIsOfflineView] = useState(false);
 
   useEffect(() => {
     if (!userId) {
       setLists([]);
       setLoading(false);
+      setIsOfflineView(false);
       return;
     }
 
-    setLoading(true);
+    let cancelled = false;
+    let hasCachedData = false;
+
+    setError(null);
+    setIsOfflineView(!isBrowserOnline());
+
+    const hydrateFromCache = async () => {
+      const cachedLists = await ListService.getUserListsFromCache(userId);
+      if (cancelled || cachedLists.length === 0) {
+        return;
+      }
+
+      hasCachedData = true;
+      setLists(cachedLists);
+      setLoading(false);
+      setError(null);
+    };
+
+    void hydrateFromCache();
+
+    const timeoutId = window.setTimeout(
+      () => {
+        if (!cancelled && !hasCachedData) {
+          setLoading(false);
+          if (!isBrowserOnline()) {
+            setError('You appear to be offline and no cached lists were found.');
+          }
+        }
+      },
+      isBrowserOnline() ? OFFLINE_LOAD_TIMEOUT_MS : 3000
+    );
+
     const unsubscribe = ListService.subscribeToUserLists(
       userId,
       (updatedLists) => {
+        if (cancelled) return;
+        hasCachedData = updatedLists.length > 0;
         setLists(updatedLists);
         setLoading(false);
         setError(null);
+        setIsOfflineView(!isBrowserOnline());
       },
       (err) => {
+        if (cancelled) return;
         logger.error('Error in lists subscription:', err);
-        setError('Failed to load lists');
+        if (!hasCachedData) {
+          setError('Failed to load lists');
+        }
         setLoading(false);
       }
     );
 
-    return () => unsubscribe();
+    const handleOnline = () => setIsOfflineView(false);
+    const handleOffline = () => setIsOfflineView(true);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timeoutId);
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      unsubscribe();
+    };
   }, [userId]);
 
   useEffect(() => {
@@ -128,11 +180,12 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
       loading,
       creating,
       error,
+      isOfflineView,
       createList,
       updateList,
       deleteList,
     }),
-    [lists, loading, creating, error, createList, updateList, deleteList]
+    [lists, loading, creating, error, isOfflineView, createList, updateList, deleteList]
   );
 
   return <ListsContext.Provider value={value}>{children}</ListsContext.Provider>;

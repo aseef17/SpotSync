@@ -82,7 +82,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       if (targetListId && targetListId !== 'new') {
         const placeId = extractPlaceIdFromUrl(importUrl);
         if (placeId) {
-          const existingPlaces = await PlaceService.getListPlaces(targetListId);
+          const existingPlaces = await PlaceService.getAllListPlaces(targetListId);
           if (existingPlaces.some((p) => p.googlePlaceId === placeId || p.id === placeId)) {
             toast.info('This place is already in the list.');
             return;
@@ -149,7 +149,7 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       }
 
       logger.info(`Checking for duplicates in list ${listId}...`);
-      const listPlaces = await PlaceService.getListPlaces(listId);
+      const listPlaces = await PlaceService.getAllListPlaces(listId);
       const existingMap = new Map<string, boolean>();
 
       const batchMap = new Set<string>();

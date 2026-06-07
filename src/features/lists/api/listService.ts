@@ -10,6 +10,8 @@ import {
   or,
   orderBy,
   getDocs,
+  getDocFromCache,
+  getDocsFromCache,
   arrayUnion,
   arrayRemove,
   writeBatch,
@@ -28,6 +30,10 @@ import { subscribeToUserProfile } from '@/features/auth/api/userProfileStore';
 import { getPlaceListAccessFields } from '@/features/places/utils/placeAccess';
 import { toMilliseconds } from '@/utils/date';
 import { omit } from '@/utils/objectUtils';
+import {
+  fetchSavedListsByIds,
+  shouldCommitSavedListFetch,
+} from '@/features/lists/api/savedListsFetch';
 
 function getExpectedCollaboratorIds(list: PlaceList): string[] {
   return Array.from(new Set([list.ownerId, ...(list.collaborators?.map((c) => c.userId) || [])]));
@@ -501,28 +507,17 @@ export class ListService {
           return;
         }
 
-        const fetched: PlaceList[] = [];
-        const { documentId } = await import('firebase/firestore');
+        const { lists: fetched, resolved } = await fetchSavedListsByIds(idsToFetch, listConverter);
 
-        for (let i = 0; i < idsToFetch.length; i += 10) {
-          const chunk = idsToFetch.slice(i, i + 10);
-          const savedQuery = query(
-            collection(db, 'lists').withConverter(listConverter),
-            where(documentId(), 'in', chunk)
-          );
-          const savedSnap = await getDocs(savedQuery);
-          savedSnap.forEach((docSnap) => {
-            fetched.push({ ...docSnap.data(), isSavedList: true } as PlaceList);
-          });
-        }
-
-        if (seq === fetchSavedListsSeq) {
+        if (
+          seq === fetchSavedListsSeq &&
+          shouldCommitSavedListFetch(savedLists.length > 0, fetched.length, resolved)
+        ) {
           savedLists = fetched;
           emit();
         }
       } catch (err) {
         logger.error('Error fetching saved lists:', err);
-        onError(err instanceof Error ? err : new Error('Failed to fetch saved lists'));
       }
     };
 
@@ -576,6 +571,57 @@ export class ListService {
       unsubscribeLists();
       unsubscribeUser();
     };
+  }
+
+  static async getListFromCache(listId: string): Promise<PlaceList | null> {
+    try {
+      const listRef = doc(db, 'lists', listId).withConverter(listConverter);
+      const listSnap = await getDocFromCache(listRef);
+      return listSnap.exists() ? listSnap.data() : null;
+    } catch {
+      return null;
+    }
+  }
+
+  static async getUserListsFromCache(userId: string): Promise<PlaceList[]> {
+    try {
+      const listsQuery = query(
+        collection(db, 'lists').withConverter(listConverter),
+        or(where('ownerId', '==', userId), where('collaboratorIds', 'array-contains', userId))
+      );
+      const ownedSnapshot = await getDocsFromCache(listsQuery);
+      const ownedLists = ownedSnapshot.docs.map((listDoc) => listDoc.data());
+
+      let savedLists: PlaceList[] = [];
+      try {
+        const userSnap = await getDocFromCache(doc(db, 'users', userId));
+        const savedListIds = (userSnap.data()?.savedLists as string[] | undefined) || [];
+        const existingIds = new Set(ownedLists.map((list) => list.id));
+        const idsToFetch = Array.from(new Set(savedListIds)).filter((id) => !existingIds.has(id));
+        const { documentId } = await import('firebase/firestore');
+
+        for (let i = 0; i < idsToFetch.length; i += 10) {
+          const chunk = idsToFetch.slice(i, i + 10);
+          const savedQuery = query(
+            collection(db, 'lists').withConverter(listConverter),
+            where(documentId(), 'in', chunk)
+          );
+          const savedSnapshot = await getDocsFromCache(savedQuery);
+          savedSnapshot.forEach((listDoc) => {
+            savedLists.push({ ...listDoc.data(), isSavedList: true } as PlaceList);
+          });
+        }
+      } catch {
+        savedLists = [];
+      }
+
+      const mergedIds = new Set(ownedLists.map((list) => list.id));
+      const merged = [...ownedLists, ...savedLists.filter((list) => !mergedIds.has(list.id))];
+      merged.sort((a, b) => toMilliseconds(b.updatedAt) - toMilliseconds(a.updatedAt));
+      return merged;
+    } catch {
+      return [];
+    }
   }
 
   static subscribeToList(
