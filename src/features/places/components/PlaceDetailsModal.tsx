@@ -29,7 +29,7 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
       {isOpen && (
         <div
           key="place-details-modal"
-          className="fixed inset-0 flex items-center justify-center p-0 sm:p-4 z-50"
+          className="fixed inset-0 z-50 flex items-stretch justify-center p-0 sm:items-center sm:p-4"
         >
           <motion.div
             initial={{ opacity: 0 }}
@@ -43,7 +43,7 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="light-bg-card relative rounded-none sm:rounded-lg w-full h-full sm:w-auto sm:h-auto sm:max-w-4xl sm:max-h-[90vh] overflow-hidden border-0 sm:border light-border-default flex flex-col shadow-xl"
+            className="light-bg-card relative rounded-none sm:rounded-lg w-full h-full sm:w-auto sm:h-[90vh] sm:max-h-[90vh] sm:max-w-4xl min-h-0 overflow-hidden border-0 sm:border light-border-default flex flex-col shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
             <PlaceDetailsPane
