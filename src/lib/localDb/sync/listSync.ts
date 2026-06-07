@@ -58,6 +58,8 @@ interface UserListsSyncState {
   fetchSavedListsSeq: number;
   /** False until the first saved-list profile sync has committed. */
   savedListsHydrated: boolean;
+  /** False until the first owned/collaborator list snapshot has been processed. */
+  ownedListsHydrated: boolean;
 }
 
 const userListsState = new Map<string, UserListsSyncState>();
@@ -78,7 +80,11 @@ async function publishUserLists(userId: string): Promise<void> {
     ...state.savedLists.filter((list) => !existingIds.has(list.id)),
   ];
 
-  await writeUserListsForDashboard(userId, merged, state.savedListsHydrated);
+  await writeUserListsForDashboard(
+    userId,
+    merged,
+    state.savedListsHydrated && state.ownedListsHydrated
+  );
   emitChange(changeTopics.userLists(userId));
 }
 
@@ -162,6 +168,7 @@ export function acquireUserOwnedListsSync(userId: string): () => void {
       savedLists: [],
       fetchSavedListsSeq: 0,
       savedListsHydrated: false,
+      ownedListsHydrated: false,
     });
 
     const pendingIds = pendingSavedListIds.get(userId);
@@ -212,6 +219,7 @@ export function acquireUserOwnedListsSync(userId: string): () => void {
           }
 
           state.ownedLists = snapshot.docs.map((snapDoc) => snapDoc.data());
+          state.ownedListsHydrated = true;
           await publishUserLists(userId);
         });
       },

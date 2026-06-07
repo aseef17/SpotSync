@@ -160,4 +160,20 @@ describe('dashboard cache publish gating', () => {
     expect(syncCachedUserListsMock).toHaveBeenCalledWith('user-1', [ownedList]);
     expect(upsertCachedUserListsMock).not.toHaveBeenCalled();
   });
+
+  it('does not prune dashboard rows when profile hydrates before owned lists load', async () => {
+    acquireUserOwnedListsSync('user-1');
+
+    setUserSavedListIds('user-1', []);
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(syncCachedUserListsMock).not.toHaveBeenCalled();
+
+    ownedListsSnapshotHandler?.(makeOwnedListsSnapshot());
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(syncCachedUserListsMock).toHaveBeenCalledWith('user-1', [ownedList]);
+  });
 });
