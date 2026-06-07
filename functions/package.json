@@ -8,7 +8,7 @@
     "deploy": "firebase deploy --only functions",
     "logs": "firebase functions:log",
     "lint": "echo 'No linting configured'",
-    "test": "node --test lib/accountDeletionTombstonePrune.test.js"
+    "test": "node --test lib/*.test.js"
   },
   "engines": {
     "node": "20"
