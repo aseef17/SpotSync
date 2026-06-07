@@ -1,4 +1,4 @@
-import { collection, doc, query, where, orderBy } from 'firebase/firestore';
+import { collection, doc, limit, orderBy, query, startAfter, where } from 'firebase/firestore';
 import type {
   FirestoreDataConverter,
   QueryDocumentSnapshot,
@@ -40,10 +40,41 @@ export function listPlaceMembershipDocRef(membershipId: string) {
   return doc(db, LIST_PLACES_COLLECTION, membershipId).withConverter(listPlaceMembershipConverter);
 }
 
-export function buildListPlaceMembershipsQuery(listId: string) {
-  return query(
-    collection(db, LIST_PLACES_COLLECTION).withConverter(listPlaceMembershipConverter),
-    where('listId', '==', listId),
-    orderBy('addedAt', 'desc')
+export interface ListPlaceMembershipsQueryOptions {
+  subscriptionLimit?: number;
+  pageSize?: number;
+  cursor?: QueryDocumentSnapshot<DocumentData>;
+}
+
+export function buildListPlaceMembershipsQuery(
+  listId: string,
+  options?: ListPlaceMembershipsQueryOptions
+) {
+  const collectionRef = collection(db, LIST_PLACES_COLLECTION).withConverter(
+    listPlaceMembershipConverter
   );
+  const baseConstraints = [where('listId', '==', listId), orderBy('addedAt', 'desc')];
+
+  if (options?.cursor && options.pageSize !== undefined && options.pageSize > 0) {
+    return query(
+      collectionRef,
+      ...baseConstraints,
+      startAfter(options.cursor),
+      limit(options.pageSize)
+    );
+  }
+
+  if (options?.cursor) {
+    return query(collectionRef, ...baseConstraints, startAfter(options.cursor));
+  }
+
+  if (options?.pageSize !== undefined && options.pageSize > 0) {
+    return query(collectionRef, ...baseConstraints, limit(options.pageSize));
+  }
+
+  if (options?.subscriptionLimit !== undefined && options.subscriptionLimit > 0) {
+    return query(collectionRef, ...baseConstraints, limit(options.subscriptionLimit));
+  }
+
+  return query(collectionRef, ...baseConstraints);
 }

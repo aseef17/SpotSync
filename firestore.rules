@@ -125,10 +125,39 @@ service cloud.firestore {
                        canWriteList(resource.data.listId);
     }
 
-    // PLACES CACHE
+    // PLACES CACHE (legacy — removed after googlePlaces cutover)
     match /places_cache/{placeId} {
       allow read: if isAuthenticated();
       allow write: if isAuthenticated();
+    }
+
+    function canReadListPlaceMembership() {
+      return resource.data.listId is string && canReadList(resource.data.listId);
+    }
+
+    // Canonical Google place metadata (one doc per googlePlaceId)
+    match /googlePlaces/{googlePlaceId} {
+      allow read: if isAuthenticated();
+      allow create, update: if isAuthenticated();
+      allow delete: if false;
+    }
+
+    // Per-list place memberships (list-specific status, notes, etc.)
+    match /listPlaces/{membershipId} {
+      allow read: if isAuthenticated() && canReadListPlaceMembership();
+
+      allow create: if isAuthenticated() &&
+        request.resource.data.listId is string &&
+        canWriteList(request.resource.data.listId);
+
+      allow update: if isAuthenticated() &&
+        resource.data.listId is string &&
+        canWriteList(resource.data.listId) &&
+        request.resource.data.listId == resource.data.listId;
+
+      allow delete: if isAuthenticated() &&
+        resource.data.listId is string &&
+        canWriteList(resource.data.listId);
     }
 
     // USERS

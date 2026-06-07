@@ -1,10 +1,23 @@
-import { collection, getDocs, limit, orderBy, query, startAfter, where } from 'firebase/firestore';
+import { getDocs } from 'firebase/firestore';
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import { placeConverter } from '@/features/places/api/placeFirestore';
 import type { Place } from '@/features/places/types/place';
+import { buildListPlaceMembershipsQuery } from '@/features/places/api/listPlaceMembershipFirestore';
 import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { upsertCachedPlace } from '@/lib/localDb/placeCache';
+import {
+  fetchListPlaceMembershipByListAndGooglePlaceId,
+} from '@/lib/localDb/sync/listPlaceMembershipFetch';
+import { resolvePlacesFromMemberships } from '@/lib/localDb/sync/placeViewFetch';
+
+async function cacheResolvedPlaces(listId: string, places: Place[]): Promise<void> {
+  for (const place of places) {
+    await upsertCachedPlace(place);
+  }
+
+  if (places.length > 0) {
+    emitChange(changeTopics.placesForList(listId));
+  }
+}
 
 export async function fetchPlacesPageFromFirestore(
   listId: string,
@@ -15,33 +28,19 @@ export async function fetchPlacesPageFromFirestore(
   hasMore: boolean;
   lastDoc: QueryDocumentSnapshot<DocumentData> | null;
 }> {
-  const baseConstraints = [where('listId', '==', listId), orderBy('addedAt', 'desc')];
-  const q = cursor
-    ? query(
-        collection(db, 'places').withConverter(placeConverter),
-        ...baseConstraints,
-        startAfter(cursor),
-        limit(pageSize + 1)
-      )
-    : query(
-        collection(db, 'places').withConverter(placeConverter),
-        ...baseConstraints,
-        limit(pageSize + 1)
-      );
+  const q = buildListPlaceMembershipsQuery(listId, {
+    pageSize: pageSize + 1,
+    cursor,
+  });
 
   const querySnapshot = await getDocs(q);
   const docs = querySnapshot.docs;
   const hasMore = docs.length > pageSize;
   const pageDocs = hasMore ? docs.slice(0, pageSize) : docs;
-  const places = pageDocs.map((docSnap) => docSnap.data());
+  const memberships = pageDocs.map((docSnap) => docSnap.data());
+  const places = await resolvePlacesFromMemberships(memberships);
 
-  for (const place of places) {
-    await upsertCachedPlace(place);
-  }
-
-  if (places.length > 0) {
-    emitChange(changeTopics.placesForList(listId));
-  }
+  await cacheResolvedPlaces(listId, places);
 
   return {
     places,
@@ -54,30 +53,31 @@ export async function fetchDuplicatePlaceFromFirestore(
   listId: string,
   placeData: Partial<Place>
 ): Promise<Place | null> {
-  let q;
+  let membership = null;
 
-  if (placeData.plusCode) {
-    q = query(
-      collection(db, 'places').withConverter(placeConverter),
-      where('listId', '==', listId),
-      where('plusCode', '==', placeData.plusCode)
+  if (placeData.googlePlaceId) {
+    membership = await fetchListPlaceMembershipByListAndGooglePlaceId(
+      listId,
+      placeData.googlePlaceId
     );
-  } else if (placeData.googlePlaceId) {
-    q = query(
-      collection(db, 'places').withConverter(placeConverter),
-      where('listId', '==', listId),
-      where('googlePlaceId', '==', placeData.googlePlaceId)
+  } else if (placeData.plusCode) {
+    membership = await fetchListPlaceMembershipByListAndGooglePlaceId(
+      listId,
+      `plus_${placeData.plusCode}`
     );
   } else {
     return null;
   }
 
-  const querySnapshot = await getDocs(q);
-  if (querySnapshot.empty) {
+  if (!membership) {
     return null;
   }
 
-  const place = querySnapshot.docs[0].data();
+  const [place] = await resolvePlacesFromMemberships([membership]);
+  if (!place) {
+    return null;
+  }
+
   await upsertCachedPlace(place);
   emitChange(changeTopics.placesForList(listId));
   emitChange(changeTopics.place(place.id));

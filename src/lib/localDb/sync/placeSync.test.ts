@@ -35,8 +35,9 @@ vi.mock('@/lib/localDb/changeBus', () => ({
   emitChange: vi.fn(),
 }));
 
-vi.mock('@/features/places/api/placeFirestore', () => ({
-  buildListPlacesQuery: vi.fn(),
+vi.mock('@/features/places/api/listPlaceMembershipFirestore', () => ({
+  buildListPlaceMembershipsQuery: vi.fn(),
+  listPlaceMembershipDocRef: vi.fn((id: string) => ({ collection: 'listPlaces', id })),
 }));
 
 import { shouldRemovePlaceAfterSnapshotRemoval } from '@/lib/localDb/sync/placeSync';
