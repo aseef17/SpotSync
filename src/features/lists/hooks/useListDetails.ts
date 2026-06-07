@@ -12,7 +12,9 @@ import { useListsContext } from '@/features/lists/context/useListsContext';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import {
   isFirestorePermissionDenied,
+  readPersistedListAccessRevoked,
   shouldClearStaleListView,
+  writePersistedListAccessRevoked,
 } from '@/features/lists/hooks/listViewAccess';
 import {
   resolveListFromContextAccess,
@@ -48,15 +50,31 @@ export const useListDetails = (listId: string | undefined) => {
   const [loading, setLoading] = useState(!!listId);
   const [error, setError] = useState<string | null>(listId ? null : 'No list ID provided');
   const [accessRevokedRevision, setAccessRevokedRevision] = useState(0);
-  const confirmPrivateAccessFromServer = useCallback((targetListId: string, userId: string) => {
-    void ListService.getListFromServer(targetListId).then((list) => {
-      if (!list || !userCanReadList(list, userId)) {
-        return;
+  const setAccessRevoked = useCallback(
+    (revoked: boolean) => {
+      accessRevokedRef.current = revoked;
+      writePersistedListAccessRevoked(user?.id, listId, revoked);
+      if (!revoked) {
+        setAccessRevokedRevision((revision) => revision + 1);
       }
-      accessRevokedRef.current = false;
-      setAccessRevokedRevision((revision) => revision + 1);
-    });
-  }, []);
+    },
+    [listId, user?.id]
+  );
+  const confirmPrivateAccessFromServer = useCallback(
+    (targetListId: string, userId: string) => {
+      void ListService.getListFromServer(targetListId)
+        .then((list) => {
+          if (!list || !userCanReadList(list, userId)) {
+            return;
+          }
+          setAccessRevoked(false);
+        })
+        .catch(() => {
+          // Permission denied or offline — keep sticky revocation.
+        });
+    },
+    [setAccessRevoked]
+  );
   const paginationCursorRef = useRef<QueryDocumentSnapshot<DocumentData> | null>(null);
   const extraPlacesRef = useRef<Place[]>([]);
   const listsRef = useRef(lists);
@@ -105,7 +123,7 @@ export const useListDetails = (listId: string | undefined) => {
 
   useEffect(() => {
     hadListFromContextRef.current = false;
-    accessRevokedRef.current = false;
+    accessRevokedRef.current = readPersistedListAccessRevoked(user?.id, listId);
   }, [listId, user?.id]);
 
   useEffect(() => {
@@ -120,7 +138,7 @@ export const useListDetails = (listId: string | undefined) => {
           userId: user?.id,
         })
       ) {
-        accessRevokedRef.current = false;
+        setAccessRevoked(false);
       } else if (
         !hadListFromContext &&
         accessRevokedRef.current &&
@@ -140,7 +158,7 @@ export const useListDetails = (listId: string | undefined) => {
 
       if (contextAccess !== 'grant') {
         if (contextAccess === 'deny-no-access') {
-          accessRevokedRef.current = true;
+          setAccessRevoked(true);
         }
         denyListAccess();
         setList(null);
@@ -169,7 +187,7 @@ export const useListDetails = (listId: string | undefined) => {
         hasListFromContext: false,
       })
     ) {
-      accessRevokedRef.current = true;
+      setAccessRevoked(true);
       denyListAccess();
       setList(null);
       setPlaces([]);
@@ -186,6 +204,7 @@ export const useListDetails = (listId: string | undefined) => {
     denyListAccess,
     accessRevokedRevision,
     confirmPrivateAccessFromServer,
+    setAccessRevoked,
   ]);
 
   useEffect(() => {
@@ -232,7 +251,7 @@ export const useListDetails = (listId: string | undefined) => {
       (err) => {
         if (cancelled) return;
         logger.error('Error listening to list:', err);
-        accessRevokedRef.current = true;
+        setAccessRevoked(true);
         denyListAccess();
         if (isFirestorePermissionDenied(err)) {
           setList(null);
@@ -253,7 +272,14 @@ export const useListDetails = (listId: string | undefined) => {
       cancelled = true;
       unsubscribeList();
     };
-  }, [listId, listFromContext, user?.id, flushPendingPlacesSnapshot, denyListAccess]);
+  }, [
+    listId,
+    listFromContext,
+    user?.id,
+    flushPendingPlacesSnapshot,
+    denyListAccess,
+    setAccessRevoked,
+  ]);
 
   useEffect(() => {
     if (!listId || !listAccessKey || !placeAccessQuery) {
@@ -407,7 +433,7 @@ export const useListDetails = (listId: string | undefined) => {
       (err) => {
         if (cancelled) return;
         if (isFirestorePermissionDenied(err)) {
-          accessRevokedRef.current = true;
+          setAccessRevoked(true);
           denyListAccess();
           setPlaces([]);
           setError('List not found');
@@ -432,7 +458,7 @@ export const useListDetails = (listId: string | undefined) => {
     };
     // Re-subscribe when access fields change, not on every list metadata update.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- list metadata via listsRef; access via listAccessKey
-  }, [listId, user?.id, listAccessKey]);
+  }, [listId, user?.id, listAccessKey, setAccessRevoked]);
 
   const loadMorePlaces = useCallback(async () => {
     if (!listId || loadingMore || !listAccessibleRef.current) return;

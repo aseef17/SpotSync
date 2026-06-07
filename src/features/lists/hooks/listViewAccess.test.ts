@@ -1,8 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   isFirestorePermissionDenied,
+  listAccessRevokedStorageKey,
   listViewRemountKey,
+  readPersistedListAccessRevoked,
   shouldClearStaleListView,
+  writePersistedListAccessRevoked,
 } from '@/features/lists/hooks/listViewAccess';
 
 describe('shouldClearStaleListView', () => {
@@ -56,5 +59,41 @@ describe('isFirestorePermissionDenied', () => {
   it('detects Firestore permission errors', () => {
     expect(isFirestorePermissionDenied({ code: 'permission-denied' })).toBe(true);
     expect(isFirestorePermissionDenied(new Error('offline'))).toBe(false);
+  });
+});
+
+describe('list access revocation persistence', () => {
+  const storage = new Map<string, string>();
+
+  beforeEach(() => {
+    storage.clear();
+    vi.stubGlobal('sessionStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      },
+      clear: () => {
+        storage.clear();
+      },
+    });
+  });
+
+  it('builds stable storage keys per user and list', () => {
+    expect(listAccessRevokedStorageKey('user-a', 'list-1')).toBe('listAccessRevoked:user-a:list-1');
+  });
+
+  it('persists and restores sticky revocation across remounts', () => {
+    writePersistedListAccessRevoked('user-a', 'list-1', true);
+    expect(readPersistedListAccessRevoked('user-a', 'list-1')).toBe(true);
+    expect(readPersistedListAccessRevoked('user-b', 'list-1')).toBe(false);
+  });
+
+  it('clears persisted revocation when access is restored', () => {
+    writePersistedListAccessRevoked('user-a', 'list-1', true);
+    writePersistedListAccessRevoked('user-a', 'list-1', false);
+    expect(readPersistedListAccessRevoked('user-a', 'list-1')).toBe(false);
   });
 });
