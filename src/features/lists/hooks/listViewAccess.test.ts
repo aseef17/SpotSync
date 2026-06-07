@@ -39,6 +39,17 @@ describe('shouldClearStaleListView', () => {
       })
     ).toBe(false);
   });
+
+  it('does not clear while lists are reloading after a provider remount', () => {
+    expect(
+      shouldClearStaleListView({
+        listId: 'list-1',
+        hadListFromContext: true,
+        hasListFromContext: false,
+        listsLoading: true,
+      })
+    ).toBe(false);
+  });
 });
 
 describe('listViewRemountKey', () => {

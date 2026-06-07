@@ -42,8 +42,13 @@ export function shouldClearStaleListView(options: {
   listId: string | undefined;
   hadListFromContext: boolean;
   hasListFromContext: boolean;
+  listsLoading?: boolean;
 }): boolean {
-  const { listId, hadListFromContext, hasListFromContext } = options;
+  const { listId, hadListFromContext, hasListFromContext, listsLoading } = options;
+  // ListsProvider remounts reset lists to [] while loading; do not treat that as revocation.
+  if (listsLoading) {
+    return false;
+  }
   return Boolean(listId && hadListFromContext && !hasListFromContext);
 }
 
