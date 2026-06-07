@@ -1,12 +1,43 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   REGISTRATION_HEARTBEAT_MS,
+  REGISTRATION_IN_PROGRESS_KEY,
   REGISTRATION_STALE_MS,
+  clearRegistrationProgress,
   isRegistrationActiveForUid,
+  isRegistrationInProgress,
   parseRegistrationProgress,
+  writeRegistrationProgress,
 } from './registrationGuard';
 
+const registrationKey = (uid: string): string => `${REGISTRATION_IN_PROGRESS_KEY}:${uid}`;
+
+const createLocalStorageMock = () => {
+  const store = new Map<string, string>();
+  return {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      store.set(key, value);
+    },
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    clear: () => {
+      store.clear();
+    },
+  };
+};
+
 describe('registrationGuard', () => {
+  beforeEach(() => {
+    vi.stubGlobal('localStorage', createLocalStorageMock());
+  });
+
+  afterEach(() => {
+    localStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
   it('parses a valid registration progress payload', () => {
     const raw = JSON.stringify({ uid: 'user-1', startedAt: 1_000 });
     expect(parseRegistrationProgress(raw)).toEqual({ uid: 'user-1', startedAt: 1_000 });
@@ -37,5 +68,33 @@ describe('registrationGuard', () => {
     const maxThrottledHeartbeatGapMs = 60_000;
     expect(REGISTRATION_STALE_MS).toBeGreaterThan(maxThrottledHeartbeatGapMs);
     expect(REGISTRATION_STALE_MS).toBeGreaterThan(2 * REGISTRATION_HEARTBEAT_MS);
+  });
+
+  it('stores registration progress per uid without overwriting other signups', () => {
+    writeRegistrationProgress('user-a');
+    writeRegistrationProgress('user-b');
+
+    expect(localStorage.getItem(registrationKey('user-a'))).toContain('user-a');
+    expect(localStorage.getItem(registrationKey('user-b'))).toContain('user-b');
+    expect(isRegistrationInProgress('user-a', 5_000)).toBe(true);
+    expect(isRegistrationInProgress('user-b', 5_000)).toBe(true);
+  });
+
+  it('clears only the completed uid registration flag', () => {
+    writeRegistrationProgress('user-a');
+    writeRegistrationProgress('user-b');
+
+    clearRegistrationProgress('user-a');
+
+    expect(isRegistrationInProgress('user-a', 5_000)).toBe(false);
+    expect(isRegistrationInProgress('user-b', 5_000)).toBe(true);
+  });
+
+  it('clears pending once a concrete uid is written', () => {
+    writeRegistrationProgress('pending');
+    writeRegistrationProgress('user-a');
+
+    expect(localStorage.getItem(registrationKey('pending'))).toBeNull();
+    expect(isRegistrationInProgress('user-a', 5_000)).toBe(true);
   });
 });

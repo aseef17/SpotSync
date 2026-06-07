@@ -86,6 +86,12 @@ export class UserService {
 
     try {
       await runTransaction(db, async (transaction) => {
+        const userRef = doc(db, 'users', userId);
+        const userDoc = await transaction.get(userRef);
+        const currentUsername = (userDoc.data() as User | undefined)?.username
+          ?.toLowerCase()
+          .trim();
+
         const newUsernameRef = doc(db, 'usernames', normalizedNewUsername);
         const newUsernameDoc = await transaction.get(newUsernameRef);
 
@@ -93,12 +99,13 @@ export class UserService {
           throw new Error('Username is not available');
         }
 
-        if (normalizedOldUsername) {
-          transaction.delete(doc(db, 'usernames', normalizedOldUsername));
+        const usernameToRelease = currentUsername || normalizedOldUsername;
+        if (usernameToRelease && usernameToRelease !== normalizedNewUsername) {
+          transaction.delete(doc(db, 'usernames', usernameToRelease));
         }
         transaction.set(newUsernameRef, { uid: userId });
 
-        transaction.update(doc(db, 'users', userId), {
+        transaction.update(userRef, {
           displayName: updates.displayName,
           username: normalizedNewUsername,
           updatedAt: new Date(),
