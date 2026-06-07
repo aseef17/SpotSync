@@ -37,22 +37,13 @@ export const Dashboard: React.FunctionComponent = () => {
   const [optimisticLists, setOptimisticLists] = useState<PlaceList[]>([]);
   const { trigger: triggerAction } = useDeferredAction();
 
-  // Drop optimistic entries once Firestore confirms the list (or it is deleted elsewhere)
+  // Drop optimistic entries once Firestore confirms the list via clientId
   const activeOptimisticLists = useMemo(() => {
-    const realIds = new Set(lists.map((l) => l.id));
     const realClientIds = new Set(
       lists.map((l) => l.clientId).filter((id): id is string => Boolean(id))
     );
 
-    return optimisticLists.filter((l) => {
-      if (l.id.startsWith('temp-')) {
-        return !realClientIds.has(l.clientId || l.id);
-      }
-      if (realIds.has(l.id)) {
-        return false;
-      }
-      return lists.length === 0;
-    });
+    return optimisticLists.filter((l) => !realClientIds.has(l.clientId || l.id));
   }, [lists, optimisticLists]);
 
   // Merge optimistic lists with real lists, apply updates, and filter hidden
@@ -136,18 +127,12 @@ export const Dashboard: React.FunctionComponent = () => {
 
         triggerAction(
           async () => {
-            const newListId = await createList({
+            await createList({
               ...data,
               email: user.email,
               username: user.username,
               clientId,
             });
-
-            // Replace temp ID with real ID in optimistic state
-            // This ensures transitions are seamless if the user still sees it
-            setOptimisticLists((prev) =>
-              prev.map((l) => (l.id === tempId ? { ...l, id: newListId! } : l))
-            );
           },
           {
             toastMessage: 'List created',

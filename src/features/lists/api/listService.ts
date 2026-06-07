@@ -44,7 +44,11 @@ function getExpectedEditorIds(list: PlaceList): string[] {
 function needsListPermissionSync(data: PlaceList): Partial<PlaceList> | null {
   const updates: Partial<PlaceList> = {};
   const expectedIds = getExpectedCollaboratorIds(data);
-  if (!data.collaboratorIds || data.collaboratorIds.length !== expectedIds.length) {
+  const collaboratorIdsMatch =
+    data.collaboratorIds &&
+    data.collaboratorIds.length === expectedIds.length &&
+    expectedIds.every((id) => data.collaboratorIds!.includes(id));
+  if (!collaboratorIdsMatch) {
     updates.collaboratorIds = expectedIds;
   }
 

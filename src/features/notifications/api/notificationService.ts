@@ -1,7 +1,7 @@
 import { getToken, onMessage, type Messaging } from 'firebase/messaging';
 import { logger } from '@/utils/logger';
 import { ensureFirebaseMessaging, db } from '@/lib/firebase';
-import { doc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 
 export interface NotificationPayload {
   notification?: {
@@ -67,6 +67,12 @@ export class NotificationService {
   static async saveTokenToUser(userId: string, token: string): Promise<void> {
     try {
       const userRef = doc(db, 'users', userId);
+      const userSnap = await getDoc(userRef);
+      if (userSnap.data()?.notificationsDisabled === true) {
+        logger.info(`Skipping FCM token save for users/${userId} — notifications disabled`);
+        return;
+      }
+
       await updateDoc(userRef, {
         fcmTokens: arrayUnion(token),
       });
