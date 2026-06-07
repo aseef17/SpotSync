@@ -62,6 +62,27 @@ export function resolveMembershipId(listId: string, googlePlaceId: string): stri
   return listPlaceMembershipDocId(listId, googlePlaceId);
 }
 
+/** Indexes of bulk-import rows that collide on the same list membership id. */
+export function findDuplicateMembershipIndexes(
+  listId: string,
+  places: Array<Pick<Place, 'googlePlaceId' | 'plusCode'>>
+): number[] {
+  const seenMembershipIds = new Set<string>();
+  const duplicateIndexes: number[] = [];
+
+  places.forEach((place, index) => {
+    const googlePlaceId = resolveCanonicalGooglePlaceId(place);
+    const membershipId = resolveMembershipId(listId, googlePlaceId);
+    if (seenMembershipIds.has(membershipId)) {
+      duplicateIndexes.push(index);
+      return;
+    }
+    seenMembershipIds.add(membershipId);
+  });
+
+  return duplicateIndexes;
+}
+
 export function splitPlaceUpdates(updates: Partial<Place>): {
   membershipUpdates: Partial<ListPlaceMembership>;
   googlePlaceUpdates: Partial<GooglePlace>;
