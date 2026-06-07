@@ -99,9 +99,9 @@ async function fetchSavedListsForUser(userId: string, ids: string[]): Promise<vo
       return;
     }
 
-    const cachedSavedLists = (
-      await Promise.all(idsToFetch.map((id) => getCachedList(id)))
-    ).filter((list): list is PlaceList => list !== null);
+    const cachedSavedLists = (await Promise.all(idsToFetch.map((id) => getCachedList(id)))).filter(
+      (list): list is PlaceList => list !== null
+    );
     const cachedSavedIds = new Set(cachedSavedLists.map((list) => list.id));
     const missingIds = idsToFetch.filter((id) => !cachedSavedIds.has(id));
 

@@ -27,10 +27,7 @@ async function readPlacesForList(listId: string): Promise<Place[]> {
   return applyPendingMutationsToPlaces(cached, pendingMutations);
 }
 
-function findDuplicateInPlaces(
-  places: Place[],
-  placeData: Partial<Place>
-): Place | null {
+function findDuplicateInPlaces(places: Place[], placeData: Partial<Place>): Place | null {
   if (placeData.plusCode) {
     const match = places.find((place) => place.plusCode === placeData.plusCode);
     if (match) {
@@ -152,7 +149,9 @@ export const placeRepository = {
         const places = await readPlacesForList(access.listId);
         onUpdate(places);
       } catch (error) {
-        onError(error instanceof Error ? error : new Error('Failed to read places from local store'));
+        onError(
+          error instanceof Error ? error : new Error('Failed to read places from local store')
+        );
       }
     };
 

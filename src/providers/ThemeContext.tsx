@@ -30,6 +30,9 @@ export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode 
     localStorage.setItem('theme', newTheme);
   }, []);
 
+  const userProfileTheme = user?.theme === 'light' || user?.theme === 'dark' ? user.theme : null;
+  const resolvedTheme = userProfileTheme ?? theme;
+
   const persistThemeIfChanged = useCallback(
     async (newTheme: Theme) => {
       if (!user || !firebaseUser || user.theme === newTheme) {
@@ -47,21 +50,15 @@ export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode 
   );
 
   useEffect(() => {
-    if (user?.theme === 'light' || user?.theme === 'dark') {
-      applyThemeLocally(user.theme);
-    }
-  }, [user?.id, user?.theme, applyThemeLocally]);
-
-  useEffect(() => {
     const root = document.documentElement;
     root.classList.remove('light', 'dark');
-    root.classList.add(theme);
+    root.classList.add(resolvedTheme);
 
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (metaThemeColor) {
-      metaThemeColor.setAttribute('content', theme === 'dark' ? '#1f2937' : '#ffffff');
+      metaThemeColor.setAttribute('content', resolvedTheme === 'dark' ? '#1f2937' : '#ffffff');
     }
-  }, [theme]);
+  }, [resolvedTheme]);
 
   const applyTheme = applyThemeLocally;
 
@@ -74,12 +71,12 @@ export const ThemeProvider: React.FunctionComponent<{ children: React.ReactNode 
   );
 
   const toggleTheme = useCallback(() => {
-    const newTheme: Theme = theme === 'light' ? 'dark' : 'light';
+    const newTheme: Theme = resolvedTheme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
-  }, [theme, setTheme]);
+  }, [resolvedTheme, setTheme]);
 
   const value: ThemeContextType = {
-    theme,
+    theme: resolvedTheme,
     toggleTheme,
     applyTheme,
     setTheme,

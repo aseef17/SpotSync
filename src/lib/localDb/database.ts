@@ -5,7 +5,8 @@ type InitSqlJs = (config?: { locateFile?: (file: string) => string }) => Promise
 
 async function loadInitSqlJs(): Promise<InitSqlJs> {
   const sqlModule = await import('sql.js/dist/sql-wasm.js');
-  const initSqlJs = (sqlModule as { default?: InitSqlJs }).default ?? (sqlModule as unknown as InitSqlJs);
+  const initSqlJs =
+    (sqlModule as { default?: InitSqlJs }).default ?? (sqlModule as unknown as InitSqlJs);
   return initSqlJs;
 }
 import { logger } from '@/utils/logger';

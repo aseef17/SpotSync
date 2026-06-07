@@ -22,7 +22,11 @@ import {
 } from '@/features/places/utils/placeAccess';
 import imageCompression from 'browser-image-compression';
 
-export { PLACES_PAGE_SIZE, PLACES_SUBSCRIPTION_LIMIT, placeConverter } from '@/features/places/api/placeFirestore';
+export {
+  PLACES_PAGE_SIZE,
+  PLACES_SUBSCRIPTION_LIMIT,
+  placeConverter,
+} from '@/features/places/api/placeFirestore';
 /** Firestore allows 500 ops per batch; bulk create also updates the parent list doc. */
 export const BULK_CREATE_BATCH_SIZE = 499;
 
@@ -181,7 +185,6 @@ export class PlaceService {
     }
   }
 
-
   static async updatePlace(
     placeId: string,
     updates: Partial<Place>,
@@ -213,14 +216,9 @@ export class PlaceService {
 
   static async deletePlace(placeId: string, listId: string, userId?: string): Promise<void> {
     try {
-      await queueOfflineMutation(
-        'deletePlace',
-        placeId,
-        { placeId, listId, userId },
-        async () => {
-          await removeCachedPlace(placeId);
-        }
-      );
+      await queueOfflineMutation('deletePlace', placeId, { placeId, listId, userId }, async () => {
+        await removeCachedPlace(placeId);
+      });
     } catch (error) {
       logger.error('Error deleting place:', error);
       throw error;
@@ -689,5 +687,4 @@ export class PlaceService {
       throw error;
     }
   }
-
 }

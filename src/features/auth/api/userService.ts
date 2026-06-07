@@ -1,11 +1,4 @@
-import {
-  doc,
-  getDoc,
-  collection,
-  query,
-  where,
-  getDocs,
-} from 'firebase/firestore';
+import { doc, getDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import type {
   FirestoreDataConverter,
   QueryDocumentSnapshot,

@@ -34,7 +34,9 @@ async function readInvitations(
   predicate: (invitation: Invitation) => boolean
 ): Promise<Invitation[]> {
   const cached = await getCachedInvitations();
-  const pending = cached.filter((invitation) => invitation.status === 'pending' && predicate(invitation));
+  const pending = cached.filter(
+    (invitation) => invitation.status === 'pending' && predicate(invitation)
+  );
   const pendingMutations = await getPendingMutations();
   const withOverlay = applyPendingMutationsToInvitations(pending, pendingMutations);
   return withOverlay
@@ -43,10 +45,7 @@ async function readInvitations(
 }
 
 export const invitationRepository = {
-  async getForRecipient(
-    email?: string | null,
-    username?: string | null
-  ): Promise<Invitation[]> {
+  async getForRecipient(email?: string | null, username?: string | null): Promise<Invitation[]> {
     if (!email && !username) {
       return [];
     }

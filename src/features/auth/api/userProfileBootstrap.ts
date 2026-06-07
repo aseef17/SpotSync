@@ -1,9 +1,5 @@
 import type { User } from '@/features/auth/types/user';
-import {
-  applyPendingMutationsToUser,
-  getCachedUser,
-  getPendingMutations,
-} from '@/lib/localDb';
+import { applyPendingMutationsToUser, getCachedUser, getPendingMutations } from '@/lib/localDb';
 import { changeTopics, subscribeToChanges } from '@/lib/localDb/changeBus';
 import { acquireUserProfileSync } from '@/lib/localDb/sync/userProfileSync';
 
@@ -17,10 +13,7 @@ export async function readUserProfileFromCache(userId: string): Promise<User | n
   return applyPendingMutationsToUser(cached, pendingMutations);
 }
 
-export function waitForCachedUserProfile(
-  userId: string,
-  timeoutMs = 8000
-): Promise<User | null> {
+export function waitForCachedUserProfile(userId: string, timeoutMs = 8000): Promise<User | null> {
   return new Promise((resolve) => {
     let settled = false;
 

@@ -19,7 +19,11 @@ function buildPlacesSyncKey(access: PlaceListAccessQuery, subscriptionLimit: num
 
 async function applyPlaceDocChanges(
   listId: string,
-  changes: Array<{ type: 'added' | 'modified' | 'removed'; placeId: string; place?: Parameters<typeof upsertCachedPlace>[0] }>
+  changes: Array<{
+    type: 'added' | 'modified' | 'removed';
+    placeId: string;
+    place?: Parameters<typeof upsertCachedPlace>[0];
+  }>
 ): Promise<void> {
   for (const change of changes) {
     if (change.type === 'removed') {

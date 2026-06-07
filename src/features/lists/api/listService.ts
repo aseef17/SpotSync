@@ -89,15 +89,10 @@ export class ListService {
       const listId = listRef.id;
       const listWithId: PlaceList = { ...newList, id: listId };
 
-      await queueOfflineMutation(
-        'createList',
-        listId,
-        { listId, list: listWithId },
-        async () => {
-          await upsertCachedList(listWithId);
-          await upsertCachedUserLists(ownerId, [listWithId]);
-        }
-      );
+      await queueOfflineMutation('createList', listId, { listId, list: listWithId }, async () => {
+        await upsertCachedList(listWithId);
+        await upsertCachedUserLists(ownerId, [listWithId]);
+      });
 
       return listId;
     } catch (error) {
@@ -198,18 +193,13 @@ export class ListService {
 
   static async deleteList(listId: string, userId?: string): Promise<void> {
     try {
-      await queueOfflineMutation(
-        'deleteList',
-        listId,
-        { listId },
-        async () => {
-          await removeCachedPlacesForList(listId);
-          await removeCachedList(listId);
-          if (userId) {
-            await removeCachedUserList(userId, listId);
-          }
+      await queueOfflineMutation('deleteList', listId, { listId }, async () => {
+        await removeCachedPlacesForList(listId);
+        await removeCachedList(listId);
+        if (userId) {
+          await removeCachedUserList(userId, listId);
         }
-      );
+      });
     } catch (error) {
       logger.error('Error deleting list:', error);
       throw error;
@@ -335,5 +325,4 @@ export class ListService {
       throw error;
     }
   }
-
 }

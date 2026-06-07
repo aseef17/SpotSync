@@ -129,9 +129,11 @@ export const Dashboard: React.FunctionComponent = () => {
   const myLists = useMemo(() => displayedLists.filter((l) => !l.isSavedList), [displayedLists]);
   const savedLists = useMemo(() => displayedLists.filter((l) => l.isSavedList), [displayedLists]);
 
+  const canTrackInvitations = Boolean(user?.email || user?.username);
+  const displayedPendingInvitationCount = canTrackInvitations ? pendingInvitationCount : 0;
+
   useEffect(() => {
-    if (!user?.email && !user?.username) {
-      setPendingInvitationCount(0);
+    if (!canTrackInvitations) {
       return;
     }
 
@@ -141,7 +143,7 @@ export const Dashboard: React.FunctionComponent = () => {
       (invitations) => setPendingInvitationCount(invitations.length),
       (err) => logger.error('Failed to sync pending invitations', err)
     );
-  }, [user?.email, user?.username]);
+  }, [canTrackInvitations, user?.email, user?.username]);
 
   const resetForm = () => {
     setEditingList(null);
@@ -430,9 +432,9 @@ export const Dashboard: React.FunctionComponent = () => {
                   </p>
                 </div>
               </div>
-              {pendingInvitationCount > 0 && (
+              {displayedPendingInvitationCount > 0 && (
                 <span className="flex h-7 min-w-7 items-center justify-center rounded-full bg-red-500 px-2 text-xs font-bold text-white">
-                  {pendingInvitationCount}
+                  {displayedPendingInvitationCount}
                 </span>
               )}
             </div>

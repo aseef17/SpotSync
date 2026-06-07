@@ -69,7 +69,9 @@ export const listRepository = {
         const lists = await readUserLists(userId);
         onUpdate(lists);
       } catch (error) {
-        onError(error instanceof Error ? error : new Error('Failed to read lists from local store'));
+        onError(
+          error instanceof Error ? error : new Error('Failed to read lists from local store')
+        );
       }
     };
 

@@ -13,13 +13,7 @@ import {
   type User as FirebaseUser,
   type UserCredential,
 } from 'firebase/auth';
-import {
-  doc,
-  setDoc,
-  getDoc,
-  getDocFromServer,
-  runTransaction,
-} from 'firebase/firestore';
+import { doc, setDoc, getDoc, getDocFromServer, runTransaction } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import type { User } from '@/features/auth/types/user';
@@ -79,9 +73,8 @@ const loadUserProfile = async (uid: string): Promise<User | null> => {
   let profile: User | null = null;
 
   try {
-    const { readUserProfileFromCache, waitForCachedUserProfile } = await import(
-      '@/features/auth/api/userProfileBootstrap'
-    );
+    const { readUserProfileFromCache, waitForCachedUserProfile } =
+      await import('@/features/auth/api/userProfileBootstrap');
     profile = await readUserProfileFromCache(uid);
 
     if (!profile) {

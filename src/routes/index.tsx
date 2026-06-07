@@ -20,7 +20,11 @@ const Settings = lazy(() =>
 const RouteFallback = () => {
   prefetchListView();
   return (
-    <AppLoadingScreen title="Loading page" message="Fetching the latest view..." showRetry={false} />
+    <AppLoadingScreen
+      title="Loading page"
+      message="Fetching the latest view..."
+      showRetry={false}
+    />
   );
 };
 

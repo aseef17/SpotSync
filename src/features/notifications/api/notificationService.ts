@@ -126,11 +126,15 @@ export class NotificationService {
           return token;
         }
 
-        logger.warn('FCM Token retrieval returned null. Check VAPID key and messaging permissions.');
+        logger.warn(
+          'FCM Token retrieval returned null. Check VAPID key and messaging permissions.'
+        );
         return null;
       } catch (error) {
         if (isIndexedDbClosingError(error) && attempt < maxAttempts) {
-          logger.warn(`[notifications] FCM IndexedDB busy, retrying (${attempt}/${maxAttempts - 1})...`);
+          logger.warn(
+            `[notifications] FCM IndexedDB busy, retrying (${attempt}/${maxAttempts - 1})...`
+          );
           this.resetServiceWorkerRegistration();
           await new Promise((resolve) => window.setTimeout(resolve, 400 * attempt));
           continue;

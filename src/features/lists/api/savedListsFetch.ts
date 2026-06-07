@@ -1,10 +1,4 @@
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  type FirestoreDataConverter,
-} from 'firebase/firestore';
+import { collection, getDocs, query, where, type FirestoreDataConverter } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { logger } from '@/utils/logger';

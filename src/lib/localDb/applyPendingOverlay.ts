@@ -15,10 +15,7 @@ import type {
   UpdateUserPayload,
 } from '@/lib/localDb/types';
 
-export function applyStatusMutationToPlace(
-  place: Place,
-  payload: UpdatePlaceStatusPayload
-): Place {
+export function applyStatusMutationToPlace(place: Place, payload: UpdatePlaceStatusPayload): Place {
   if (place.id !== payload.placeId) {
     return place;
   }
@@ -101,10 +98,7 @@ export function applyPendingMutationsToPlaces(
   });
 }
 
-export function applyPendingMutationsToPlace(
-  place: Place,
-  mutations: PendingMutation[]
-): Place {
+export function applyPendingMutationsToPlace(place: Place, mutations: PendingMutation[]): Place {
   return applyPendingMutationsToPlaces([place], mutations)[0] ?? place;
 }
 
@@ -199,7 +193,10 @@ export function applyPendingMutationsToInvitations(
   for (const mutation of mutations) {
     switch (mutation.type) {
       case 'sendInvitation': {
-        const payload = mutation.payload as { invitationId: string; invitation: Omit<Invitation, 'id'> };
+        const payload = mutation.payload as {
+          invitationId: string;
+          invitation: Omit<Invitation, 'id'>;
+        };
         created.set(payload.invitationId, { ...payload.invitation, id: payload.invitationId });
         break;
       }
@@ -232,10 +229,7 @@ export function applyPendingMutationsToInvitations(
     .filter((invitation) => invitation.status === 'pending');
 }
 
-export function applyPendingMutationsToUser(
-  user: User,
-  mutations: PendingMutation[]
-): User {
+export function applyPendingMutationsToUser(user: User, mutations: PendingMutation[]): User {
   let updated = user;
 
   for (const mutation of mutations) {

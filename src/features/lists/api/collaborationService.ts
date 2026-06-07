@@ -120,14 +120,9 @@ export class CollaborationService {
 
   static async acceptInvitation(invitationId: string): Promise<void> {
     try {
-      await queueOfflineMutation(
-        'acceptInvitation',
-        invitationId,
-        { invitationId },
-        async () => {
-          await patchCachedInvitation(invitationId, { status: 'accepted' });
-        }
-      );
+      await queueOfflineMutation('acceptInvitation', invitationId, { invitationId }, async () => {
+        await patchCachedInvitation(invitationId, { status: 'accepted' });
+      });
     } catch (error) {
       logger.error('Error accepting invitation:', error);
       throw error;
@@ -136,14 +131,9 @@ export class CollaborationService {
 
   static async declineInvitation(invitationId: string): Promise<void> {
     try {
-      await queueOfflineMutation(
-        'declineInvitation',
-        invitationId,
-        { invitationId },
-        async () => {
-          await patchCachedInvitation(invitationId, { status: 'declined' });
-        }
-      );
+      await queueOfflineMutation('declineInvitation', invitationId, { invitationId }, async () => {
+        await patchCachedInvitation(invitationId, { status: 'declined' });
+      });
     } catch (error) {
       logger.error('Error declining invitation:', error);
       throw error;
@@ -152,14 +142,9 @@ export class CollaborationService {
 
   static async cancelInvitation(invitationId: string): Promise<void> {
     try {
-      await queueOfflineMutation(
-        'cancelInvitation',
-        invitationId,
-        { invitationId },
-        async () => {
-          await patchCachedInvitation(invitationId, { status: 'cancelled' });
-        }
-      );
+      await queueOfflineMutation('cancelInvitation', invitationId, { invitationId }, async () => {
+        await patchCachedInvitation(invitationId, { status: 'cancelled' });
+      });
     } catch (error) {
       logger.error('Error cancelling invitation:', error);
       throw error;
