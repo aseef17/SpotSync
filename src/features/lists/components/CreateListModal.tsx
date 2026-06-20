@@ -44,7 +44,9 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
   const [listIconSize, setListIconSize] = useState(editingList?.iconSize || 36);
   const [isPublic, setIsPublic] = useState(editingList?.isPublic || false);
   const [validationError, setValidationError] = useState('');
-  const isListOwner = Boolean(editingList && currentUserId && editingList.ownerId === currentUserId);
+  const isListOwner = Boolean(
+    editingList && currentUserId && editingList.ownerId === currentUserId
+  );
 
   useScrollLock(isOpen);
 
