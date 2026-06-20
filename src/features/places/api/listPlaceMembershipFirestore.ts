@@ -9,13 +9,13 @@ import { db } from '@/lib/firebase';
 import { LIST_PLACES_COLLECTION } from '@/features/places/constants/firestorePaths';
 import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
 import type { PlaceStatus } from '@/features/places/types/place';
-import { omit } from '@/utils/objectUtils';
+import { omit, omitUndefined } from '@/utils/objectUtils';
 
 const VALID_STATUSES: PlaceStatus[] = ['not_visited', 'visited', 'not_going', 'custom'];
 
 export const listPlaceMembershipConverter: FirestoreDataConverter<ListPlaceMembership> = {
   toFirestore(membership: ListPlaceMembership): DocumentData {
-    return omit(membership, ['id']);
+    return omitUndefined(omit(membership, ['id']));
   },
   fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): ListPlaceMembership {
     const data = snapshot.data(options);

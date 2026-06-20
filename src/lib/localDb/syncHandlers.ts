@@ -1,22 +1,10 @@
-import {
-  arrayRemove,
-  arrayUnion,
-  collection,
-  doc,
-  getDocs,
-  query,
-  setDoc,
-  updateDoc,
-  where,
-  writeBatch,
-} from 'firebase/firestore';
+import { arrayRemove, arrayUnion, doc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, functions } from '@/lib/firebase';
 import {
   deletePlaceMembership,
   writePlaceCreateAndLinkToList,
   writePlaceUpdates,
 } from '@/features/places/api/placeFirestoreWrite';
-import { LIST_PLACES_COLLECTION } from '@/features/places/constants/firestorePaths';
 import { resolveCanonicalGooglePlaceId } from '@/features/places/utils/placeWriteSplit';
 import type { PendingMutation } from '@/lib/localDb/types';
 import type {
@@ -40,7 +28,6 @@ import type {
   UpdateUserPayload,
 } from '@/lib/localDb/types';
 import type { Place } from '@/features/places/types/place';
-import { LIST_DELETE_MEMBERSHIP_BATCH_SIZE } from '@/lib/localDb/listDeleteBatch';
 import { omit } from '@/utils/objectUtils';
 import { Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
@@ -153,34 +140,11 @@ async function applyUpdateList(payload: UpdateListPayload): Promise<void> {
 }
 
 async function applyDeleteList(payload: DeleteListPayload): Promise<void> {
-  const membershipsQuery = query(
-    collection(db, LIST_PLACES_COLLECTION),
-    where('listId', '==', payload.listId)
-  );
-
-  while (true) {
-    const membershipsSnapshot = await getDocs(membershipsQuery);
-    const memberships = membershipsSnapshot.docs;
-
-    if (memberships.length === 0) {
-      const batch = writeBatch(db);
-      batch.delete(doc(db, 'lists', payload.listId));
-      await batch.commit();
-      return;
-    }
-
-    const batch = writeBatch(db);
-    const chunk = memberships.slice(0, LIST_DELETE_MEMBERSHIP_BATCH_SIZE);
-    chunk.forEach((membershipDoc) => batch.delete(membershipDoc.ref));
-    const isFinalBatch = memberships.length <= LIST_DELETE_MEMBERSHIP_BATCH_SIZE;
-    if (isFinalBatch) {
-      batch.delete(doc(db, 'lists', payload.listId));
-    }
-    await batch.commit();
-    if (isFinalBatch) {
-      return;
-    }
-  }
+  const deleteListFn = httpsCallable<
+    { listId: string },
+    { success: boolean; alreadyDeleted?: boolean }
+  >(functions, 'deleteList');
+  await deleteListFn({ listId: payload.listId });
 }
 
 async function applyUpdateUser(payload: UpdateUserPayload): Promise<void> {

@@ -8,11 +8,11 @@ import type {
 import { db } from '@/lib/firebase';
 import { GOOGLE_PLACES_COLLECTION } from '@/features/places/constants/firestorePaths';
 import type { GooglePlace } from '@/features/places/types/googlePlace';
-import { omit } from '@/utils/objectUtils';
+import { omit, omitUndefined } from '@/utils/objectUtils';
 
 export const googlePlaceConverter: FirestoreDataConverter<GooglePlace> = {
   toFirestore(googlePlace: GooglePlace): DocumentData {
-    return omit(googlePlace, ['googlePlaceId']);
+    return omitUndefined(omit(googlePlace, ['googlePlaceId']));
   },
   fromFirestore(snapshot: QueryDocumentSnapshot, options: SnapshotOptions): GooglePlace {
     const data = snapshot.data(options);

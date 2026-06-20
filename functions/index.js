@@ -984,6 +984,38 @@ exports.checkUsernameExists = onCall({ region: 'us-east4' }, async (request) => 
 });
 
 /**
+ * Permanently delete a list and its listPlaces memberships. Owner-only.
+ */
+exports.deleteList = onCall(
+  { region: 'us-east4', timeoutSeconds: 540, memory: '512MiB' },
+  async (request) => {
+    if (!request.auth) {
+      throw new HttpsError('unauthenticated', 'You must be signed in to delete a list.');
+    }
+
+    const listId = request.data?.listId;
+    if (!listId || typeof listId !== 'string') {
+      throw new HttpsError('invalid-argument', 'listId is required.');
+    }
+
+    const db = getFirestore();
+    const listDoc = await db.collection('lists').doc(listId).get();
+
+    if (!listDoc.exists) {
+      return { success: true, alreadyDeleted: true };
+    }
+
+    const listData = listDoc.data();
+    if (listData.ownerId !== request.auth.uid) {
+      throw new HttpsError('permission-denied', 'Only the list owner can delete this list.');
+    }
+
+    await deleteListAndPlaces(db, listId);
+    return { success: true };
+  }
+);
+
+/**
  * Permanently delete the authenticated user's account, owned lists, and auth record.
  */
 exports.deleteAccount = onCall(
