@@ -44,6 +44,7 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
   const [listIconSize, setListIconSize] = useState(editingList?.iconSize || 36);
   const [isPublic, setIsPublic] = useState(editingList?.isPublic || false);
   const [validationError, setValidationError] = useState('');
+  const isListOwner = Boolean(editingList && currentUserId && editingList.ownerId === currentUserId);
 
   useScrollLock(isOpen);
 
@@ -169,17 +170,19 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
                 >
                   Team
                 </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('danger')}
-                  className={`px-4 py-2 font-medium text-sm transition-colors ${
-                    activeTab === 'danger'
-                      ? 'border-b-2 border-red-500 text-red-600 dark:text-red-400'
-                      : `${themeColors.text.secondary} hover:${themeColors.text.primary}`
-                  }`}
-                >
-                  Danger Zone
-                </button>
+                {isListOwner && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('danger')}
+                    className={`px-4 py-2 font-medium text-sm transition-colors ${
+                      activeTab === 'danger'
+                        ? 'border-b-2 border-red-500 text-red-600 dark:text-red-400'
+                        : `${themeColors.text.secondary} hover:${themeColors.text.primary}`
+                    }`}
+                  >
+                    Danger Zone
+                  </button>
+                )}
               </div>
             )}
 
@@ -293,7 +296,7 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
             )}
 
             {/* Danger Zone Tab */}
-            {activeTab === 'danger' && editingList && (
+            {activeTab === 'danger' && editingList && isListOwner && (
               <div className="space-y-4">
                 <div className="p-4 border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-900/20 rounded-md">
                   <h4 className="text-sm font-medium text-red-800 dark:text-red-400 mb-2">

@@ -33,6 +33,8 @@ public/firebase-messaging-sw.js
 AGENTS.md
 CLAUDE.md
 .worktrees/
+.last-deployed-sha
+tmp-deploy-log.txt
 
 # Local performance audit artifacts (not shipped)
 perf-reports/

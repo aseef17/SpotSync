@@ -6,6 +6,7 @@ import type { GooglePlace } from '@/features/places/types/googlePlace';
 import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
 import type { Place } from '@/features/places/types/place';
 import { getPrimaryPhotoUrl, trimPhotoUrlsForStorage } from '@/features/places/utils/placeAccess';
+import { omitUndefined } from '@/utils/objectUtils';
 
 const MEMBERSHIP_UPDATE_KEYS = new Set([
   'status',
@@ -117,7 +118,7 @@ export function buildGooglePlacePayload(
   const trimmedPhotos = trimPhotoUrlsForStorage(place.photoUrls);
   const thumbnailUrl = place.thumbnailUrl ?? getPrimaryPhotoUrl(trimmedPhotos);
 
-  return {
+  return omitUndefined({
     googlePlaceId,
     name: place.name,
     address: place.address,
@@ -149,7 +150,7 @@ export function buildGooglePlacePayload(
     wheelchairAccessible: place.wheelchairAccessible,
     createdAt: timestamps.createdAt,
     updatedAt: timestamps.updatedAt,
-  };
+  }) as GooglePlace;
 }
 
 export function buildMembershipPayload(
@@ -159,7 +160,7 @@ export function buildMembershipPayload(
   membershipId: string,
   timestamps: { addedAt: Date; updatedAt: Date }
 ): ListPlaceMembership {
-  return {
+  return omitUndefined({
     id: membershipId,
     listId,
     googlePlaceId,
@@ -171,5 +172,5 @@ export function buildMembershipPayload(
     updatedAt: timestamps.updatedAt,
     updatedBy: place.updatedBy,
     ...(place.suppressNotifications ? { suppressNotifications: true } : {}),
-  };
+  }) as ListPlaceMembership;
 }
