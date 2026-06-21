@@ -39,6 +39,10 @@ export interface GooglePlace {
   wheelchairAccessible?: boolean;
   /** When Google Places API details were last fetched. */
   detailsFetchedAt?: Date;
+  /** NYC Passport stamp design at this location (googlePlaces field for listKind nyc_passport). */
+  passportStampId?: string;
+  /** Venue type from the community spreadsheet (Library, Museum, etc.). */
+  passportCategory?: string;
   createdAt: Date;
   updatedAt: Date;
 }

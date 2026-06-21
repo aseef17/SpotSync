@@ -1,6 +1,7 @@
 import { getDocs } from 'firebase/firestore';
 import type { DocumentData, QueryDocumentSnapshot } from 'firebase/firestore';
 import type { Place } from '@/features/places/types/place';
+import type { PlaceListAccessQuery } from '@/features/places/utils/placeAccess';
 import { buildListPlaceMembershipsQuery } from '@/features/places/api/listPlaceMembershipFirestore';
 import { changeTopics, emitChange } from '@/lib/localDb/changeBus';
 import { upsertCachedPlace } from '@/lib/localDb/placeCache';
@@ -18,7 +19,7 @@ async function cacheResolvedPlaces(listId: string, places: Place[]): Promise<voi
 }
 
 export async function fetchPlacesPageFromFirestore(
-  listId: string,
+  access: PlaceListAccessQuery,
   pageSize: number,
   cursor?: QueryDocumentSnapshot<DocumentData>
 ): Promise<{
@@ -26,7 +27,7 @@ export async function fetchPlacesPageFromFirestore(
   hasMore: boolean;
   lastDoc: QueryDocumentSnapshot<DocumentData> | null;
 }> {
-  const q = buildListPlaceMembershipsQuery(listId, {
+  const q = buildListPlaceMembershipsQuery(access, {
     pageSize: pageSize + 1,
     cursor,
   });
@@ -38,7 +39,7 @@ export async function fetchPlacesPageFromFirestore(
   const memberships = pageDocs.map((docSnap) => docSnap.data());
   const places = await resolvePlacesFromMemberships(memberships);
 
-  await cacheResolvedPlaces(listId, places);
+  await cacheResolvedPlaces(access.listId, places);
 
   return {
     places,

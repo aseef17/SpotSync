@@ -89,7 +89,7 @@ export const placeRepository = {
   },
 
   async fetchPage(
-    listId: string,
+    access: PlaceListAccessQuery,
     pageSize: number = PLACES_PAGE_SIZE,
     cursor?: QueryDocumentSnapshot<DocumentData>
   ): Promise<{
@@ -98,15 +98,15 @@ export const placeRepository = {
     lastDoc: QueryDocumentSnapshot<DocumentData> | null;
   }> {
     if (!isBrowserOnline()) {
-      const places = await readPlacesForList(listId);
+      const places = await readPlacesForList(access.listId);
       return { places, hasMore: false, lastDoc: null };
     }
 
-    return fetchPlacesPageFromFirestore(listId, pageSize, cursor);
+    return fetchPlacesPageFromFirestore(access, pageSize, cursor);
   },
 
-  async getAllForList(listId: string): Promise<Place[]> {
-    const cached = await readPlacesForList(listId);
+  async getAllForList(access: PlaceListAccessQuery): Promise<Place[]> {
+    const cached = await readPlacesForList(access.listId);
     if (!isBrowserOnline()) {
       return cached;
     }
@@ -116,7 +116,7 @@ export const placeRepository = {
     let hasMore = true;
 
     while (hasMore) {
-      const page = await fetchPlacesPageFromFirestore(listId, PLACES_PAGE_SIZE, cursor);
+      const page = await fetchPlacesPageFromFirestore(access, PLACES_PAGE_SIZE, cursor);
       for (const place of page.places) {
         seenIds.add(place.id);
       }
@@ -127,7 +127,7 @@ export const placeRepository = {
       }
     }
 
-    return readPlacesForList(listId);
+    return readPlacesForList(access.listId);
   },
 
   subscribeToListPlaces(

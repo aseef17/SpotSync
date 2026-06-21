@@ -36,6 +36,14 @@ import { useMapSearch } from '@/features/places/hooks/useMapSearch';
 import { MapSearchOverlay } from '@/features/places/components/MapSearchOverlay';
 import type { LegacyGooglePlace } from '@/features/places/api/googleMapsService';
 import { buildAskListPlacesSummary } from '@/features/places/utils/askListPlacesSummary';
+import { PassportProgressBanner } from '@/features/passport/components/PassportProgressBanner';
+import { PassportInfoModal } from '@/features/passport/components/PassportInfoModal';
+import {
+  computePassportProgress,
+  getAvailablePassportCategories,
+  getAvailablePassportStamps,
+  isPassportList,
+} from '@/features/passport/utils/passportList';
 
 interface MobileListViewProps {
   list: PlaceList;
@@ -104,6 +112,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   const [listScrollPos, setListScrollPos] = useState(0);
   const [showListInfo, setShowListInfo] = useState(false);
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
+  const [isPassportCollapsed, setIsPassportCollapsed] = useState(true);
   const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
   const [mapMounted, setMapMounted] = useState(false);
 
@@ -128,14 +137,19 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
 
     const handleScroll = () => {
       // Collapse if scrolled down more than 20px
-      if (el.scrollTop > 20 && !isFiltersCollapsed) {
-        setIsFiltersCollapsed(true);
+      if (el.scrollTop > 20) {
+        if (!isFiltersCollapsed) {
+          setIsFiltersCollapsed(true);
+        }
+        if (!isPassportCollapsed) {
+          setIsPassportCollapsed(true);
+        }
       }
     };
 
     el.addEventListener('scroll', handleScroll, { passive: true });
     return () => el.removeEventListener('scroll', handleScroll);
-  }, [isFiltersCollapsed]);
+  }, [isFiltersCollapsed, isPassportCollapsed]);
 
   // Reset scroll to top when a place is selected (opening details)
   useEffect(() => {
@@ -179,6 +193,21 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
       ],
     };
   }, [basePlaces]);
+
+  const passportMode = isPassportList(list);
+  const availablePassportStamps = React.useMemo(
+    () => (passportMode ? getAvailablePassportStamps(basePlaces) : []),
+    [passportMode, basePlaces]
+  );
+  const availablePassportCategories = React.useMemo(
+    () => (passportMode ? getAvailablePassportCategories(basePlaces) : []),
+    [passportMode, basePlaces]
+  );
+  const passportProgress = React.useMemo(
+    () => (passportMode ? computePassportProgress(places) : null),
+    [passportMode, places]
+  );
+  const [showPassportInfo, setShowPassportInfo] = useState(false);
 
   const effectiveFilteredPlaces = React.useMemo(() => {
     if (aiMatchedIds === null) return filteredPlaces;
@@ -321,10 +350,11 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
                         <RefreshCw className={`h-5 w-5 ${isSyncingPhotos ? 'animate-spin' : ''}`} />
                       ),
                       onClick: async () => {
+                        if (!user?.id) return;
                         setIsSyncingPhotos(true);
                         toast.info('Syncing photos in the background...');
                         try {
-                          const syncResult = await PlaceService.syncListPhotos(list.id);
+                          const syncResult = await PlaceService.syncListPhotos(list.id, user.id);
                           if (syncResult.photoFailures > 0 || syncResult.placePersistFailures > 0) {
                             toast.warning(
                               `Photo sync finished with issues: ${syncResult.placesUpdated}/${syncResult.placesProcessed} places updated, ${syncResult.photoFailures} photo failures.`
@@ -354,25 +384,44 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
       </div>
 
       {(places.length > 0 || effectiveFilteredPlaces.length > 0) && (
-        <PlaceFilters
-          filters={filters}
-          onFiltersChange={onFiltersChange}
-          availableCategories={availableCategories}
-          availableCuisines={availableCuisines}
-          customStatuses={list.customStatuses}
-          totalPlaces={basePlaces.length}
-          filteredCount={effectiveFilteredPlaces.length}
-          viewMode="list"
-          onViewModeChange={() => {}}
-          hideViewToggle={true}
-          onAiSearch={handleAiSearchSubmit}
-          isAiMode={isAiMode}
-          onAiModeChange={handleAiModeChange}
-          isAiLoading={isAiSearching}
-          isCollapsed={isFiltersCollapsed}
-          onToggleCollapse={() => setIsFiltersCollapsed(!isFiltersCollapsed)}
-        />
+        <>
+          {passportMode && passportProgress && (
+            <PassportProgressBanner
+              progress={passportProgress}
+              onInfoClick={() => setShowPassportInfo(true)}
+              isCollapsed={isPassportCollapsed}
+              onToggleCollapse={() => setIsPassportCollapsed(!isPassportCollapsed)}
+            />
+          )}
+          <PlaceFilters
+            filters={filters}
+            onFiltersChange={onFiltersChange}
+            availableCategories={availableCategories}
+            availableCuisines={availableCuisines}
+            isPassportList={passportMode}
+            availablePassportStamps={availablePassportStamps}
+            availablePassportCategories={availablePassportCategories}
+            customStatuses={list.customStatuses}
+            totalPlaces={basePlaces.length}
+            filteredCount={effectiveFilteredPlaces.length}
+            viewMode="list"
+            onViewModeChange={() => {}}
+            hideViewToggle={true}
+            onAiSearch={handleAiSearchSubmit}
+            isAiMode={isAiMode}
+            onAiModeChange={handleAiModeChange}
+            isAiLoading={isAiSearching}
+            isCollapsed={isFiltersCollapsed}
+            onToggleCollapse={() => setIsFiltersCollapsed(!isFiltersCollapsed)}
+          />
+        </>
       )}
+
+      <PassportInfoModal
+        isOpen={showPassportInfo}
+        onClose={() => setShowPassportInfo(false)}
+        config={list.passportConfig}
+      />
 
       {/* List Info Modal */}
       {showListInfo && (
@@ -517,6 +566,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
       customStatuses={list.customStatuses}
       onAddExternalPlace={onAddExternalPlace}
       canEdit={canEditList}
+      isPassportList={passportMode}
     />
   ) : (
     listHeader

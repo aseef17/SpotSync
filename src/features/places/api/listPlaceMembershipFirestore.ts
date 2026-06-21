@@ -1,4 +1,4 @@
-import { collection, doc, limit, orderBy, query, startAfter, where } from 'firebase/firestore';
+import { collection, doc, limit, orderBy, query, startAfter } from 'firebase/firestore';
 import type {
   FirestoreDataConverter,
   QueryDocumentSnapshot,
@@ -9,6 +9,10 @@ import { db } from '@/lib/firebase';
 import { LIST_PLACES_COLLECTION } from '@/features/places/constants/firestorePaths';
 import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
 import type { PlaceStatus } from '@/features/places/types/place';
+import {
+  buildListPlaceMembershipAccessConstraints,
+  type PlaceListAccessQuery,
+} from '@/features/places/utils/placeAccess';
 import { omit, omitUndefined } from '@/utils/objectUtils';
 
 const VALID_STATUSES: PlaceStatus[] = ['not_visited', 'visited', 'not_going', 'custom'];
@@ -46,18 +50,26 @@ export interface ListPlaceMembershipsQueryOptions {
   cursor?: QueryDocumentSnapshot<DocumentData>;
 }
 
+function membershipCollectionRef() {
+  return collection(db, LIST_PLACES_COLLECTION).withConverter(listPlaceMembershipConverter);
+}
+
+export function buildListPlaceMembershipCountQuery(access: PlaceListAccessQuery) {
+  return query(membershipCollectionRef(), ...buildListPlaceMembershipAccessConstraints(access));
+}
+
 export function buildListPlaceMembershipsQuery(
-  listId: string,
+  access: PlaceListAccessQuery,
   options?: ListPlaceMembershipsQueryOptions
 ) {
-  const collectionRef = collection(db, LIST_PLACES_COLLECTION).withConverter(
-    listPlaceMembershipConverter
-  );
-  const baseConstraints = [where('listId', '==', listId), orderBy('addedAt', 'desc')];
+  const baseConstraints = [
+    ...buildListPlaceMembershipAccessConstraints(access),
+    orderBy('addedAt', 'desc'),
+  ];
 
   if (options?.cursor && options.pageSize !== undefined && options.pageSize > 0) {
     return query(
-      collectionRef,
+      membershipCollectionRef(),
       ...baseConstraints,
       startAfter(options.cursor),
       limit(options.pageSize)
@@ -65,16 +77,16 @@ export function buildListPlaceMembershipsQuery(
   }
 
   if (options?.cursor) {
-    return query(collectionRef, ...baseConstraints, startAfter(options.cursor));
+    return query(membershipCollectionRef(), ...baseConstraints, startAfter(options.cursor));
   }
 
   if (options?.pageSize !== undefined && options.pageSize > 0) {
-    return query(collectionRef, ...baseConstraints, limit(options.pageSize));
+    return query(membershipCollectionRef(), ...baseConstraints, limit(options.pageSize));
   }
 
   if (options?.subscriptionLimit !== undefined && options.subscriptionLimit > 0) {
-    return query(collectionRef, ...baseConstraints, limit(options.subscriptionLimit));
+    return query(membershipCollectionRef(), ...baseConstraints, limit(options.subscriptionLimit));
   }
 
-  return query(collectionRef, ...baseConstraints);
+  return query(membershipCollectionRef(), ...baseConstraints);
 }

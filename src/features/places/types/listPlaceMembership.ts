@@ -8,6 +8,10 @@ export interface ListPlaceMembership {
   /** Composite document ID: `${listId}_${googlePlaceId}`. */
   id: string;
   listId: string;
+  /** Denormalized from parent list for security-rule-compatible queries. */
+  listOwnerId?: string;
+  listIsPublic?: boolean;
+  listCollaboratorIds?: string[];
   googlePlaceId: string;
   status: PlaceStatus;
   customStatus?: string;

@@ -46,6 +46,8 @@ export interface Place {
   servesWine?: boolean;
   servesVegetarianFood?: boolean;
   wheelchairAccessible?: boolean;
+  passportStampId?: string;
+  passportCategory?: string;
   notes?: string;
   status: PlaceStatus;
   customStatus?: string;

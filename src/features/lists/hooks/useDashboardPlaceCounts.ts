@@ -1,13 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { resolveListPlaceCount } from '@/features/lists/api/listPlaceCount';
+import type { PlaceList } from '@/features/lists/types/list';
 import { changeTopics, subscribeToChanges } from '@/lib/localDb/changeBus';
 
-export function useDashboardPlaceCounts(listIds: string[]): Record<string, number> {
+export function useDashboardPlaceCounts(
+  userId: string | undefined,
+  lists: Array<Pick<PlaceList, 'id' | 'ownerId' | 'isPublic'>>
+): Record<string, number> {
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const listIdsKey = useMemo(() => listIds.join(','), [listIds]);
+  const listsKey = useMemo(
+    () => lists.map((list) => `${list.id}:${list.ownerId}:${list.isPublic === true}`).join(','),
+    [lists]
+  );
 
   useEffect(() => {
-    if (listIds.length === 0) {
+    if (!userId || lists.length === 0) {
       return;
     }
 
@@ -15,7 +22,7 @@ export function useDashboardPlaceCounts(listIds: string[]): Record<string, numbe
 
     const refreshCounts = async () => {
       const entries = await Promise.all(
-        listIds.map(async (listId) => [listId, await resolveListPlaceCount(listId)] as const)
+        lists.map(async (list) => [list.id, await resolveListPlaceCount(list, userId)] as const)
       );
 
       if (!cancelled) {
@@ -25,14 +32,14 @@ export function useDashboardPlaceCounts(listIds: string[]): Record<string, numbe
 
     void refreshCounts();
 
-    const unsubscribePlaceChanges = listIds.map((listId) =>
-      subscribeToChanges(changeTopics.placesForList(listId), () => {
-        void resolveListPlaceCount(listId).then((count) => {
+    const unsubscribePlaceChanges = lists.map((list) =>
+      subscribeToChanges(changeTopics.placesForList(list.id), () => {
+        void resolveListPlaceCount(list, userId).then((count) => {
           if (cancelled) {
             return;
           }
           setCounts((previous) =>
-            previous[listId] === count ? previous : { ...previous, [listId]: count }
+            previous[list.id] === count ? previous : { ...previous, [list.id]: count }
           );
         });
       })
@@ -42,9 +49,9 @@ export function useDashboardPlaceCounts(listIds: string[]): Record<string, numbe
       cancelled = true;
       unsubscribePlaceChanges.forEach((unsubscribe) => unsubscribe());
     };
-  }, [listIds, listIdsKey]);
+  }, [userId, lists, listsKey]);
 
-  if (listIds.length === 0) {
+  if (!userId || lists.length === 0) {
     return {};
   }
 

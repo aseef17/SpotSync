@@ -5,6 +5,7 @@ import {
 } from '@/features/places/api/listPlaceMembershipFirestore';
 import { listPlaceMembershipDocId } from '@/features/places/constants/firestorePaths';
 import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
+import type { PlaceListAccessQuery } from '@/features/places/utils/placeAccess';
 
 export async function fetchListPlaceMembershipById(
   membershipId: string
@@ -14,9 +15,9 @@ export async function fetchListPlaceMembershipById(
 }
 
 export async function fetchListPlaceMembershipsForList(
-  listId: string
+  access: PlaceListAccessQuery
 ): Promise<ListPlaceMembership[]> {
-  const snapshot = await getDocs(buildListPlaceMembershipsQuery(listId, {}));
+  const snapshot = await getDocs(buildListPlaceMembershipsQuery(access, {}));
   return snapshot.docs.map((docSnap) => docSnap.data());
 }
 

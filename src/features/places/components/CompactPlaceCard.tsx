@@ -11,6 +11,9 @@ import {
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList } from '@/features/lists/types/list';
 import { themeColors } from '@/styles/colors';
+import { PassportStampBadge } from '@/features/passport/components/PassportStampBadge';
+import { PassportStampLabel } from '@/features/passport/components/PassportStampLabel';
+import { isPassportList } from '@/features/passport/utils/passportList';
 
 interface CompactPlaceCardProps {
   place: Place;
@@ -22,6 +25,8 @@ interface CompactPlaceCardProps {
 
 export const CompactPlaceCard = React.memo<CompactPlaceCardProps>(
   ({ place, list, onClick, onStatusChange, layout = false }) => {
+    const showPassportStamp = isPassportList(list) && place.passportStampId;
+
     const formatPriceLevel = (level?: number) => {
       if (!level) return '';
       return '$'.repeat(Math.min(level, 4));
@@ -40,6 +45,17 @@ export const CompactPlaceCard = React.memo<CompactPlaceCardProps>(
         className={`relative ${themeColors.background.card} rounded-lg shadow-sm border ${themeColors.border.default} hover:shadow-md transition-shadow cursor-pointer flex items-center p-3 gap-4`}
         onClick={() => onClick(place)}
       >
+        {showPassportStamp && place.passportStampId && (
+          <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
+            <PassportStampBadge
+              stampId={place.passportStampId}
+              status={place.status}
+              size="sm"
+              interactive
+              placeName={place.name}
+            />
+          </div>
+        )}
         <div className="w-20 h-20 shrink-0 bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
           {getPlaceThumbnail(place) ? (
             <CachedPlacePhoto
@@ -62,10 +78,15 @@ export const CompactPlaceCard = React.memo<CompactPlaceCardProps>(
         </div>
 
         <div className="flex-1 min-w-0 flex flex-col justify-center gap-1">
-          <div className="flex items-center justify-between gap-2">
-            <h3 className={`text-base font-medium ${themeColors.text.primary} truncate`}>
-              {place.name}
-            </h3>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <h3 className={`text-base font-medium ${themeColors.text.primary} truncate`}>
+                {place.name}
+              </h3>
+              {showPassportStamp && place.passportStampId && (
+                <PassportStampLabel stampId={place.passportStampId} className="mt-0.5" />
+              )}
+            </div>
             <div onClick={(e) => e.stopPropagation()} className="shrink-0 scale-90 origin-right">
               <PlaceStatusSelector
                 place={place}

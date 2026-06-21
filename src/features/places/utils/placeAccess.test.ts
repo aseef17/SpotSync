@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getPlaceListAccessKey, toPlaceListAccessQuery } from '@/features/places/utils/placeAccess';
+import {
+  getPlaceListAccessKey,
+  toPlaceListAccessQuery,
+  buildListPlaceMembershipAccessConstraints,
+} from '@/features/places/utils/placeAccess';
 import type { PlaceList } from '@/features/lists/types/list';
 
 const baseList = (overrides: Partial<PlaceList> = {}): PlaceList =>
@@ -55,5 +59,32 @@ describe('toPlaceListAccessQuery', () => {
       ownerId: 'owner-1',
       isPublic: false,
     });
+  });
+});
+
+describe('buildListPlaceMembershipAccessConstraints', () => {
+  it('scopes queries by listId only so stale denorm fields do not hide memberships', () => {
+    const ownerConstraints = buildListPlaceMembershipAccessConstraints({
+      listId: 'list-1',
+      userId: 'owner-1',
+      ownerId: 'owner-1',
+      isPublic: false,
+    });
+    const collaboratorConstraints = buildListPlaceMembershipAccessConstraints({
+      listId: 'list-1',
+      userId: 'user-2',
+      ownerId: 'owner-1',
+      isPublic: false,
+    });
+    const publicConstraints = buildListPlaceMembershipAccessConstraints({
+      listId: 'list-1',
+      userId: 'user-3',
+      ownerId: 'owner-1',
+      isPublic: true,
+    });
+
+    expect(ownerConstraints).toHaveLength(1);
+    expect(collaboratorConstraints).toHaveLength(1);
+    expect(publicConstraints).toHaveLength(1);
   });
 });

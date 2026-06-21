@@ -1,6 +1,9 @@
 import type { Place } from '@/features/places/types/place';
 import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
-import type { PlaceListAccessFields } from '@/features/places/utils/placeAccess';
+import type {
+  PlaceListAccessFields,
+  PlaceListAccessQuery,
+} from '@/features/places/utils/placeAccess';
 import { resolvePlaceViews } from '@/features/places/utils/resolvePlaceView';
 import { fetchGooglePlacesByIds, googlePlacesById } from '@/lib/localDb/sync/googlePlaceFetch';
 import { fetchListPlaceMembershipsForList } from '@/lib/localDb/sync/listPlaceMembershipFetch';
@@ -21,9 +24,9 @@ export async function resolvePlacesFromMemberships(
 }
 
 export async function fetchPlaceViewsForList(
-  listId: string,
+  access: PlaceListAccessQuery,
   accessFields?: PlaceListAccessFields
 ): Promise<Place[]> {
-  const memberships = await fetchListPlaceMembershipsForList(listId);
+  const memberships = await fetchListPlaceMembershipsForList(access);
   return resolvePlacesFromMemberships(memberships, accessFields);
 }

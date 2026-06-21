@@ -80,7 +80,7 @@ export function acquireListPlacesSync(
   const key = buildPlacesSyncKey(access, subscriptionLimit);
 
   return acquireSubscription(key, () => {
-    const q = buildListPlaceMembershipsQuery(access.listId, { subscriptionLimit });
+    const q = buildListPlaceMembershipsQuery(access, { subscriptionLimit });
 
     return onSnapshot(
       q,

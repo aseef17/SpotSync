@@ -24,12 +24,12 @@ service cloud.firestore {
     function isCollaborator(listData) {
       return isAuthenticated() &&
         listData.collaboratorIds != null &&
-        (request.auth.uid in listData.collaboratorIds);
+        listData.collaboratorIds.hasAny([request.auth.uid]);
     }
 
     function isEditor(listData) {
       return isOwner(listData) ||
-        (isAuthenticated() && listData.editorIds != null && request.auth.uid in listData.editorIds);
+        (isAuthenticated() && listData.editorIds != null && listData.editorIds.hasAny([request.auth.uid]));
     }
 
     function canReadList(listId) {
@@ -128,7 +128,27 @@ service cloud.firestore {
     }
 
     function canReadListPlaceMembership() {
+      // Always validate against the live list doc. Denormalized membership fields are
+      // write-time snapshots only and are not kept in sync when list access changes.
       return resource.data.listId is string && canReadList(resource.data.listId);
+    }
+
+    function membershipDenormMatchesList(listId) {
+      let list = listDoc(listId);
+      let data = request.resource.data;
+      return list.exists && (
+        !(data.listOwnerId is string) || (
+          data.listOwnerId == list.data.ownerId &&
+          data.listIsPublic == (list.data.isPublic == true) &&
+          data.listCollaboratorIds == normalizedCollaboratorIds(list.data)
+        )
+      );
+    }
+
+    function membershipDenormUpdateValid(listId) {
+      let affected = request.resource.data.diff(resource.data).affectedKeys();
+      return !affected.hasAny(['listOwnerId', 'listIsPublic', 'listCollaboratorIds']) ||
+        membershipDenormMatchesList(listId);
     }
 
     // Canonical Google place metadata (one doc per googlePlaceId)
@@ -144,12 +164,14 @@ service cloud.firestore {
 
       allow create: if isAuthenticated() &&
         request.resource.data.listId is string &&
-        canWriteList(request.resource.data.listId);
+        canWriteList(request.resource.data.listId) &&
+        membershipDenormMatchesList(request.resource.data.listId);
 
       allow update: if isAuthenticated() &&
         resource.data.listId is string &&
         canWriteList(resource.data.listId) &&
-        request.resource.data.listId == resource.data.listId;
+        request.resource.data.listId == resource.data.listId &&
+        membershipDenormUpdateValid(resource.data.listId);
 
       allow delete: if isAuthenticated() &&
         resource.data.listId is string &&

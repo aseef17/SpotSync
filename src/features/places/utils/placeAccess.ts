@@ -1,3 +1,4 @@
+import { where, type QueryConstraint } from 'firebase/firestore';
 import type { PlaceList } from '@/features/lists/types/list';
 
 /** Denormalized list access fields stored on place docs to avoid security-rule get() reads. */
@@ -26,6 +27,16 @@ export function toPlaceListAccessQuery(
     ownerId: list.ownerId,
     isPublic: list.isPublic === true,
   };
+}
+
+/** Firestore query constraints for listPlaces membership reads. */
+export function buildListPlaceMembershipAccessConstraints(
+  access: PlaceListAccessQuery
+): QueryConstraint[] {
+  // Scope by listId only; security rules validate access via canReadList(listId).
+  // Denormalized access fields on membership docs are not backfilled when list
+  // visibility or collaborators change, so they must not filter queries.
+  return [where('listId', '==', access.listId)];
 }
 
 /** Stable key for place-query subscriptions; ignores list metadata like the places array. */
