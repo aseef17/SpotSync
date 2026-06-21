@@ -5,7 +5,7 @@ import { changeTopics, subscribeToChanges } from '@/lib/localDb/changeBus';
 
 export function useDashboardPlaceCounts(
   userId: string | undefined,
-  lists: Array<Pick<PlaceList, 'id' | 'ownerId' | 'isPublic'>>
+  lists: Array<Pick<PlaceList, 'id' | 'ownerId' | 'isPublic' | 'places'>>
 ): Record<string, number> {
   const [counts, setCounts] = useState<Record<string, number>>({});
   const listsKey = useMemo(

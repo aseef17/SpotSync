@@ -63,28 +63,36 @@ describe('toPlaceListAccessQuery', () => {
 });
 
 describe('buildListPlaceMembershipAccessConstraints', () => {
-  it('scopes queries by listId only so stale denorm fields do not hide memberships', () => {
-    const ownerConstraints = buildListPlaceMembershipAccessConstraints({
+  it('scopes owner queries by listId and listOwnerId', () => {
+    const constraints = buildListPlaceMembershipAccessConstraints({
       listId: 'list-1',
       userId: 'owner-1',
       ownerId: 'owner-1',
       isPublic: false,
     });
-    const collaboratorConstraints = buildListPlaceMembershipAccessConstraints({
+
+    expect(constraints).toHaveLength(2);
+  });
+
+  it('scopes collaborator queries by listId and collaborator membership', () => {
+    const constraints = buildListPlaceMembershipAccessConstraints({
       listId: 'list-1',
       userId: 'user-2',
       ownerId: 'owner-1',
       isPublic: false,
     });
-    const publicConstraints = buildListPlaceMembershipAccessConstraints({
+
+    expect(constraints).toHaveLength(2);
+  });
+
+  it('scopes public list queries by listId and listIsPublic', () => {
+    const constraints = buildListPlaceMembershipAccessConstraints({
       listId: 'list-1',
       userId: 'user-3',
       ownerId: 'owner-1',
       isPublic: true,
     });
 
-    expect(ownerConstraints).toHaveLength(1);
-    expect(collaboratorConstraints).toHaveLength(1);
-    expect(publicConstraints).toHaveLength(1);
+    expect(constraints).toHaveLength(2);
   });
 });

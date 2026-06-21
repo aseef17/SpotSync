@@ -547,6 +547,14 @@ exports.onListUpdated = onDocumentUpdated(
 
     if (!before || !after) return;
 
+    if (listAccessFieldsChanged(before, after)) {
+      try {
+        await syncListPlaceAccessFields(getFirestore(), event.params.listId, after);
+      } catch (error) {
+        console.error('Error syncing listPlaces access fields:', error);
+      }
+    }
+
     const importCompleted = shouldNotifyImportCompleted(before, after);
 
     if (importCompleted) {
@@ -835,6 +843,72 @@ async function batchDeleteDocRefs(db, docRefs) {
     const batch = db.batch();
     docRefs.slice(i, i + BATCH_SIZE).forEach((docRef) => batch.delete(docRef));
     await batch.commit();
+  }
+}
+
+function normalizedListCollaboratorIds(list) {
+  if (Array.isArray(list.collaboratorIds) && list.collaboratorIds.length > 0) {
+    return list.collaboratorIds;
+  }
+  return [list.ownerId];
+}
+
+function listAccessFieldsChanged(before, after) {
+  return (
+    before.ownerId !== after.ownerId ||
+    before.isPublic !== after.isPublic ||
+    JSON.stringify(normalizedListCollaboratorIds(before)) !==
+      JSON.stringify(normalizedListCollaboratorIds(after))
+  );
+}
+
+/** Keep listPlaces denorm fields aligned when list visibility or collaborators change. */
+async function syncListPlaceAccessFields(db, listId, listData) {
+  const accessFields = {
+    listOwnerId: listData.ownerId,
+    listIsPublic: listData.isPublic === true,
+    listCollaboratorIds: normalizedListCollaboratorIds(listData),
+  };
+
+  const BATCH_SIZE = 400;
+  let lastDoc = null;
+
+  while (true) {
+    let query = db.collection('listPlaces').where('listId', '==', listId).limit(BATCH_SIZE);
+    if (lastDoc) {
+      query = query.startAfter(lastDoc);
+    }
+
+    const snap = await query.get();
+    if (snap.empty) {
+      break;
+    }
+
+    const batch = db.batch();
+    let batchCount = 0;
+
+    for (const doc of snap.docs) {
+      const data = doc.data();
+      const needsUpdate =
+        data.listOwnerId !== accessFields.listOwnerId ||
+        data.listIsPublic !== accessFields.listIsPublic ||
+        JSON.stringify(data.listCollaboratorIds || []) !==
+          JSON.stringify(accessFields.listCollaboratorIds);
+
+      if (needsUpdate) {
+        batch.update(doc.ref, accessFields);
+        batchCount += 1;
+      }
+    }
+
+    if (batchCount > 0) {
+      await batch.commit();
+    }
+
+    lastDoc = snap.docs[snap.docs.length - 1];
+    if (snap.size < BATCH_SIZE) {
+      break;
+    }
   }
 }
 

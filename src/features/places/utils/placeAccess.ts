@@ -33,10 +33,17 @@ export function toPlaceListAccessQuery(
 export function buildListPlaceMembershipAccessConstraints(
   access: PlaceListAccessQuery
 ): QueryConstraint[] {
-  // Scope by listId only; security rules validate access via canReadList(listId).
-  // Denormalized access fields on membership docs are not backfilled when list
-  // visibility or collaborators change, so they must not filter queries.
-  return [where('listId', '==', access.listId)];
+  const { listId, userId, ownerId, isPublic } = access;
+
+  if (userId === ownerId) {
+    return [where('listId', '==', listId), where('listOwnerId', '==', ownerId)];
+  }
+
+  if (isPublic) {
+    return [where('listId', '==', listId), where('listIsPublic', '==', true)];
+  }
+
+  return [where('listId', '==', listId), where('listCollaboratorIds', 'array-contains', userId)];
 }
 
 /** Stable key for place-query subscriptions; ignores list metadata like the places array. */
