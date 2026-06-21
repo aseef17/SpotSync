@@ -14,6 +14,21 @@ export interface Collaborator {
   joinedAt?: Date;
 }
 
+export interface PassportInfoLink {
+  label: string;
+  url: string;
+  category?: string;
+}
+
+export interface PassportConfig {
+  referenceImageUrl?: string;
+  googleMapsListUrl?: string;
+  sheetUrl?: string;
+  infoLinks?: PassportInfoLink[];
+}
+
+export type ListKind = 'nyc_passport';
+
 export interface PlaceList {
   id: string;
   clientId?: string; // Stable ID for UI key tracking to prevent remounts during optimistic updates
@@ -41,4 +56,7 @@ export interface PlaceList {
   importInProgress?: boolean;
   /** Set when importInProgress clears; triggers a single summary notification. */
   lastImportCount?: number;
+  /** Special list modes with custom UI (e.g. NYC Neighborhood Passport). */
+  listKind?: ListKind;
+  passportConfig?: PassportConfig;
 }

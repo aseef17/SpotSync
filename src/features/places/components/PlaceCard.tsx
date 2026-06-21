@@ -12,6 +12,9 @@ import {
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList } from '@/features/lists/types/list';
 import { themeColors } from '@/styles/colors';
+import { PassportStampBadge } from '@/features/passport/components/PassportStampBadge';
+import { PassportStampLabel } from '@/features/passport/components/PassportStampLabel';
+import { isPassportList } from '@/features/passport/utils/passportList';
 
 interface PlaceCardProps {
   place: Place;
@@ -24,6 +27,8 @@ interface PlaceCardProps {
 
 export const PlaceCard = React.memo<PlaceCardProps>(
   ({ place, list, onClick, onStatusChange, layout = false, density = 'compact' }) => {
+    const showPassportStamp = isPassportList(list) && place.passportStampId;
+
     return (
       <motion.div
         layout={layout}
@@ -40,10 +45,13 @@ export const PlaceCard = React.memo<PlaceCardProps>(
         <div className="flex-1 min-w-0 flex flex-col justify-center">
           <div className="mb-1">
             <h3
-              className={`text-[15px] font-semibold ${themeColors.text.primary} mb-0.5 line-clamp-1`}
+              className={`text-[15px] font-semibold ${themeColors.text.primary} line-clamp-1`}
             >
               {place.name}
             </h3>
+            {showPassportStamp && place.passportStampId && (
+              <PassportStampLabel stampId={place.passportStampId} className="mt-0.5 mb-1" />
+            )}
             <div
               className={`flex items-center gap-1.5 text-[13px] ${themeColors.text.secondary} mb-1`}
             >
@@ -54,7 +62,11 @@ export const PlaceCard = React.memo<PlaceCardProps>(
                 </div>
               )}
               {place.rating && <span className="text-gray-400 text-[10px]">•</span>}
-              {place.category && <span className="truncate">{place.category}</span>}
+              {place.passportCategory ? (
+                <span className="truncate">{place.passportCategory}</span>
+              ) : (
+                place.category && <span className="truncate">{place.category}</span>
+              )}
               {place.priceLevel !== undefined && place.priceLevel > 0 && (
                 <>
                   <span className="text-gray-400 text-[10px]">•</span>
@@ -136,7 +148,17 @@ export const PlaceCard = React.memo<PlaceCardProps>(
               </div>
             )}
           </div>
-          <div className="absolute -top-2 -right-2 z-10" onClick={(e) => e.stopPropagation()}>
+          <div className="absolute -top-2 -right-2 z-10 flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
+            {showPassportStamp && place.passportStampId && (
+              <PassportStampBadge
+                stampId={place.passportStampId}
+                status={place.status}
+                size="sm"
+                interactive
+                placeName={place.name}
+                className="ring-2 ring-white dark:ring-gray-900 rounded-full bg-white/90 dark:bg-gray-900/90"
+              />
+            )}
             <PlaceStatusSelector
               place={place}
               customStatuses={list.customStatuses}

@@ -495,7 +495,7 @@ export class GoogleMapsService {
     if (photoName.startsWith('http')) return photoName;
 
     if (photoName.startsWith('places/')) {
-      const apiKey = this.apiKey || import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
       if (!apiKey) {
         logger.warn('No API key available for photo URL generation');
         return '';

@@ -19,6 +19,12 @@ import { themeColors } from '@/styles/colors';
 import { CustomDropdown } from '@/components/Elements/Dropdown/CustomDropdown';
 import { MultiSelectDropdown } from '@/components/Elements/Dropdown/MultiSelectDropdown';
 import { MobileFilterSheet } from '@/features/places/components/MobileFilterSheet';
+import { PASSPORT_STAMP_BY_ID } from '@/features/passport/constants/stamps';
+import {
+  countNonDefaultPlaceFilters,
+  getDefaultPlaceFilters,
+  hasNonDefaultPlaceFilters,
+} from '@/features/places/utils/defaultPlaceFilters';
 
 interface PlaceFiltersProps {
   filters: FilterOptions;
@@ -41,6 +47,9 @@ interface PlaceFiltersProps {
   isInSidebar?: boolean;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  isPassportList?: boolean;
+  availablePassportStamps?: string[];
+  availablePassportCategories?: string[];
 }
 
 export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
@@ -64,6 +73,9 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
   isInSidebar = false,
   isCollapsed = false,
   onToggleCollapse,
+  isPassportList = false,
+  availablePassportStamps = [],
+  availablePassportCategories = [],
 }) => {
   const [activeMobileFilter, setActiveMobileFilter] = useState<
     'sort' | 'status' | 'category' | 'price' | 'rating' | 'cuisine' | null
@@ -105,27 +117,22 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
   };
 
   const clearFilters = () => {
-    onFiltersChange({});
+    onFiltersChange(getDefaultPlaceFilters(isPassportList));
     if (isAiMode && onAiModeChange) {
       onAiModeChange(false);
     }
     setLocalSearchQuery('');
   };
 
-  const hasActiveFilters = !!(
-    filters.searchQuery ||
-    filters.status ||
-    filters.category ||
-    filters.cuisine ||
-    filters.openNow ||
-    filters.minRating ||
-    filters.maxRating ||
-    filters.priceLevel
-  );
+  const hasActiveFilters = hasNonDefaultPlaceFilters(filters, isPassportList);
 
-  const hasCategoryFilter = Array.isArray(filters.category)
-    ? filters.category.length > 0
-    : !!filters.category;
+  const hasCategoryFilter = isPassportList
+    ? Array.isArray(filters.passportStamp)
+      ? filters.passportStamp.length > 0
+      : !!filters.passportStamp
+    : Array.isArray(filters.category)
+      ? filters.category.length > 0
+      : !!filters.category;
   const isDefaultSort =
     `${filters.sortBy || 'date'}-${filters.sortDirection || 'desc'}` === 'date-desc';
 
@@ -229,6 +236,33 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
                 >
                   <ArrowUpDown className="h-5 w-5" />
                 </button>
+
+                {isPassportList && (
+                  <button
+                    onClick={() =>
+                      updateFilter('passportHasStamp', !filters.passportHasStamp ? true : undefined)
+                    }
+                    className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+                      filters.passportHasStamp
+                        ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+                        : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+                    }`}
+                  >
+                    Has Stamp
+                  </button>
+                )}
+
+                <button
+                  onClick={() => updateFilter('openNow', !filters.openNow ? true : undefined)}
+                  className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+                    filters.openNow
+                      ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+                      : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+                  }`}
+                >
+                  Open Now
+                </button>
+
                 <button
                   onClick={() => setActiveMobileFilter('status')}
                   className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
@@ -248,17 +282,39 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
                 <button
                   onClick={() => setActiveMobileFilter('category')}
                   className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
-                    filters.category
+                    hasCategoryFilter
                       ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
                       : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
                   }`}
                 >
-                  {Array.isArray(filters.category) && filters.category.length > 0
-                    ? `${filters.category.length} Categories`
-                    : typeof filters.category === 'string'
-                      ? filters.category
-                      : 'Category'}
+                  {isPassportList
+                    ? Array.isArray(filters.passportStamp) && filters.passportStamp.length > 0
+                      ? `${filters.passportStamp.length} Stamps`
+                      : typeof filters.passportStamp === 'string'
+                        ? PASSPORT_STAMP_BY_ID[filters.passportStamp]?.name ?? 'Stamp'
+                        : 'Stamp'
+                    : Array.isArray(filters.category) && filters.category.length > 0
+                      ? `${filters.category.length} Categories`
+                      : typeof filters.category === 'string'
+                        ? filters.category
+                        : 'Category'}
                 </button>
+                {isPassportList && availablePassportCategories.length > 0 && (
+                  <button
+                    onClick={() => setActiveMobileFilter('cuisine')}
+                    className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
+                      filters.passportCategory
+                        ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
+                        : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
+                    }`}
+                  >
+                    {Array.isArray(filters.passportCategory) && filters.passportCategory.length > 0
+                      ? `${filters.passportCategory.length} Types`
+                      : typeof filters.passportCategory === 'string'
+                        ? filters.passportCategory
+                        : 'Venue type'}
+                  </button>
+                )}
                 <button
                   onClick={() => setActiveMobileFilter('price')}
                   className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
@@ -284,22 +340,12 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
                   {filters.minRating ? `${filters.minRating}+ Stars` : 'Rating'}
                 </button>
 
-                <button
-                  onClick={() => updateFilter('openNow', !filters.openNow ? true : undefined)}
-                  className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
-                    filters.openNow
-                      ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800'
-                      : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary}`
-                  }`}
-                >
-                  Open Now
-                </button>
-
                 {((Array.isArray(filters.category) &&
                   filters.category.some((c) => c.toLowerCase().includes('restaurant'))) ||
                   (typeof filters.category === 'string' &&
                     filters.category.toLowerCase().includes('restaurant'))) &&
-                  availableCuisines.length > 0 && (
+                  availableCuisines.length > 0 &&
+                  !isPassportList && (
                     <button
                       onClick={() => setActiveMobileFilter('cuisine')}
                       className={`px-3 py-1.5 rounded-full border text-sm font-medium whitespace-nowrap flex-shrink-0 ${
@@ -452,6 +498,38 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
                 : 'flex flex-wrap items-stretch gap-2 flex-1 min-w-0'
             }
           >
+            {isPassportList && (
+              <div className={isInSidebar ? 'w-full' : ''}>
+                <button
+                  type="button"
+                  onClick={() =>
+                    updateFilter('passportHasStamp', !filters.passportHasStamp ? true : undefined)
+                  }
+                  className={`w-full h-10 px-3 border rounded-lg flex items-center justify-center whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                    filters.passportHasStamp
+                      ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 font-medium'
+                      : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary} hover:bg-gray-50 dark:hover:bg-gray-800/50`
+                  }`}
+                >
+                  Has Stamp
+                </button>
+              </div>
+            )}
+
+            <div className={isInSidebar ? 'w-full' : ''}>
+              <button
+                type="button"
+                onClick={() => updateFilter('openNow', !filters.openNow ? true : undefined)}
+                className={`w-full h-10 px-3 border rounded-lg flex items-center justify-center whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  filters.openNow
+                    ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 font-medium'
+                    : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary} hover:bg-gray-50 dark:hover:bg-gray-800/50`
+                }`}
+              >
+                Open Now
+              </button>
+            </div>
+
             <CustomDropdown
               value={filters.status || 'all'}
               options={allStatuses.map((s) => ({ value: s.value, label: s.label }))}
@@ -463,22 +541,44 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
               isActive={!!filters.status}
             />
 
-            <MultiSelectDropdown
-              value={
-                Array.isArray(filters.category)
-                  ? filters.category
-                  : filters.category
-                    ? [filters.category]
-                    : []
-              }
-              options={[...availableCategories.map((c) => ({ value: c, label: c }))]}
-              onChange={(value: string[]) =>
-                updateFilter('category', value.length > 0 ? value : undefined)
-              }
-              placeholder="All Categories"
-              className={isInSidebar ? 'w-full' : 'w-48'}
-              isActive={hasCategoryFilter}
-            />
+            {isPassportList ? (
+              <MultiSelectDropdown
+                value={
+                  Array.isArray(filters.passportStamp)
+                    ? filters.passportStamp
+                    : filters.passportStamp
+                      ? [filters.passportStamp]
+                      : []
+                }
+                options={availablePassportStamps.map((id) => ({
+                  value: id,
+                  label: PASSPORT_STAMP_BY_ID[id]?.name ?? id,
+                }))}
+                onChange={(value: string[]) =>
+                  updateFilter('passportStamp', value.length > 0 ? value : undefined)
+                }
+                placeholder="All Stamps"
+                className={isInSidebar ? 'w-full' : 'w-48'}
+                isActive={hasCategoryFilter}
+              />
+            ) : (
+              <MultiSelectDropdown
+                value={
+                  Array.isArray(filters.category)
+                    ? filters.category
+                    : filters.category
+                      ? [filters.category]
+                      : []
+                }
+                options={[...availableCategories.map((c) => ({ value: c, label: c }))]}
+                onChange={(value: string[]) =>
+                  updateFilter('category', value.length > 0 ? value : undefined)
+                }
+                placeholder="All Categories"
+                className={isInSidebar ? 'w-full' : 'w-48'}
+                isActive={hasCategoryFilter}
+              />
+            )}
 
             <CustomDropdown
               value={`${filters.sortBy || 'date'}-${filters.sortDirection || 'desc'}`}
@@ -513,11 +613,35 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
               isActive={!isDefaultSort}
             />
 
+            {isPassportList && availablePassportCategories.length > 0 && (
+              <MultiSelectDropdown
+                value={
+                  Array.isArray(filters.passportCategory)
+                    ? filters.passportCategory
+                    : filters.passportCategory
+                      ? [filters.passportCategory]
+                      : []
+                }
+                options={availablePassportCategories.map((c) => ({ value: c, label: c }))}
+                onChange={(value: string[]) =>
+                  updateFilter('passportCategory', value.length > 0 ? value : undefined)
+                }
+                placeholder="All Venue Types"
+                className={isInSidebar ? 'w-full' : 'w-44'}
+                isActive={
+                  Array.isArray(filters.passportCategory)
+                    ? filters.passportCategory.length > 0
+                    : !!filters.passportCategory
+                }
+              />
+            )}
+
             {((Array.isArray(filters.category) &&
               filters.category.some((c) => c.toLowerCase().includes('restaurant'))) ||
               (typeof filters.category === 'string' &&
                 filters.category.toLowerCase().includes('restaurant'))) &&
-              availableCuisines.length > 0 && (
+              availableCuisines.length > 0 &&
+              !isPassportList && (
                 <CustomDropdown
                   value={filters.cuisine || ''}
                   options={[
@@ -530,20 +654,6 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
                   isActive={!!filters.cuisine}
                 />
               )}
-
-            <div className={isInSidebar ? 'w-full' : ''}>
-              <button
-                type="button"
-                onClick={() => updateFilter('openNow', !filters.openNow ? true : undefined)}
-                className={`w-full h-10 px-3 border rounded-lg flex items-center justify-center whitespace-nowrap transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  filters.openNow
-                    ? 'bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-900/20 dark:border-blue-800 dark:text-blue-400 font-medium'
-                    : `${themeColors.background.card} ${themeColors.border.default} ${themeColors.text.secondary} hover:bg-gray-50 dark:hover:bg-gray-800/50`
-                }`}
-              >
-                Open Now
-              </button>
-            </div>
 
             <CustomDropdown
               value={filters.minRating?.toString() || ''}
@@ -654,30 +764,7 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
             <>
               <span className="text-gray-300 dark:text-gray-700">•</span>
               <span className="text-blue-600 font-medium flex items-center gap-2">
-                {(() => {
-                  let count = 0;
-                  // Status check
-                  if (filters.status) count++;
-                  // Category check (string or non-empty array)
-                  if (
-                    Array.isArray(filters.category)
-                      ? filters.category.length > 0
-                      : !!filters.category
-                  )
-                    count++;
-                  // Price check
-                  if (filters.priceLevel && filters.priceLevel.length > 0) count++;
-                  // Rating check
-                  if (filters.minRating) count++;
-                  // Open Now check
-                  if (filters.openNow) count++;
-                  // Cuisine check
-                  if (filters.cuisine) count++;
-                  if (filters.sortBy && filters.sortBy !== 'date') count++;
-
-                  return count;
-                })()}{' '}
-                filters
+                {countNonDefaultPlaceFilters(filters, isPassportList)} filters
                 <button
                   onClick={clearFilters}
                   className="text-[10px] font-bold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 uppercase tracking-wide transition-colors"
@@ -697,6 +784,10 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
         onFiltersChange={onFiltersChange}
         updateFilter={updateFilter}
         availableCategories={availableCategories}
+        availableCuisines={availableCuisines}
+        isPassportList={isPassportList}
+        availablePassportStamps={availablePassportStamps}
+        availablePassportCategories={availablePassportCategories}
         customStatuses={customStatuses}
         userLocation={userLocation}
       />

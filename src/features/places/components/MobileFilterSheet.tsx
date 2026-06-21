@@ -2,6 +2,7 @@ import { X, Check } from 'lucide-react';
 import { themeColors } from '@/styles/colors';
 import type { FilterOptions } from '@/features/places/types/filters';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PASSPORT_STAMP_BY_ID } from '@/features/passport/constants/stamps';
 
 interface MobileFilterSheetProps {
   activeFilter: 'sort' | 'status' | 'category' | 'price' | 'rating' | 'cuisine' | null;
@@ -11,6 +12,9 @@ interface MobileFilterSheetProps {
   updateFilter: (key: keyof FilterOptions, value: FilterOptions[keyof FilterOptions]) => void;
   availableCategories: string[];
   availableCuisines?: string[];
+  isPassportList?: boolean;
+  availablePassportStamps?: string[];
+  availablePassportCategories?: string[];
   customStatuses: string[];
   userLocation?: { lat: number; lng: number } | null;
 }
@@ -22,6 +26,10 @@ export const MobileFilterSheet: React.FunctionComponent<MobileFilterSheetProps> 
   onFiltersChange,
   updateFilter,
   availableCategories,
+  availableCuisines = [],
+  isPassportList = false,
+  availablePassportStamps = [],
+  availablePassportCategories = [],
   customStatuses,
   userLocation,
 }) => {
@@ -54,7 +62,13 @@ export const MobileFilterSheet: React.FunctionComponent<MobileFilterSheetProps> 
               className={`flex items-center justify-between px-4 py-2 border-b ${themeColors.border.default}`}
             >
               <h3 className={`font-semibold ${themeColors.text.primary} capitalize`}>
-                {activeFilter === 'sort' ? 'Sort By' : `Select ${activeFilter}`}
+                {activeFilter === 'sort'
+                  ? 'Sort By'
+                  : isPassportList && activeFilter === 'category'
+                    ? 'Select Stamp'
+                    : isPassportList && activeFilter === 'cuisine'
+                      ? 'Select Venue Type'
+                      : `Select ${activeFilter}`}
               </h3>
               <button onClick={onClose} className={`p-1 rounded-full ${themeColors.button.icon}`}>
                 <X className="h-5 w-5" />
@@ -142,7 +156,61 @@ export const MobileFilterSheet: React.FunctionComponent<MobileFilterSheetProps> 
                 </div>
               )}
 
-              {activeFilter === 'category' && (
+              {activeFilter === 'category' && isPassportList && (
+                <div className="flex flex-col">
+                  <div className="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700">
+                    <button
+                      onClick={() => updateFilter('passportStamp', availablePassportStamps)}
+                      className="text-sm font-medium text-blue-500 hover:text-blue-600 px-2 py-1"
+                    >
+                      Select All
+                    </button>
+                    <button
+                      onClick={() => updateFilter('passportStamp', undefined)}
+                      className={`text-sm font-medium ${themeColors.text.secondary} hover:text-red-500 px-2 py-1`}
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <div className="space-y-1 py-1">
+                    {availablePassportStamps.map((stampId) => {
+                      const isSelected = Array.isArray(filters.passportStamp)
+                        ? filters.passportStamp.includes(stampId)
+                        : filters.passportStamp === stampId;
+
+                      return (
+                        <button
+                          key={stampId}
+                          onClick={() => {
+                            let next: string[] = [];
+                            if (Array.isArray(filters.passportStamp)) {
+                              next = [...filters.passportStamp];
+                            } else if (filters.passportStamp) {
+                              next = [filters.passportStamp];
+                            }
+                            if (isSelected) {
+                              next = next.filter((id) => id !== stampId);
+                            } else {
+                              next.push(stampId);
+                            }
+                            updateFilter('passportStamp', next.length > 0 ? next : undefined);
+                          }}
+                          className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left font-medium ${
+                            isSelected
+                              ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                              : `${themeColors.text.primary} hover:bg-gray-50 dark:hover:bg-gray-800`
+                          }`}
+                        >
+                          {PASSPORT_STAMP_BY_ID[stampId]?.name ?? stampId}
+                          {isSelected && <Check className="h-4 w-4" />}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {activeFilter === 'category' && !isPassportList && (
                 <div className="flex flex-col">
                   <div className="flex items-center justify-between p-2 border-b ${themeColors.border.default}">
                     <button
@@ -342,7 +410,43 @@ export const MobileFilterSheet: React.FunctionComponent<MobileFilterSheetProps> 
                 </div>
               )}
 
-              {activeFilter === 'cuisine' && (
+              {activeFilter === 'cuisine' && isPassportList && (
+                <div className="space-y-1">
+                  <button
+                    onClick={() => {
+                      updateFilter('passportCategory', undefined);
+                      onClose();
+                    }}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left font-medium ${
+                      !filters.passportCategory
+                        ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                        : `${themeColors.text.primary} hover:bg-gray-50 dark:hover:bg-gray-800`
+                    }`}
+                  >
+                    All Venue Types
+                    {!filters.passportCategory && <Check className="h-4 w-4" />}
+                  </button>
+                  {availablePassportCategories.map((category) => (
+                    <button
+                      key={category}
+                      onClick={() => {
+                        updateFilter('passportCategory', category);
+                        onClose();
+                      }}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg text-left font-medium ${
+                        filters.passportCategory === category
+                          ? 'bg-blue-50 text-blue-600 dark:bg-blue-900/20 dark:text-blue-400'
+                          : `${themeColors.text.primary} hover:bg-gray-50 dark:hover:bg-gray-800`
+                      }`}
+                    >
+                      {category}
+                      {filters.passportCategory === category && <Check className="h-4 w-4" />}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {activeFilter === 'cuisine' && !isPassportList && (
                 <div className="space-y-1">
                   <button
                     onClick={() => {
@@ -358,11 +462,7 @@ export const MobileFilterSheet: React.FunctionComponent<MobileFilterSheetProps> 
                     All Cuisines
                     {!filters.cuisine && <Check className="h-4 w-4" />}
                   </button>
-                  {availableCategories.map((cuisine) => (
-                    // Note: availableCategories prop is reused for cuisines here to avoid prop drilling complex names,
-                    // but strictly we should use the new availableCuisines prop.
-                    // Let's use availableCategories for now as the logic below implies we need to pass the right list.
-                    // Wait, I should use the proper prop 'availableCuisines' which I'm adding.
+                  {availableCuisines.map((cuisine) => (
                     <button
                       key={cuisine}
                       onClick={() => {

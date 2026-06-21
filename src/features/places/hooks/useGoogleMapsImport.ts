@@ -2,6 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { PlaceService } from '@/features/places/api/placeService';
 import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
+import { listRepository } from '@/lib/localDb/repositories/listRepository';
+import { toPlaceListAccessQuery } from '@/features/places/utils/placeAccess';
 import { ListService } from '@/features/lists/api/listService';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { parseTakeoutJson, type ParsedPlace } from '@/utils/googleTakeoutParser';
@@ -102,10 +104,15 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
     if (!importUrl) return;
 
     try {
-      if (targetListId && targetListId !== 'new') {
+      if (targetListId && targetListId !== 'new' && user?.id) {
         const placeId = extractPlaceIdFromUrl(importUrl);
         if (placeId) {
-          const existingPlaces = await placeRepository.getAllForList(targetListId);
+          const list = await listRepository.getById(targetListId);
+          const existingPlaces = list
+            ? await placeRepository.getAllForList(
+                toPlaceListAccessQuery(targetListId, user.id, list)
+              )
+            : await placeRepository.getForList(targetListId);
           if (existingPlaces.some((p) => p.googlePlaceId === placeId || p.id === placeId)) {
             toast.info('This place is already in the list.');
             return;
@@ -217,7 +224,10 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
       await ListService.ensureListExists(listId);
 
       logger.info(`Checking for duplicates in list ${listId}...`);
-      const listPlaces = await placeRepository.getAllForList(listId);
+      const list = await listRepository.getById(listId);
+      const listPlaces = list
+        ? await placeRepository.getAllForList(toPlaceListAccessQuery(listId, user.id, list))
+        : await placeRepository.getForList(listId);
       const existingMap = new Map<string, boolean>();
 
       listPlaces.forEach((p) => {

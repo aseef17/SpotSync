@@ -12,6 +12,9 @@ import {
 } from '@/features/places/utils/placeHelpers';
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList } from '@/features/lists/types/list';
+import { PassportStampBadge } from '@/features/passport/components/PassportStampBadge';
+import { PassportStampLabel } from '@/features/passport/components/PassportStampLabel';
+import { isPassportList } from '@/features/passport/utils/passportList';
 
 interface MobilePlaceCardProps {
   place: Place;
@@ -22,6 +25,7 @@ interface MobilePlaceCardProps {
 
 export const MobilePlaceCard = React.memo<MobilePlaceCardProps>(
   ({ place, list, userLocation, onClick }) => {
+    const showPassportStamp = isPassportList(list) && place.passportStampId;
     const hoursText = getTodayHoursText(place);
     const categoryText = place.category ? formatCategoryName(place.category) : undefined;
     const distanceText = formatPlaceDistance(place, userLocation);
@@ -30,17 +34,33 @@ export const MobilePlaceCard = React.memo<MobilePlaceCardProps>(
     return (
       <div
         onClick={() => onClick(place)}
-        className={`${themeColors.background.card} mb-3 pb-3 border-b ${themeColors.border.default} last:border-0 cursor-pointer`}
+        className={`${themeColors.background.card} mb-3 pb-3 border-b ${themeColors.border.default} last:border-0 cursor-pointer relative`}
       >
-        <div className="flex justify-between items-start mb-1">
-          <div className="flex-1 min-w-0 mr-2 flex items-center gap-2">
-            <h3 className={`text-base font-semibold ${themeColors.text.primary} line-clamp-1`}>
-              {place.name}
-            </h3>
-            {place.id.startsWith('temp-') && (
-              <span className="px-1.5 py-0.5 text-[9px] font-bold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded uppercase tracking-tighter flex-shrink-0">
-                Saving...
-              </span>
+        {showPassportStamp && place.passportStampId && (
+          <div className="absolute top-0 right-0 z-10" onClick={(e) => e.stopPropagation()}>
+            <PassportStampBadge
+              stampId={place.passportStampId}
+              status={place.status}
+              size="sm"
+              interactive
+              placeName={place.name}
+            />
+          </div>
+        )}
+        <div className="flex justify-between items-start mb-0.5 pr-10">
+          <div className="flex-1 min-w-0 mr-2">
+            <div className="flex items-center gap-2">
+              <h3 className={`text-base font-semibold ${themeColors.text.primary} line-clamp-1`}>
+                {place.name}
+              </h3>
+              {place.id.startsWith('temp-') && (
+                <span className="px-1.5 py-0.5 text-[9px] font-bold bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 rounded uppercase tracking-tighter flex-shrink-0">
+                  Saving...
+                </span>
+              )}
+            </div>
+            {showPassportStamp && place.passportStampId && (
+              <PassportStampLabel stampId={place.passportStampId} className="mt-0.5" />
             )}
           </div>
           {place.status !== 'not_visited' && (
@@ -74,7 +94,13 @@ export const MobilePlaceCard = React.memo<MobilePlaceCardProps>(
               <span>{formatPrice(place.priceLevel)}</span>
             </>
           )}
-          {categoryText && (
+          {place.passportCategory && (
+            <>
+              <span>·</span>
+              <span className="truncate max-w-[120px]">{place.passportCategory}</span>
+            </>
+          )}
+          {categoryText && !place.passportCategory && (
             <>
               <span>·</span>
               <span className="truncate max-w-[120px] capitalize">{categoryText}</span>

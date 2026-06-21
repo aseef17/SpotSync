@@ -116,7 +116,6 @@ async function hydrateOwnedListsFromCache(userId: string): Promise<void> {
   }
 
   stateAfterCacheRead.ownedLists = await resolveOwnedListsFromDashboardCache(cachedLists);
-  stateAfterCacheRead.ownedListsHydrated = true;
   await publishUserLists(userId);
 }
 

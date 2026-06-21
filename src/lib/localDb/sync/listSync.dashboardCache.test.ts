@@ -456,6 +456,7 @@ describe('dashboard cache publish gating', () => {
 
     acquireUserOwnedListsSync('user-1');
     setUserSavedListIds('user-1', []);
+    ownedListsSnapshotHandler?.(makeOwnedListsSnapshot());
     await flushAsyncWork();
 
     expect(syncCachedUserListsMock).toHaveBeenCalledWith('user-1', [ownedList]);

@@ -609,12 +609,15 @@ export const useListDetails = (listId: string | undefined) => {
   }, [listId]);
 
   const loadMorePlaces = useCallback(async () => {
-    if (!listId || loadingMore || !listAccessibleRef.current) return;
+    if (!placeAccessQuery || loadingMore || !listAccessibleRef.current) return;
 
     setLoadingMore(true);
     try {
       if (!paginationCursorRef.current) {
-        const initialPage = await placeRepository.fetchPage(listId, PLACES_SUBSCRIPTION_LIMIT);
+        const initialPage = await placeRepository.fetchPage(
+          placeAccessQuery,
+          PLACES_SUBSCRIPTION_LIMIT
+        );
         paginationCursorRef.current = initialPage.lastDoc;
         if (!initialPage.hasMore) {
           setHasMorePlaces(false);
@@ -628,7 +631,7 @@ export const useListDetails = (listId: string | undefined) => {
         return;
       }
 
-      const page = await placeRepository.fetchPage(listId, PLACES_PAGE_SIZE, cursor);
+      const page = await placeRepository.fetchPage(placeAccessQuery, PLACES_PAGE_SIZE, cursor);
 
       if (!shouldApplyCachedListDetails(listAccessibleRef.current, false)) {
         return;
@@ -648,7 +651,7 @@ export const useListDetails = (listId: string | undefined) => {
     } finally {
       setLoadingMore(false);
     }
-  }, [listId, loadingMore]);
+  }, [placeAccessQuery, loadingMore]);
 
   useEffect(() => {
     if ((!listLoading && !placesLoading) || !listId) return;

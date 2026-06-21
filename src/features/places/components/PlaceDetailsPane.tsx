@@ -31,6 +31,8 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import type { Place } from '@/features/places/types/place';
 import { useToast } from '@/hooks/useToast';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
+import { PassportStampBadge } from '@/features/passport/components/PassportStampBadge';
+import { PassportStampLabel } from '@/features/passport/components/PassportStampLabel';
 
 export interface PlaceDetailsPaneProps {
   place: Place;
@@ -260,17 +262,32 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
   return (
     <div className={`light-bg-card flex h-full min-h-0 flex-col ${className}`}>
       <div
-        className={`flex shrink-0 items-center border-b light-border-default ${
+        className={`flex shrink-0 items-start gap-3 border-b light-border-default ${
           compact ? 'px-3 py-3' : 'px-5 py-4'
         }`}
       >
-        <h2
-          className={`light-text-primary font-semibold leading-snug ${
-            compact ? 'text-base' : 'truncate text-xl'
-          }`}
-        >
-          {place.name}
-        </h2>
+        <div className="min-w-0 flex-1">
+          <h2
+            className={`light-text-primary font-semibold leading-snug ${
+              compact ? 'text-base' : 'truncate text-xl'
+            }`}
+          >
+            {place.name}
+          </h2>
+          {place.passportStampId && (
+            <PassportStampLabel stampId={place.passportStampId} className="mt-1" />
+          )}
+        </div>
+        {place.passportStampId && (
+          <PassportStampBadge
+            stampId={place.passportStampId}
+            status={place.status}
+            size="md"
+            interactive
+            placeName={place.name}
+            className="shrink-0 ring-2 ring-white dark:ring-gray-900 rounded-full bg-white/90 dark:bg-gray-900/90"
+          />
+        )}
       </div>
 
       <div

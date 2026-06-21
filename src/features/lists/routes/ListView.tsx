@@ -46,6 +46,14 @@ import { ConnectionIssueCard } from '@/components/Layout/ConnectionIssueCard';
 import { buildAskListPlacesSummary } from '@/features/places/utils/askListPlacesSummary';
 import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
 import { useInitialCacheHydrationScope } from '@/hooks/useInitialCacheHydrationScope';
+import { PassportProgressBanner } from '@/features/passport/components/PassportProgressBanner';
+import { PassportInfoModal } from '@/features/passport/components/PassportInfoModal';
+import {
+  computePassportProgress,
+  getAvailablePassportCategories,
+  getAvailablePassportStamps,
+  isPassportList,
+} from '@/features/passport/utils/passportList';
 
 export const ListView: React.FunctionComponent = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -123,6 +131,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
   const [aiMatchedIds, setAiMatchedIds] = useState<string[] | null>(null);
   const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [showPassportInfo, setShowPassportInfo] = useState(false);
 
   useEffect(() => {
     if (isMobile || !navigator.geolocation) return;
@@ -227,12 +236,14 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
     });
   }, []);
 
+  const passportMode = isPassportList(displayedList);
+
   const { filters, setFilters, filteredPlaces, viewMode, setViewMode } = usePlaceFilters(
     visiblePlaces,
-    userLocation
+    userLocation,
+    { listId, isPassportList: passportMode }
   );
 
-  // Base set of places for filter calculations (Dropdown options)
   const aiMatchedPlaces = React.useMemo(() => {
     if (aiMatchedIds === null) return null;
     return visiblePlaces.filter((p) => aiMatchedIds.includes(p.id));
@@ -252,6 +263,19 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
       ],
     };
   }, [basePlaces]);
+
+  const availablePassportStamps = React.useMemo(
+    () => (passportMode ? getAvailablePassportStamps(basePlaces) : []),
+    [passportMode, basePlaces]
+  );
+  const availablePassportCategories = React.useMemo(
+    () => (passportMode ? getAvailablePassportCategories(basePlaces) : []),
+    [passportMode, basePlaces]
+  );
+  const passportProgress = React.useMemo(
+    () => (passportMode ? computePassportProgress(visiblePlaces) : null),
+    [passportMode, visiblePlaces]
+  );
 
   // Final list to show: Intersection of (Standard Filters) AND (AI Matches)
   const effectiveFilteredPlaces = React.useMemo(() => {
@@ -720,10 +744,11 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                               />
                             ),
                             onClick: async () => {
+                              if (!user?.id) return;
                               setIsSyncingPhotos(true);
                               toast.info('Syncing photos in the background...');
                               try {
-                                const syncResult = await PlaceService.syncListPhotos(list.id);
+                                const syncResult = await PlaceService.syncListPhotos(list.id, user.id);
                                 if (
                                   syncResult.photoFailures > 0 ||
                                   syncResult.placePersistFailures > 0
@@ -775,10 +800,11 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                         {places.length > 0 && (
                           <button
                             onClick={async () => {
+                              if (!user?.id) return;
                               setIsSyncingPhotos(true);
                               toast.info('Syncing photos in the background...');
                               try {
-                                const syncResult = await PlaceService.syncListPhotos(list.id);
+                                const syncResult = await PlaceService.syncListPhotos(list.id, user.id);
                                 if (
                                   syncResult.photoFailures > 0 ||
                                   syncResult.placePersistFailures > 0
@@ -878,12 +904,22 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                     </div>
                   )}
 
+                  {passportMode && passportProgress && (
+                    <PassportProgressBanner
+                      progress={passportProgress}
+                      onInfoClick={() => setShowPassportInfo(true)}
+                    />
+                  )}
+
                   {places.length > 0 && (
                     <PlaceFilters
                       filters={filters}
                       onFiltersChange={setFilters}
                       availableCategories={availableCategories}
                       availableCuisines={availableCuisines}
+                      isPassportList={passportMode}
+                      availablePassportStamps={availablePassportStamps}
+                      availablePassportCategories={availablePassportCategories}
                       customStatuses={displayedList.customStatuses}
                       totalPlaces={basePlaces.length}
                       filteredCount={effectiveFilteredPlaces.length}
@@ -1199,6 +1235,11 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
           variant="danger"
         />
       )}
+      <PassportInfoModal
+        isOpen={showPassportInfo}
+        onClose={() => setShowPassportInfo(false)}
+        config={displayedList?.passportConfig}
+      />
     </div>
   );
 };

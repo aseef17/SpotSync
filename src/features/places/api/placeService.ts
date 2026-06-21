@@ -28,7 +28,9 @@ import {
   getPlaceListAccessFields,
   getPrimaryPhotoUrl,
   trimPhotoUrlsForStorage,
+  toPlaceListAccessQuery,
   type PlaceListAccessFields,
+  type PlaceListAccessQuery,
 } from '@/features/places/utils/placeAccess';
 import {
   coalesceDurablePhotoUrls,
@@ -367,9 +369,26 @@ export class PlaceService {
     }
   }
 
-  static async searchPlaces(listId: string, searchTerm: string): Promise<Place[]> {
+  private static async resolveListAccessQuery(
+    listId: string,
+    userId?: string
+  ): Promise<PlaceListAccessQuery> {
+    const list = await listRepository.getById(listId);
+    if (!list || !userId) {
+      throw new Error('List not found');
+    }
+    return toPlaceListAccessQuery(listId, userId, list);
+  }
+
+  static async searchPlaces(
+    listId: string,
+    searchTerm: string,
+    userId?: string
+  ): Promise<Place[]> {
     try {
-      const places = await placeRepository.getAllForList(listId);
+      const places = userId
+        ? await placeRepository.getAllForList(await this.resolveListAccessQuery(listId, userId))
+        : await placeRepository.getForList(listId);
       const lowercaseSearch = searchTerm.toLowerCase();
 
       return places.filter(
@@ -393,10 +412,13 @@ export class PlaceService {
       minRating?: number;
       maxRating?: number;
       priceLevel?: number;
-    }
+    },
+    userId?: string
   ): Promise<Place[]> {
     try {
-      let places = await placeRepository.getAllForList(listId);
+      let places = userId
+        ? await placeRepository.getAllForList(await this.resolveListAccessQuery(listId, userId))
+        : await placeRepository.getForList(listId);
 
       if (filters.status) {
         places = places.filter((p) => p.status === filters.status);
@@ -889,7 +911,10 @@ export class PlaceService {
     return { place: updatedPlace, photoFailures };
   }
 
-  static async syncListPhotos(listId: string): Promise<{
+  static async syncListPhotos(
+    listId: string,
+    userId: string
+  ): Promise<{
     placesProcessed: number;
     placesUpdated: number;
     photoFailures: number;
@@ -904,12 +929,13 @@ export class PlaceService {
 
     try {
       const photoCache = await this.openPhotoCache();
+      const access = await this.resolveListAccessQuery(listId, userId);
 
       let cursor: QueryDocumentSnapshot<DocumentData> | undefined;
       let hasMore = true;
 
       while (hasMore) {
-        const page = await placeRepository.fetchPage(listId, PLACES_PAGE_SIZE, cursor);
+        const page = await placeRepository.fetchPage(access, PLACES_PAGE_SIZE, cursor);
         hasMore = page.hasMore;
         cursor = page.lastDoc ?? undefined;
 

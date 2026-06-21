@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getPlaceListAccessKey, toPlaceListAccessQuery } from '@/features/places/utils/placeAccess';
+import { getPlaceListAccessKey, toPlaceListAccessQuery, buildListPlaceMembershipAccessConstraints } from '@/features/places/utils/placeAccess';
 import type { PlaceList } from '@/features/lists/types/list';
 
 const baseList = (overrides: Partial<PlaceList> = {}): PlaceList =>
@@ -55,5 +55,29 @@ describe('toPlaceListAccessQuery', () => {
       ownerId: 'owner-1',
       isPublic: false,
     });
+  });
+});
+
+describe('buildListPlaceMembershipAccessConstraints', () => {
+  it('uses owner scope for list owners', () => {
+    const constraints = buildListPlaceMembershipAccessConstraints({
+      listId: 'list-1',
+      userId: 'owner-1',
+      ownerId: 'owner-1',
+      isPublic: false,
+    });
+
+    expect(constraints).toHaveLength(2);
+  });
+
+  it('uses collaborator scope for non-owner editors', () => {
+    const constraints = buildListPlaceMembershipAccessConstraints({
+      listId: 'list-1',
+      userId: 'user-2',
+      ownerId: 'owner-1',
+      isPublic: false,
+    });
+
+    expect(constraints).toHaveLength(2);
   });
 });

@@ -45,6 +45,8 @@ const GOOGLE_PLACE_UPDATE_KEYS = new Set([
   'servesWine',
   'servesVegetarianFood',
   'wheelchairAccessible',
+  'passportStampId',
+  'passportCategory',
   'lat',
   'lng',
   'detailsFetchedAt',
@@ -148,6 +150,8 @@ export function buildGooglePlacePayload(
     servesWine: place.servesWine,
     servesVegetarianFood: place.servesVegetarianFood,
     wheelchairAccessible: place.wheelchairAccessible,
+    passportStampId: place.passportStampId,
+    passportCategory: place.passportCategory,
     createdAt: timestamps.createdAt,
     updatedAt: timestamps.updatedAt,
   }) as GooglePlace;
@@ -163,6 +167,9 @@ export function buildMembershipPayload(
   return omitUndefined({
     id: membershipId,
     listId,
+    listOwnerId: place.listOwnerId,
+    listIsPublic: place.listIsPublic,
+    listCollaboratorIds: place.listCollaboratorIds,
     googlePlaceId,
     status: place.status ?? 'not_visited',
     customStatus: place.customStatus,

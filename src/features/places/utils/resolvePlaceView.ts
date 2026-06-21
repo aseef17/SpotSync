@@ -57,6 +57,8 @@ export function resolvePlaceView(
     servesWine: googlePlace.servesWine,
     servesVegetarianFood: googlePlace.servesVegetarianFood,
     wheelchairAccessible: googlePlace.wheelchairAccessible,
+    passportStampId: googlePlace.passportStampId,
+    passportCategory: googlePlace.passportCategory,
     notes: membership.notes,
     status: membership.status,
     customStatus: membership.customStatus,

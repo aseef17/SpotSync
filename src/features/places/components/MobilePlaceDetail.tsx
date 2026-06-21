@@ -40,6 +40,8 @@ import { useToast } from '@/hooks/useToast';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
 import { logger } from '@/utils/logger';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PassportStampBadge } from '@/features/passport/components/PassportStampBadge';
+import { PassportStampLabel } from '@/features/passport/components/PassportStampLabel';
 
 const formatPrice = (level?: number) => {
   if (!level) return null;
@@ -203,9 +205,24 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div className="flex-1 min-w-0">
-          <h2 className={`text-xl font-bold ${themeColors.text.primary} line-clamp-2`}>
-            {place.name}
-          </h2>
+          <div className="flex items-start justify-between gap-2">
+            <h2 className={`text-xl font-bold ${themeColors.text.primary} line-clamp-2 flex-1 min-w-0`}>
+              {place.name}
+            </h2>
+            {place.passportStampId && (
+              <PassportStampBadge
+                stampId={place.passportStampId}
+                status={place.status}
+                size="md"
+                interactive
+                placeName={place.name}
+                className="shrink-0 ring-2 ring-white dark:ring-gray-900 rounded-full bg-white/90 dark:bg-gray-900/90"
+              />
+            )}
+          </div>
+          {place.passportStampId && (
+            <PassportStampLabel stampId={place.passportStampId} className="mt-0.5" />
+          )}
           <div
             className={`flex flex-wrap items-center gap-1.5 text-sm ${themeColors.text.secondary} mt-1`}
           >

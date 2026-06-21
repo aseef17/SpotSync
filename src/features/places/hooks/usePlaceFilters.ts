@@ -1,15 +1,28 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { Place } from '@/features/places/types/place';
 import type { FilterOptions } from '@/features/places/types/filters';
 import { isPlaceOpen } from '@/features/places/utils/placeHelpers';
+import { getDefaultPlaceFilters } from '@/features/places/utils/defaultPlaceFilters';
 import { toMilliseconds } from '@/utils/date';
 
 export const usePlaceFilters = (
   places: Place[],
-  userLocation?: { lat: number; lng: number } | null
+  userLocation?: { lat: number; lng: number } | null,
+  options?: { listId?: string; isPassportList?: boolean }
 ) => {
-  const [filters, setFilters] = useState<FilterOptions>({});
+  const isPassportList = !!options?.isPassportList;
+  const listId = options?.listId;
+  const defaultFilters = useMemo(
+    () => getDefaultPlaceFilters(isPassportList),
+    [isPassportList]
+  );
+
+  const [filters, setFilters] = useState<FilterOptions>(defaultFilters);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
+
+  useEffect(() => {
+    setFilters(getDefaultPlaceFilters(isPassportList));
+  }, [listId, isPassportList]);
 
   const filteredPlaces = useMemo(() => {
     let filtered = [...places];
@@ -90,6 +103,45 @@ export const usePlaceFilters = (
       );
     }
 
+    // NYC Passport stamp filter
+    if (filters.passportStamp) {
+      const stampFilter = filters.passportStamp;
+      if (Array.isArray(stampFilter)) {
+        if (stampFilter.length > 0) {
+          filtered = filtered.filter(
+            (place) => place.passportStampId && stampFilter.includes(place.passportStampId)
+          );
+        }
+      } else {
+        filtered = filtered.filter((place) => place.passportStampId === stampFilter);
+      }
+    }
+
+    // NYC Passport venue-type filter (replaces category for passport lists)
+    if (filters.passportCategory) {
+      const categoryFilter = filters.passportCategory;
+      if (Array.isArray(categoryFilter)) {
+        if (categoryFilter.length > 0) {
+          filtered = filtered.filter(
+            (place) =>
+              place.passportCategory &&
+              categoryFilter.some(
+                (c) => place.passportCategory?.toLowerCase() === c.toLowerCase()
+              )
+          );
+        }
+      } else {
+        filtered = filtered.filter(
+          (place) => place.passportCategory?.toLowerCase() === categoryFilter.toLowerCase()
+        );
+      }
+    }
+
+    // NYC Passport: only places with a linked stamp
+    if (filters.passportHasStamp) {
+      filtered = filtered.filter((place) => Boolean(place.passportStampId));
+    }
+
     // Open Now filter — use isPlaceOpen so filtering matches card UI (hours-first, not stale openNow)
     if (filters.openNow) {
       filtered = filtered.filter((place) => isPlaceOpen(place));
@@ -149,7 +201,7 @@ export const usePlaceFilters = (
     return filtered;
   }, [places, filters, userLocation]);
 
-  const clearFilters = () => setFilters({});
+  const clearFilters = () => setFilters(defaultFilters);
 
   return {
     filters,
@@ -158,6 +210,7 @@ export const usePlaceFilters = (
     viewMode,
     setViewMode,
     clearFilters,
+    defaultFilters,
   };
 };
 

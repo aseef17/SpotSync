@@ -16,8 +16,8 @@ export const listPlaceMembershipRepository = {
     return fetchListPlaceMembershipById(membershipId);
   },
 
-  async getForList(listId: string): Promise<ListPlaceMembership[]> {
-    return fetchListPlaceMembershipsForList(listId);
+  async getForList(access: PlaceListAccessQuery): Promise<ListPlaceMembership[]> {
+    return fetchListPlaceMembershipsForList(access);
   },
 
   async findByListAndGooglePlaceId(
@@ -36,7 +36,7 @@ export const listPlaceMembershipRepository = {
     const enableSync = options?.enableSync !== false;
 
     if (!enableSync) {
-      void fetchListPlaceMembershipsForList(access.listId)
+      void fetchListPlaceMembershipsForList(access)
         .then(onUpdate)
         .catch((error) => {
           onError(
