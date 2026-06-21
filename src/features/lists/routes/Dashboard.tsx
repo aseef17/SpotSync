@@ -163,6 +163,7 @@ export const Dashboard: React.FunctionComponent = () => {
         id: list.id,
         ownerId: list.ownerId,
         isPublic: list.isPublic,
+        places: list.places,
       })),
     [displayedLists]
   );

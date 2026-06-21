@@ -7,13 +7,15 @@ import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { logger } from '@/utils/logger';
 
 export async function resolveListPlaceCount(
-  list: Pick<PlaceList, 'id' | 'ownerId' | 'isPublic'>,
+  list: Pick<PlaceList, 'id' | 'ownerId' | 'isPublic' | 'places'>,
   userId: string
 ): Promise<number> {
   const cachedCount = await getCachedPlaceCountForList(list.id);
+  const listDocCount = list.places?.length ?? 0;
+  const fallbackCount = cachedCount > 0 ? cachedCount : listDocCount;
 
   if (!isBrowserOnline()) {
-    return cachedCount;
+    return fallbackCount;
   }
 
   try {
@@ -22,6 +24,6 @@ export async function resolveListPlaceCount(
     return snapshot.data().count;
   } catch (error) {
     logger.debug('Failed to fetch list place count from server, using cache:', error);
-    return cachedCount;
+    return fallbackCount;
   }
 }
