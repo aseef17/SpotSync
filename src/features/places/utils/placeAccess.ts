@@ -43,10 +43,7 @@ export function buildListPlaceMembershipAccessConstraints(
     return [where('listId', '==', listId), where('listIsPublic', '==', true)];
   }
 
-  return [
-    where('listId', '==', listId),
-    where('listCollaboratorIds', 'array-contains', userId),
-  ];
+  return [where('listId', '==', listId), where('listCollaboratorIds', 'array-contains', userId)];
 }
 
 /** Stable key for place-query subscriptions; ignores list metadata like the places array. */
