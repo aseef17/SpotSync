@@ -380,11 +380,7 @@ export class PlaceService {
     return toPlaceListAccessQuery(listId, userId, list);
   }
 
-  static async searchPlaces(
-    listId: string,
-    searchTerm: string,
-    userId?: string
-  ): Promise<Place[]> {
+  static async searchPlaces(listId: string, searchTerm: string, userId?: string): Promise<Place[]> {
     try {
       const places = userId
         ? await placeRepository.getAllForList(await this.resolveListAccessQuery(listId, userId))

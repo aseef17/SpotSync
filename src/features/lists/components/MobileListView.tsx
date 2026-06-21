@@ -112,6 +112,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   const [listScrollPos, setListScrollPos] = useState(0);
   const [showListInfo, setShowListInfo] = useState(false);
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
+  const [isPassportCollapsed, setIsPassportCollapsed] = useState(true);
   const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
   const [mapMounted, setMapMounted] = useState(false);
 
@@ -136,14 +137,19 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
 
     const handleScroll = () => {
       // Collapse if scrolled down more than 20px
-      if (el.scrollTop > 20 && !isFiltersCollapsed) {
-        setIsFiltersCollapsed(true);
+      if (el.scrollTop > 20) {
+        if (!isFiltersCollapsed) {
+          setIsFiltersCollapsed(true);
+        }
+        if (!isPassportCollapsed) {
+          setIsPassportCollapsed(true);
+        }
       }
     };
 
     el.addEventListener('scroll', handleScroll, { passive: true });
     return () => el.removeEventListener('scroll', handleScroll);
-  }, [isFiltersCollapsed]);
+  }, [isFiltersCollapsed, isPassportCollapsed]);
 
   // Reset scroll to top when a place is selected (opening details)
   useEffect(() => {
@@ -383,6 +389,8 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
             <PassportProgressBanner
               progress={passportProgress}
               onInfoClick={() => setShowPassportInfo(true)}
+              isCollapsed={isPassportCollapsed}
+              onToggleCollapse={() => setIsPassportCollapsed(!isPassportCollapsed)}
             />
           )}
           <PlaceFilters
@@ -394,18 +402,18 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
             availablePassportStamps={availablePassportStamps}
             availablePassportCategories={availablePassportCategories}
             customStatuses={list.customStatuses}
-          totalPlaces={basePlaces.length}
-          filteredCount={effectiveFilteredPlaces.length}
-          viewMode="list"
-          onViewModeChange={() => {}}
-          hideViewToggle={true}
-          onAiSearch={handleAiSearchSubmit}
-          isAiMode={isAiMode}
-          onAiModeChange={handleAiModeChange}
-          isAiLoading={isAiSearching}
-          isCollapsed={isFiltersCollapsed}
-          onToggleCollapse={() => setIsFiltersCollapsed(!isFiltersCollapsed)}
-        />
+            totalPlaces={basePlaces.length}
+            filteredCount={effectiveFilteredPlaces.length}
+            viewMode="list"
+            onViewModeChange={() => {}}
+            hideViewToggle={true}
+            onAiSearch={handleAiSearchSubmit}
+            isAiMode={isAiMode}
+            onAiModeChange={handleAiModeChange}
+            isAiLoading={isAiSearching}
+            isCollapsed={isFiltersCollapsed}
+            onToggleCollapse={() => setIsFiltersCollapsed(!isFiltersCollapsed)}
+          />
         </>
       )}
 

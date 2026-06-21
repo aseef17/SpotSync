@@ -1,9 +1,6 @@
 import React from 'react';
 import { Check } from 'lucide-react';
-import {
-  PASSPORT_STAMPS,
-  passportStampImageUrl,
-} from '@/features/passport/constants/stamps';
+import { PASSPORT_STAMPS, passportStampImageUrl } from '@/features/passport/constants/stamps';
 import { passportStampImageFilterClass } from '@/features/passport/utils/passportStampStyles';
 
 interface PassportStampCollectionGridProps {

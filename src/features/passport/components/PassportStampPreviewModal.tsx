@@ -99,9 +99,7 @@ export const PassportStampPreviewModal: React.FunctionComponent<PassportStampPre
             >
               {stamp.name}
             </h2>
-            {placeName && (
-              <p className={`text-sm ${themeColors.text.secondary}`}>{placeName}</p>
-            )}
+            {placeName && <p className={`text-sm ${themeColors.text.secondary}`}>{placeName}</p>}
             {label && (
               <span
                 className={`inline-block mt-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold uppercase tracking-wide ${statusBadgeClass(status)}`}

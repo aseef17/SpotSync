@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { getPlaceListAccessKey, toPlaceListAccessQuery, buildListPlaceMembershipAccessConstraints } from '@/features/places/utils/placeAccess';
+import {
+  getPlaceListAccessKey,
+  toPlaceListAccessQuery,
+  buildListPlaceMembershipAccessConstraints,
+} from '@/features/places/utils/placeAccess';
 import type { PlaceList } from '@/features/lists/types/list';
 
 const baseList = (overrides: Partial<PlaceList> = {}): PlaceList =>

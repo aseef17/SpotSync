@@ -158,7 +158,12 @@ export const Dashboard: React.FunctionComponent = () => {
   const myLists = useMemo(() => displayedLists.filter((l) => !l.isSavedList), [displayedLists]);
   const savedLists = useMemo(() => displayedLists.filter((l) => l.isSavedList), [displayedLists]);
   const dashboardLists = useMemo(
-    () => displayedLists.map((list) => ({ id: list.id, ownerId: list.ownerId, isPublic: list.isPublic })),
+    () =>
+      displayedLists.map((list) => ({
+        id: list.id,
+        ownerId: list.ownerId,
+        isPublic: list.isPublic,
+      })),
     [displayedLists]
   );
   const placeCountsByListId = useDashboardPlaceCounts(userId, dashboardLists);

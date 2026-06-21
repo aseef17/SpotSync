@@ -49,7 +49,10 @@ export const PassportInfoModal: React.FunctionComponent<PassportInfoModalProps> 
         <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-inherit">
           <div className="flex items-center gap-2">
             <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-            <h2 id="passport-info-title" className={`text-lg font-semibold ${themeColors.text.primary}`}>
+            <h2
+              id="passport-info-title"
+              className={`text-lg font-semibold ${themeColors.text.primary}`}
+            >
               NYC Neighborhood Passport
             </h2>
           </div>
@@ -65,13 +68,15 @@ export const PassportInfoModal: React.FunctionComponent<PassportInfoModalProps> 
 
         <div className="p-4 space-y-5">
           <p className={`text-sm ${themeColors.text.secondary}`}>
-            Collect artist-designed stamps at cultural institutions and community spots across all five
-            boroughs. Mark places as visited when you get a stamp, or skip ones you are not planning
-            to visit.
+            Collect artist-designed stamps at cultural institutions and community spots across all
+            five boroughs. Mark places as visited when you get a stamp, or skip ones you are not
+            planning to visit.
           </p>
 
           <div>
-            <h3 className={`text-sm font-semibold mb-2 ${themeColors.text.primary}`}>All stamp designs</h3>
+            <h3 className={`text-sm font-semibold mb-2 ${themeColors.text.primary}`}>
+              All stamp designs
+            </h3>
             <div className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-white">
               <img
                 src={config?.referenceImageUrl || PASSPORT_ALL_STAMPS_IMAGE}
@@ -83,7 +88,9 @@ export const PassportInfoModal: React.FunctionComponent<PassportInfoModalProps> 
 
           {Object.entries(grouped).map(([category, categoryLinks]) => (
             <div key={category}>
-              <h3 className={`text-sm font-semibold mb-2 ${themeColors.text.primary}`}>{category}</h3>
+              <h3 className={`text-sm font-semibold mb-2 ${themeColors.text.primary}`}>
+                {category}
+              </h3>
               <ul className="space-y-2">
                 {categoryLinks.map((link) => (
                   <li key={link.url}>

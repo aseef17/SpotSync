@@ -209,7 +209,9 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
         </button>
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2">
-            <h2 className={`text-xl font-bold ${themeColors.text.primary} line-clamp-2 flex-1 min-w-0`}>
+            <h2
+              className={`text-xl font-bold ${themeColors.text.primary} line-clamp-2 flex-1 min-w-0`}
+            >
               {place.name}
             </h2>
             {showPassportStamp && (

@@ -291,7 +291,7 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
                     ? Array.isArray(filters.passportStamp) && filters.passportStamp.length > 0
                       ? `${filters.passportStamp.length} Stamps`
                       : typeof filters.passportStamp === 'string'
-                        ? PASSPORT_STAMP_BY_ID[filters.passportStamp]?.name ?? 'Stamp'
+                        ? (PASSPORT_STAMP_BY_ID[filters.passportStamp]?.name ?? 'Stamp')
                         : 'Stamp'
                     : Array.isArray(filters.category) && filters.category.length > 0
                       ? `${filters.category.length} Categories`

@@ -38,10 +38,7 @@ export const usePlaceFilters = (
     }));
   };
 
-  const defaultFilters = useMemo(
-    () => getDefaultPlaceFilters(isPassportList),
-    [isPassportList]
-  );
+  const defaultFilters = useMemo(() => getDefaultPlaceFilters(isPassportList), [isPassportList]);
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
@@ -146,9 +143,7 @@ export const usePlaceFilters = (
           filtered = filtered.filter(
             (place) =>
               place.passportCategory &&
-              categoryFilter.some(
-                (c) => place.passportCategory?.toLowerCase() === c.toLowerCase()
-              )
+              categoryFilter.some((c) => place.passportCategory?.toLowerCase() === c.toLowerCase())
           );
         }
       } else {

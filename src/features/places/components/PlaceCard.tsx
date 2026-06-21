@@ -44,9 +44,7 @@ export const PlaceCard = React.memo<PlaceCardProps>(
       >
         <div className="flex-1 min-w-0 flex flex-col justify-center">
           <div className="mb-1">
-            <h3
-              className={`text-[15px] font-semibold ${themeColors.text.primary} line-clamp-1`}
-            >
+            <h3 className={`text-[15px] font-semibold ${themeColors.text.primary} line-clamp-1`}>
               {place.name}
             </h3>
             {showPassportStamp && place.passportStampId && (
@@ -148,7 +146,10 @@ export const PlaceCard = React.memo<PlaceCardProps>(
               </div>
             )}
           </div>
-          <div className="absolute -top-2 -right-2 z-10 flex flex-col items-end gap-1" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="absolute -top-2 -right-2 z-10 flex flex-col items-end gap-1"
+            onClick={(e) => e.stopPropagation()}
+          >
             {showPassportStamp && place.passportStampId && (
               <PassportStampBadge
                 stampId={place.passportStampId}
