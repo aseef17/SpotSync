@@ -57,6 +57,7 @@ interface MobilePlaceDetailHeaderProps {
   customStatuses?: string[];
   onAddExternalPlace?: (place: Partial<Place>) => void;
   canEdit?: boolean;
+  isPassportList?: boolean;
 }
 
 export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailHeaderProps> = ({
@@ -68,7 +69,9 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
   customStatuses = [],
   onAddExternalPlace,
   canEdit = false,
+  isPassportList = false,
 }) => {
+  const showPassportStamp = isPassportList && place.passportStampId;
   const { toast } = useToast();
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [isSyncingFromGoogle, setIsSyncingFromGoogle] = useState(false);
@@ -209,9 +212,9 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
             <h2 className={`text-xl font-bold ${themeColors.text.primary} line-clamp-2 flex-1 min-w-0`}>
               {place.name}
             </h2>
-            {place.passportStampId && (
+            {showPassportStamp && (
               <PassportStampBadge
-                stampId={place.passportStampId}
+                stampId={place.passportStampId!}
                 status={place.status}
                 size="md"
                 interactive
@@ -220,8 +223,8 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
               />
             )}
           </div>
-          {place.passportStampId && (
-            <PassportStampLabel stampId={place.passportStampId} className="mt-0.5" />
+          {showPassportStamp && (
+            <PassportStampLabel stampId={place.passportStampId!} className="mt-0.5" />
           )}
           <div
             className={`flex flex-wrap items-center gap-1.5 text-sm ${themeColors.text.secondary} mt-1`}

@@ -1,9 +1,14 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import type { Place } from '@/features/places/types/place';
 import type { FilterOptions } from '@/features/places/types/filters';
 import { isPlaceOpen } from '@/features/places/utils/placeHelpers';
 import { getDefaultPlaceFilters } from '@/features/places/utils/defaultPlaceFilters';
 import { toMilliseconds } from '@/utils/date';
+
+type FilterScopeState = {
+  scopeKey: string;
+  filters: FilterOptions;
+};
 
 export const usePlaceFilters = (
   places: Place[],
@@ -11,18 +16,34 @@ export const usePlaceFilters = (
   options?: { listId?: string; isPassportList?: boolean }
 ) => {
   const isPassportList = !!options?.isPassportList;
-  const listId = options?.listId;
+  const scopeKey = `${options?.listId ?? 'unknown'}:${isPassportList}`;
+
+  const [filterScope, setFilterScope] = useState<FilterScopeState>(() => ({
+    scopeKey,
+    filters: getDefaultPlaceFilters(isPassportList),
+  }));
+
+  if (filterScope.scopeKey !== scopeKey) {
+    setFilterScope({
+      scopeKey,
+      filters: getDefaultPlaceFilters(isPassportList),
+    });
+  }
+
+  const filters = filterScope.filters;
+  const setFilters = (next: FilterOptions | ((prev: FilterOptions) => FilterOptions)) => {
+    setFilterScope((prev) => ({
+      ...prev,
+      filters: typeof next === 'function' ? next(prev.filters) : next,
+    }));
+  };
+
   const defaultFilters = useMemo(
     () => getDefaultPlaceFilters(isPassportList),
     [isPassportList]
   );
 
-  const [filters, setFilters] = useState<FilterOptions>(defaultFilters);
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
-
-  useEffect(() => {
-    setFilters(getDefaultPlaceFilters(isPassportList));
-  }, [listId, isPassportList]);
 
   const filteredPlaces = useMemo(() => {
     let filtered = [...places];

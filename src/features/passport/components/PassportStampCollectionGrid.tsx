@@ -4,7 +4,7 @@ import {
   PASSPORT_STAMPS,
   passportStampImageUrl,
 } from '@/features/passport/constants/stamps';
-import { passportStampImageFilterClass } from '@/features/passport/components/PassportStampImage';
+import { passportStampImageFilterClass } from '@/features/passport/utils/passportStampStyles';
 
 interface PassportStampCollectionGridProps {
   visitedStampIds: readonly string[];

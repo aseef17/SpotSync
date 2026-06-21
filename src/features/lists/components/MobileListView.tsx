@@ -558,6 +558,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
       customStatuses={list.customStatuses}
       onAddExternalPlace={onAddExternalPlace}
       canEdit={canEditList}
+      isPassportList={passportMode}
     />
   ) : (
     listHeader

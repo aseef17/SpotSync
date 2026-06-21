@@ -2,18 +2,13 @@ import React from 'react';
 import { X } from 'lucide-react';
 import type { PlaceStatus } from '@/features/places/types/place';
 import { passportStampImageUrl } from '@/features/passport/constants/stamps';
+import { passportStampImageFilterClass } from '@/features/passport/utils/passportStampStyles';
 
 interface PassportStampImageProps {
   stampId: string;
   status: PlaceStatus;
   className?: string;
   imageClassName?: string;
-}
-
-export function passportStampImageFilterClass(status: PlaceStatus): string {
-  return status === 'visited'
-    ? 'opacity-100 saturate-100'
-    : 'opacity-100 grayscale contrast-75 brightness-110';
 }
 
 export const PassportStampImage: React.FunctionComponent<PassportStampImageProps> = ({

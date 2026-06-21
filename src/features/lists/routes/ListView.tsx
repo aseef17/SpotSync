@@ -875,6 +875,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                 onPlaceRestored={handlePlaceRestored}
                 canDelete={getCanDelete(selectedPlace)}
                 canEdit={canEditList}
+                isPassportList={passportMode}
                 layout="panel"
                 className="border-none shadow-none"
               />
@@ -1151,6 +1152,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
           onPlaceRestored={handlePlaceRestored}
           canDelete={getCanDelete(selectedPlace)}
           canEdit={canEditList}
+          isPassportList={passportMode}
         />
       )}
       {showCollaborators && list && (

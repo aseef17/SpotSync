@@ -44,6 +44,7 @@ export interface PlaceDetailsPaneProps {
   canDelete?: boolean;
   canEdit?: boolean;
   layout?: 'modal' | 'panel';
+  isPassportList?: boolean;
 }
 
 const formatDate = (date: unknown): string => {
@@ -91,6 +92,7 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
   canDelete = false,
   canEdit = true,
   layout = 'modal',
+  isPassportList = false,
 }) => {
   const compact = layout === 'panel';
   const [isEditing, setIsEditing] = useState(false);
@@ -107,6 +109,8 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
   const isOpen = isPlaceOpen(place);
   const todayDayName = getTodayDayName();
   const todayHoursText = getTodayHoursText(place);
+
+  const showPassportStamp = isPassportList && place.passportStampId;
 
   const photoRefs = place.photoUrls ?? [];
   const photoImages = useResolvedPlacePhotos(place.id, photoRefs, 800, 800);
@@ -274,13 +278,13 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
           >
             {place.name}
           </h2>
-          {place.passportStampId && (
-            <PassportStampLabel stampId={place.passportStampId} className="mt-1" />
+          {showPassportStamp && (
+            <PassportStampLabel stampId={place.passportStampId!} className="mt-1" />
           )}
         </div>
-        {place.passportStampId && (
+        {showPassportStamp && (
           <PassportStampBadge
-            stampId={place.passportStampId}
+            stampId={place.passportStampId!}
             status={place.status}
             size="md"
             interactive

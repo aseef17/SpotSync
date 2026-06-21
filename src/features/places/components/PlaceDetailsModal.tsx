@@ -14,6 +14,7 @@ interface PlaceDetailsModalProps {
   onPlaceRestored: (id: string) => void;
   canDelete?: boolean;
   canEdit?: boolean;
+  isPassportList?: boolean;
 }
 
 export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> = ({
@@ -25,6 +26,7 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
   onPlaceRestored,
   canDelete,
   canEdit,
+  isPassportList = false,
 }) => {
   useScrollLock(isOpen);
 
@@ -58,6 +60,7 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
               onPlaceRestored={onPlaceRestored}
               canDelete={canDelete}
               canEdit={canEdit}
+              isPassportList={isPassportList}
               layout="modal"
               className="h-full w-full"
             />
