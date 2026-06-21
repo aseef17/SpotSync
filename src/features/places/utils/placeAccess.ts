@@ -29,22 +29,14 @@ export function toPlaceListAccessQuery(
   };
 }
 
-/** Firestore query constraints that match listPlaces security rules for the current viewer. */
+/** Firestore query constraints for listPlaces membership reads. */
 export function buildListPlaceMembershipAccessConstraints(
   access: PlaceListAccessQuery
 ): QueryConstraint[] {
-  if (access.isPublic) {
-    return [where('listId', '==', access.listId), where('listIsPublic', '==', true)];
-  }
-
-  if (access.userId === access.ownerId) {
-    return [where('listId', '==', access.listId), where('listOwnerId', '==', access.userId)];
-  }
-
-  return [
-    where('listId', '==', access.listId),
-    where('listCollaboratorIds', 'array-contains', access.userId),
-  ];
+  // Scope by listId only; security rules validate access via canReadList(listId).
+  // Denormalized access fields on membership docs are not backfilled when list
+  // visibility or collaborators change, so they must not filter queries.
+  return [where('listId', '==', access.listId)];
 }
 
 /** Stable key for place-query subscriptions; ignores list metadata like the places array. */
