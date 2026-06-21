@@ -59,25 +59,28 @@ describe('toPlaceListAccessQuery', () => {
 });
 
 describe('buildListPlaceMembershipAccessConstraints', () => {
-  it('uses owner scope for list owners', () => {
-    const constraints = buildListPlaceMembershipAccessConstraints({
+  it('scopes queries by listId only so stale denorm fields do not hide memberships', () => {
+    const ownerConstraints = buildListPlaceMembershipAccessConstraints({
       listId: 'list-1',
       userId: 'owner-1',
       ownerId: 'owner-1',
       isPublic: false,
     });
-
-    expect(constraints).toHaveLength(2);
-  });
-
-  it('uses collaborator scope for non-owner editors', () => {
-    const constraints = buildListPlaceMembershipAccessConstraints({
+    const collaboratorConstraints = buildListPlaceMembershipAccessConstraints({
       listId: 'list-1',
       userId: 'user-2',
       ownerId: 'owner-1',
       isPublic: false,
     });
+    const publicConstraints = buildListPlaceMembershipAccessConstraints({
+      listId: 'list-1',
+      userId: 'user-3',
+      ownerId: 'owner-1',
+      isPublic: true,
+    });
 
-    expect(constraints).toHaveLength(2);
+    expect(ownerConstraints).toHaveLength(1);
+    expect(collaboratorConstraints).toHaveLength(1);
+    expect(publicConstraints).toHaveLength(1);
   });
 });

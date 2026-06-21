@@ -128,19 +128,9 @@ service cloud.firestore {
     }
 
     function canReadListPlaceMembership() {
-      return isAuthenticated() && (
-        canReadMembershipViaDenorm() ||
-        (resource.data.listId is string && canReadList(resource.data.listId))
-      );
-    }
-
-    function canReadMembershipViaDenorm() {
-      return resource.data.listOwnerId is string && (
-        resource.data.listOwnerId == request.auth.uid ||
-        resource.data.listIsPublic == true ||
-        (resource.data.listCollaboratorIds is list &&
-          resource.data.listCollaboratorIds.hasAny([request.auth.uid]))
-      );
+      // Always validate against the live list doc. Denormalized membership fields are
+      // write-time snapshots only and are not kept in sync when list access changes.
+      return resource.data.listId is string && canReadList(resource.data.listId);
     }
 
     function membershipDenormMatchesList(listId) {
