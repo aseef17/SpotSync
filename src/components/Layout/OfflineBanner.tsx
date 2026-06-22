@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { CloudUpload, WifiOff, RefreshCw } from 'lucide-react';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePendingSyncCount } from '@/hooks/usePendingSyncCount';
 import { retryPendingSync } from '@/utils/retryConnection';
+import { syncDebug } from '@/utils/syncDebug';
 import { themeColors } from '@/styles/colors';
 
 const PENDING_SYNC_BANNER_DELAY_MS = 750;
@@ -13,12 +15,27 @@ export const OfflineBanner: React.FunctionComponent = () => {
   const [isSyncing, setIsSyncing] = useState(false);
   const [visiblePendingCount, setVisiblePendingCount] = useState(0);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
+  const syncMessageRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    syncMessageRef.current = syncMessage;
+  }, [syncMessage]);
 
   useEffect(() => {
     if (pendingSyncCount === 0) {
       setVisiblePendingCount(0);
-      setSyncMessage(null);
+      if (!syncMessageRef.current) {
+        setSyncMessage(null);
+      }
       return;
+    }
+
+    if (
+      syncMessageRef.current?.startsWith('Everything') ||
+      syncMessageRef.current?.startsWith('All changes')
+    ) {
+      setSyncMessage(null);
+      syncMessageRef.current = null;
     }
 
     const timer = window.setTimeout(() => {
@@ -33,11 +50,24 @@ export const OfflineBanner: React.FunctionComponent = () => {
   }
 
   const handleRetry = async () => {
+    syncDebug('banner-retry-click', { pendingSyncCount, visiblePendingCount });
     setIsSyncing(true);
     setSyncMessage(null);
+    syncMessageRef.current = null;
     try {
       const attempt = await retryPendingSync();
       setSyncMessage(attempt.message);
+      syncMessageRef.current = attempt.message;
+      syncDebug('banner-retry-done', { ok: attempt.ok, message: attempt.message });
+    } catch (error) {
+      const message =
+        error instanceof Error && error.message.trim()
+          ? `Sync failed: ${error.message}`
+          : 'Sync failed unexpectedly. Please try again.';
+      setSyncMessage(message);
+      syncMessageRef.current = message;
+      syncDebug('banner-retry-error', { message });
+      toast.error('Sync failed', { description: message });
     } finally {
       setIsSyncing(false);
     }

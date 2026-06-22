@@ -20,11 +20,38 @@ function isPermanentDeleteListFailure(error: unknown): boolean {
   return code === 'functions/permission-denied' || code === 'permission-denied';
 }
 
-let flushChain: Promise<FlushResult> = Promise.resolve({
-  syncedCount: 0,
-  remainingCount: 0,
-});
+const EMPTY_FLUSH_RESULT: FlushResult = { syncedCount: 0, remainingCount: 0 };
+const FLUSH_CHAIN_SETTLE_TIMEOUT_MS = 8_000;
+
+let flushChain: Promise<FlushResult> = Promise.resolve(EMPTY_FLUSH_RESULT);
 let listenersRegistered = false;
+
+function settleFlushResult(
+  promise: Promise<FlushResult>,
+  context: string
+): Promise<FlushResult> {
+  return promise.catch((error) => {
+    logger.error(`${context}:`, error);
+    return { ...EMPTY_FLUSH_RESULT, lastError: error };
+  });
+}
+
+async function awaitPriorFlushChain(): Promise<void> {
+  try {
+    await Promise.race([
+      flushChain,
+      new Promise<never>((_, reject) => {
+        window.setTimeout(
+          () => reject(new Error('Prior sync flush timed out')),
+          FLUSH_CHAIN_SETTLE_TIMEOUT_MS
+        );
+      }),
+    ]);
+  } catch (error) {
+    logger.error('Prior sync flush did not settle before manual retry:', error);
+    flushChain = Promise.resolve(EMPTY_FLUSH_RESULT);
+  }
+}
 
 async function drainPendingMutations(): Promise<FlushResult> {
   let syncedCount = 0;
@@ -55,7 +82,18 @@ async function drainPendingMutations(): Promise<FlushResult> {
           continue;
         }
 
-        if (await shouldDropStaleMutation(mutation, error)) {
+        let dropStale = false;
+        try {
+          dropStale = await shouldDropStaleMutation(mutation, error);
+        } catch (staleCheckError) {
+          logger.error(
+            'Failed to check whether mutation is stale; keeping it queued:',
+            mutation.id,
+            staleCheckError
+          );
+        }
+
+        if (dropStale) {
           logger.warn('Dropping stale mutation that already exists on server:', mutation.id, error);
           await removeMutation(mutation.id);
           syncedCount += 1;
@@ -93,13 +131,16 @@ export async function flushPendingMutations(
   }
 
   if (options.force) {
-    await flushChain;
-    const drainPromise = drainPendingMutations();
+    await awaitPriorFlushChain();
+    const drainPromise = settleFlushResult(drainPendingMutations(), 'Manual sync drain failed');
     flushChain = drainPromise;
     return drainPromise;
   }
 
-  flushChain = flushChain.then(() => drainPendingMutations());
+  flushChain = settleFlushResult(
+    flushChain.then(() => drainPendingMutations()),
+    'Background sync drain failed'
+  );
   return flushChain;
 }
 
