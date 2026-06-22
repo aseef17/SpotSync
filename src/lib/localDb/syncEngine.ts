@@ -2,11 +2,13 @@ import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { logger } from '@/utils/logger';
 import { getPendingMutations, removeMutation } from '@/lib/localDb/mutationQueue';
 import { applyPendingMutation } from '@/lib/localDb/syncHandlers';
+import { shouldDropStaleMutation } from '@/lib/localDb/syncMutationRecovery';
 
 export interface FlushResult {
   syncedCount: number;
   remainingCount: number;
   lastError?: unknown;
+  lastFailedMutation?: { id: string; type: string };
 }
 
 function isPermanentDeleteListFailure(error: unknown): boolean {
@@ -35,6 +37,7 @@ async function drainPendingMutations(): Promise<FlushResult> {
     }
 
     let blockedOnFailure = false;
+    let lastFailedMutation: FlushResult['lastFailedMutation'];
     for (const mutation of mutations) {
       try {
         await applyPendingMutation(mutation);
@@ -52,8 +55,16 @@ async function drainPendingMutations(): Promise<FlushResult> {
           continue;
         }
 
-        logger.error('Failed to sync pending mutation:', mutation.id, error);
+        if (await shouldDropStaleMutation(mutation, error)) {
+          logger.warn('Dropping stale mutation that already exists on server:', mutation.id, error);
+          await removeMutation(mutation.id);
+          syncedCount += 1;
+          continue;
+        }
+
+        logger.error('Failed to sync pending mutation:', mutation.id, mutation.type, error);
         lastError = error;
+        lastFailedMutation = { id: mutation.id, type: mutation.type };
         blockedOnFailure = true;
         break;
       }
@@ -61,7 +72,7 @@ async function drainPendingMutations(): Promise<FlushResult> {
 
     if (blockedOnFailure) {
       const remaining = await getPendingMutations();
-      return { syncedCount, remainingCount: remaining.length, lastError };
+      return { syncedCount, remainingCount: remaining.length, lastError, lastFailedMutation };
     }
   }
 }

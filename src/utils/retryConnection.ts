@@ -1,6 +1,7 @@
 import { toast } from 'sonner';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { flushPendingMutations, type FlushResult } from '@/lib/localDb';
+import { formatSyncFailureDetail } from '@/lib/localDb/syncMutationRecovery';
 
 const CONNECTIVITY_PROBE_TIMEOUT_MS = 4000;
 
@@ -49,10 +50,7 @@ function notifySyncResult(result: FlushResult): boolean {
     return true;
   }
 
-  const detail =
-    result.syncedCount > 0
-      ? `${result.syncedCount} synced, ${result.remainingCount} still waiting.`
-      : getErrorMessage(result.lastError);
+  const detail = formatSyncFailureDetail(result, getErrorMessage);
 
   toast.error('Some changes could not sync', { description: detail });
   return false;

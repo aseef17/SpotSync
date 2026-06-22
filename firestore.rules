@@ -56,6 +56,14 @@ service cloud.firestore {
       return list.collaboratorIds != null ? list.collaboratorIds : [list.ownerId];
     }
 
+    function collaboratorIdsMatch(stored, expected) {
+      return stored is list &&
+        expected is list &&
+        stored.size() == expected.size() &&
+        stored.hasAll(expected) &&
+        expected.hasAll(stored);
+    }
+
     // Denormalized place access fields must mirror the parent list on writes.
     function placeDenormMatchesList(listId) {
       let list = listDoc(listId);
@@ -64,7 +72,7 @@ service cloud.firestore {
         !(data.listOwnerId is string) || (
           data.listOwnerId == list.data.ownerId &&
           data.listIsPublic == (list.data.isPublic == true) &&
-          data.listCollaboratorIds == normalizedCollaboratorIds(list.data)
+          collaboratorIdsMatch(data.listCollaboratorIds, normalizedCollaboratorIds(list.data))
         )
       );
     }
@@ -152,7 +160,7 @@ service cloud.firestore {
         !(data.listOwnerId is string) || (
           data.listOwnerId == list.data.ownerId &&
           data.listIsPublic == (list.data.isPublic == true) &&
-          data.listCollaboratorIds == normalizedCollaboratorIds(list.data)
+          collaboratorIdsMatch(data.listCollaboratorIds, normalizedCollaboratorIds(list.data))
         )
       );
     }

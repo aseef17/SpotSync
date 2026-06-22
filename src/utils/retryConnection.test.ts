@@ -18,6 +18,16 @@ vi.mock('@/lib/localDb', () => ({
   flushPendingMutations: flushPendingMutationsMock,
 }));
 
+vi.mock('@/lib/localDb/syncMutationRecovery', () => ({
+  formatSyncFailureDetail: (
+    result: { syncedCount: number; remainingCount: number; lastError?: unknown },
+    getErrorMessage: (error: unknown) => string
+  ) =>
+    result.syncedCount > 0
+      ? `${result.syncedCount} synced, ${result.remainingCount} still waiting.`
+      : getErrorMessage(result.lastError),
+}));
+
 vi.mock('sonner', () => ({
   toast: toastMock,
 }));
