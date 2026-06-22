@@ -132,7 +132,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
   const [density, setDensity] = useState<'comfortable' | 'compact'>('comfortable');
   const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [showPassportInfo, setShowPassportInfo] = useState(false);
-  const [isPassportCollapsed, setIsPassportCollapsed] = useState(true);
+  const [isPassportCollapsed, setIsPassportCollapsed] = useState(false);
 
   useEffect(() => {
     if (isMobile || !navigator.geolocation) return;

@@ -87,12 +87,12 @@ export async function retryConnection(options: RetryConnectionOptions = {}): Pro
   }
 
   const result = await flushPendingMutations();
-  const synced = notifySyncResult(result);
+  notifySyncResult(result);
 
-  if (reload && result.remainingCount === 0) {
+  if (reload) {
     window.location.reload();
     return true;
   }
 
-  return synced;
+  return result.remainingCount === 0;
 }
