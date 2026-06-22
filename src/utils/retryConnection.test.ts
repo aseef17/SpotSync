@@ -54,12 +54,30 @@ describe('retryPendingSync', () => {
     vi.mocked(fetch).mockResolvedValue(new Response(null, { status: 200 }));
 
     const { retryPendingSync } = await import('@/utils/retryConnection');
-    const ok = await retryPendingSync();
+    const attempt = await retryPendingSync();
 
     expect(fetch).toHaveBeenCalled();
-    expect(flushPendingMutationsMock).toHaveBeenCalledWith({ ignoreBrowserOffline: true });
+    expect(flushPendingMutationsMock).toHaveBeenCalledWith({
+      ignoreBrowserOffline: true,
+      force: true,
+    });
     expect(toastMock.success).toHaveBeenCalledWith('All changes synced');
-    expect(ok).toBe(true);
+    expect(attempt.ok).toBe(true);
+  });
+
+  it('skips connectivity probe and flushes immediately when already online', async () => {
+    isBrowserOnlineMock.mockReturnValue(true);
+    flushPendingMutationsMock.mockResolvedValue({ syncedCount: 1, remainingCount: 0 });
+
+    const { retryPendingSync } = await import('@/utils/retryConnection');
+    const attempt = await retryPendingSync();
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(flushPendingMutationsMock).toHaveBeenCalledWith({
+      ignoreBrowserOffline: false,
+      force: true,
+    });
+    expect(attempt.ok).toBe(true);
   });
 
   it('does not flush when navigator and probe both report offline', async () => {
@@ -67,7 +85,7 @@ describe('retryPendingSync', () => {
     vi.mocked(fetch).mockRejectedValue(new Error('network down'));
 
     const { retryPendingSync } = await import('@/utils/retryConnection');
-    const ok = await retryPendingSync();
+    const attempt = await retryPendingSync();
 
     expect(flushPendingMutationsMock).not.toHaveBeenCalled();
     expect(toastMock.message).toHaveBeenCalledWith(
@@ -76,6 +94,7 @@ describe('retryPendingSync', () => {
         description: expect.stringContaining('Cached data is still available'),
       })
     );
-    expect(ok).toBe(false);
+    expect(attempt.ok).toBe(false);
+    expect(attempt.offline).toBe(true);
   });
 });

@@ -5,6 +5,13 @@ import { formatSyncFailureDetail } from '@/lib/localDb/syncMutationRecovery';
 
 const CONNECTIVITY_PROBE_TIMEOUT_MS = 4000;
 
+export interface SyncAttemptResult {
+  ok: boolean;
+  offline?: boolean;
+  result?: FlushResult;
+  message: string;
+}
+
 interface ProbeNetworkOptions {
   /** Attempt fetch even when navigator.onLine is false (manual retry while browser still reports offline). */
   ignoreBrowserOffline?: boolean;
@@ -42,34 +49,38 @@ function getErrorMessage(error: unknown): string {
   return 'Unknown error';
 }
 
-function notifySyncResult(result: FlushResult): boolean {
+function notifySyncResult(result: FlushResult): SyncAttemptResult {
   if (result.remainingCount === 0) {
     if (result.syncedCount > 0) {
       toast.success('All changes synced');
+      return { ok: true, result, message: 'All changes synced.' };
     }
-    return true;
+    return { ok: true, result, message: 'Everything is up to date.' };
   }
 
   const detail = formatSyncFailureDetail(result, getErrorMessage);
-
   toast.error('Some changes could not sync', { description: detail });
-  return false;
+  return { ok: false, result, message: detail };
 }
 
 /** Flushes the offline mutation queue in the background without reloading the app. */
-export async function retryPendingSync(): Promise<boolean> {
+export async function retryPendingSync(): Promise<SyncAttemptResult> {
   const browserSaysOnline = isBrowserOnline();
-  const isReachable = await probeNetwork({ ignoreBrowserOffline: !browserSaysOnline });
 
-  if (!isReachable) {
-    toast.message('Still offline', {
-      description: 'Cached data is still available. Reconnect to sync the latest changes.',
-    });
-    return false;
+  if (!browserSaysOnline) {
+    const isReachable = await probeNetwork({ ignoreBrowserOffline: true });
+    if (!isReachable) {
+      const message = 'Still offline. Cached data is available until you reconnect.';
+      toast.message('Still offline', {
+        description: 'Cached data is still available. Reconnect to sync the latest changes.',
+      });
+      return { ok: false, offline: true, message };
+    }
   }
 
   const result = await flushPendingMutations({
     ignoreBrowserOffline: !browserSaysOnline,
+    force: true,
   });
   return notifySyncResult(result);
 }
@@ -83,17 +94,20 @@ interface RetryConnectionOptions {
 export async function retryConnection(options: RetryConnectionOptions = {}): Promise<boolean> {
   const { reload = true } = options;
   const browserSaysOnline = isBrowserOnline();
-  const isReachable = await probeNetwork({ ignoreBrowserOffline: !browserSaysOnline });
 
-  if (!isReachable) {
-    toast.message('Still offline', {
-      description: 'Cached data is still available. Reconnect to sync the latest changes.',
-    });
-    return false;
+  if (!browserSaysOnline) {
+    const isReachable = await probeNetwork({ ignoreBrowserOffline: true });
+    if (!isReachable) {
+      toast.message('Still offline', {
+        description: 'Cached data is still available. Reconnect to sync the latest changes.',
+      });
+      return false;
+    }
   }
 
   const result = await flushPendingMutations({
     ignoreBrowserOffline: !browserSaysOnline,
+    force: true,
   });
   notifySyncResult(result);
 
