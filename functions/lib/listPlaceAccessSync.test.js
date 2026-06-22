@@ -1,6 +1,5 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
-const { FieldPath } = require('firebase-admin/firestore');
 const {
   listAccessFieldsChanged,
   normalizedListCollaboratorIds,
@@ -91,7 +90,7 @@ describe('membershipNeedsAccessFieldUpdate', () => {
 });
 
 describe('buildListPlacesAccessSyncQuery', () => {
-  it('includes orderBy documentId so startAfter pagination is valid', () => {
+  it('orders by addedAt desc so startAfter pagination uses a deployed composite index', () => {
     const admin = require('firebase-admin');
     try {
       admin.initializeApp({ projectId: 'test-list-place-access-sync' });
@@ -103,14 +102,14 @@ describe('buildListPlacesAccessSyncQuery', () => {
 
     const db = admin.firestore();
     const firstPage = buildListPlacesAccessSyncQuery(db, 'list-1', null, 2);
-    assert.doesNotThrow(() => firstPage.startAfter(db.collection('listPlaces').doc('doc-2')));
+    assert.doesNotThrow(() => firstPage.startAfter(new Date('2024-01-01T00:00:00.000Z')));
 
-    const orderedQuery = db
+    const indexedQuery = db
       .collection('listPlaces')
       .where('listId', '==', 'list-1')
-      .orderBy(FieldPath.documentId())
+      .orderBy('addedAt', 'desc')
       .limit(2);
-    assert.doesNotThrow(() => orderedQuery.startAfter(db.collection('listPlaces').doc('doc-2')));
+    assert.doesNotThrow(() => indexedQuery.startAfter(new Date('2024-01-01T00:00:00.000Z')));
 
     const unOrderedQuery = db.collection('listPlaces').where('listId', '==', 'list-1').limit(2);
     assert.throws(
