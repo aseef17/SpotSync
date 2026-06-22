@@ -3,6 +3,12 @@ import { logger } from '@/utils/logger';
 import { getPendingMutations, removeMutation } from '@/lib/localDb/mutationQueue';
 import { applyPendingMutation } from '@/lib/localDb/syncHandlers';
 
+export interface FlushResult {
+  syncedCount: number;
+  remainingCount: number;
+  lastError?: unknown;
+}
+
 function isPermanentDeleteListFailure(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
     return false;
@@ -12,14 +18,20 @@ function isPermanentDeleteListFailure(error: unknown): boolean {
   return code === 'functions/permission-denied' || code === 'permission-denied';
 }
 
-let flushChain: Promise<void> = Promise.resolve();
+let flushChain: Promise<FlushResult> = Promise.resolve({
+  syncedCount: 0,
+  remainingCount: 0,
+});
 let listenersRegistered = false;
 
-async function drainPendingMutations(): Promise<void> {
+async function drainPendingMutations(): Promise<FlushResult> {
+  let syncedCount = 0;
+  let lastError: unknown;
+
   while (true) {
     const mutations = await getPendingMutations();
     if (mutations.length === 0) {
-      return;
+      return { syncedCount, remainingCount: 0, lastError };
     }
 
     let blockedOnFailure = false;
@@ -27,6 +39,7 @@ async function drainPendingMutations(): Promise<void> {
       try {
         await applyPendingMutation(mutation);
         await removeMutation(mutation.id);
+        syncedCount += 1;
       } catch (error) {
         if (mutation.type === 'deleteList' && isPermanentDeleteListFailure(error)) {
           logger.warn(
@@ -35,28 +48,32 @@ async function drainPendingMutations(): Promise<void> {
             error
           );
           await removeMutation(mutation.id);
+          syncedCount += 1;
           continue;
         }
 
         logger.error('Failed to sync pending mutation:', mutation.id, error);
+        lastError = error;
         blockedOnFailure = true;
         break;
       }
     }
 
     if (blockedOnFailure) {
-      return;
+      const remaining = await getPendingMutations();
+      return { syncedCount, remainingCount: remaining.length, lastError };
     }
   }
 }
 
-export async function flushPendingMutations(): Promise<void> {
+export async function flushPendingMutations(): Promise<FlushResult> {
   if (!isBrowserOnline()) {
-    return;
+    const remaining = await getPendingMutations();
+    return { syncedCount: 0, remainingCount: remaining.length };
   }
 
   flushChain = flushChain.then(() => drainPendingMutations());
-  await flushChain;
+  return flushChain;
 }
 
 export function startSyncEngine(): void {

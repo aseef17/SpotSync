@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { CloudUpload, WifiOff, RefreshCw } from 'lucide-react';
 import { useNetworkStatus } from '@/hooks/useNetworkStatus';
 import { usePendingSyncCount } from '@/hooks/usePendingSyncCount';
-import { retryConnection } from '@/utils/retryConnection';
+import { retryPendingSync } from '@/utils/retryConnection';
 import { themeColors } from '@/styles/colors';
 
 const PENDING_SYNC_BANNER_DELAY_MS = 750;
@@ -33,7 +33,7 @@ export const OfflineBanner: React.FunctionComponent = () => {
   const handleRetry = async () => {
     setIsChecking(true);
     try {
-      await retryConnection();
+      await retryPendingSync();
     } finally {
       setIsChecking(false);
     }

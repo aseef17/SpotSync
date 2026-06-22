@@ -41,7 +41,7 @@ export {
   applyPendingMutationsToUser,
 } from '@/lib/localDb/applyPendingOverlay';
 export { queueOfflineMutation } from '@/lib/localDb/offlineWrite';
-export { flushPendingMutations, startSyncEngine } from '@/lib/localDb/syncEngine';
+export { flushPendingMutations, startSyncEngine, type FlushResult } from '@/lib/localDb/syncEngine';
 export { buildPlaceStatusMutationKey } from '@/lib/localDb/types';
 export { placeRepository } from '@/lib/localDb/repositories/placeRepository';
 export { listRepository } from '@/lib/localDb/repositories/listRepository';
