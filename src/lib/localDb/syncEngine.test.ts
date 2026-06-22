@@ -25,6 +25,10 @@ vi.mock('@/lib/localDb/syncHandlers', () => ({
   applyPendingMutation: applyPendingMutationMock,
 }));
 
+vi.mock('@/lib/localDb/syncMutationRecovery', () => ({
+  shouldDropStaleMutation: vi.fn().mockResolvedValue(false),
+}));
+
 vi.mock('@/utils/logger', () => ({
   logger: { error: vi.fn() },
 }));
@@ -118,6 +122,7 @@ describe('flushPendingMutations', () => {
       syncedCount: 1,
       remainingCount: 1,
       lastError: expect.any(Error),
+      lastFailedMutation: { id: 'fail', type: 'updatePlace' },
     });
   });
 });

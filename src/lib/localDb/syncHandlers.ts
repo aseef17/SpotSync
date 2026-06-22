@@ -1,4 +1,4 @@
-import { arrayRemove, arrayUnion, doc, setDoc, updateDoc } from 'firebase/firestore';
+import { arrayRemove, arrayUnion, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db, functions } from '@/lib/firebase';
 import {
   deletePlaceMembership,
@@ -6,6 +6,7 @@ import {
   writePlaceUpdates,
 } from '@/features/places/api/placeFirestoreWrite';
 import { resolveCanonicalGooglePlaceId } from '@/features/places/utils/placeWriteSplit';
+import { getPlaceListAccessFields } from '@/features/places/utils/placeAccess';
 import type { PendingMutation } from '@/lib/localDb/types';
 import type {
   AcceptInvitationPayload,
@@ -31,6 +32,25 @@ import type { Place } from '@/features/places/types/place';
 import { omit } from '@/utils/objectUtils';
 import { Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
+
+async function fetchListAccessFieldsForSync(listId: string) {
+  const listSnap = await getDoc(doc(db, 'lists', listId));
+  if (!listSnap.exists()) {
+    throw new Error(`List ${listId} not found`);
+  }
+
+  const list = listSnap.data() as {
+    ownerId: string;
+    isPublic?: boolean;
+    collaboratorIds?: string[];
+  };
+
+  return getPlaceListAccessFields({
+    ownerId: list.ownerId,
+    isPublic: list.isPublic === true,
+    collaboratorIds: list.collaboratorIds ?? [list.ownerId],
+  });
+}
 
 export async function applyPendingMutation(mutation: PendingMutation): Promise<void> {
   switch (mutation.type) {
@@ -114,12 +134,16 @@ async function applyUpdatePlace(payload: UpdatePlacePayload): Promise<void> {
 async function applyCreatePlace(payload: CreatePlacePayload): Promise<void> {
   const googlePlaceId = payload.place.googlePlaceId ?? resolveCanonicalGooglePlaceId(payload.place);
   const membershipId = payload.placeId;
+  const accessFields = await fetchListAccessFieldsForSync(payload.listId);
 
   await writePlaceCreateAndLinkToList({
     listId: payload.listId,
     membershipId,
     googlePlaceId,
-    place: payload.place,
+    place: {
+      ...payload.place,
+      ...accessFields,
+    },
     timestamps: {
       addedAt: payload.place.addedAt,
       updatedAt: payload.place.updatedAt,
@@ -132,7 +156,13 @@ async function applyDeletePlace(payload: DeletePlacePayload): Promise<void> {
 }
 
 async function applyCreateList(payload: CreateListPayload): Promise<void> {
-  await setDoc(doc(db, 'lists', payload.listId), omit(payload.list, ['id', 'places']));
+  const listRef = doc(db, 'lists', payload.listId);
+  const existing = await getDoc(listRef);
+  if (existing.exists()) {
+    return;
+  }
+
+  await setDoc(listRef, omit(payload.list, ['id', 'places']));
 }
 
 async function applyUpdateList(payload: UpdateListPayload): Promise<void> {
