@@ -2,10 +2,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { listPlaceMembershipDocRef } from '@/features/places/api/listPlaceMembershipFirestore';
 import type { PendingMutation } from '@/lib/localDb/types';
-import type {
-  CreateListPayload,
-  UpdatePlaceStatusPayload,
-} from '@/lib/localDb/types';
+import type { CreateListPayload, UpdatePlaceStatusPayload } from '@/lib/localDb/types';
 
 export function isPermissionDeniedError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
