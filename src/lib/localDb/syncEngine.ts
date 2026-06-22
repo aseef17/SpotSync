@@ -80,6 +80,8 @@ async function drainPendingMutations(): Promise<FlushResult> {
 export interface FlushPendingMutationsOptions {
   /** When true, flush even if navigator.onLine is false (e.g. after a successful connectivity probe). */
   ignoreBrowserOffline?: boolean;
+  /** When true, wait for any in-flight flush then run a fresh drain (manual retry). */
+  force?: boolean;
 }
 
 export async function flushPendingMutations(
@@ -88,6 +90,13 @@ export async function flushPendingMutations(
   if (!options.ignoreBrowserOffline && !isBrowserOnline()) {
     const remaining = await getPendingMutations();
     return { syncedCount: 0, remainingCount: remaining.length };
+  }
+
+  if (options.force) {
+    await flushChain;
+    const drainPromise = drainPendingMutations();
+    flushChain = drainPromise;
+    return drainPromise;
   }
 
   flushChain = flushChain.then(() => drainPendingMutations());

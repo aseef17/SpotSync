@@ -101,6 +101,22 @@ describe('flushPendingMutations', () => {
     expect(result).toEqual({ syncedCount: 1, remainingCount: 0 });
   });
 
+  it('runs a fresh drain when force is set', async () => {
+    getPendingMutationsMock
+      .mockResolvedValueOnce([mutation('first')])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mutation('second')])
+      .mockResolvedValueOnce([]);
+
+    const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
+
+    await flushPendingMutations();
+    const forced = await flushPendingMutations({ force: true });
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(2);
+    expect(forced).toEqual({ syncedCount: 1, remainingCount: 0 });
+  });
+
   it('stops at the first failed mutation without dropping earlier successes', async () => {
     getPendingMutationsMock
       .mockResolvedValueOnce([mutation('ok'), mutation('fail')])
