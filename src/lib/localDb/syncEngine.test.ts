@@ -63,11 +63,16 @@ describe('flushPendingMutations', () => {
 
     const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
 
-    await Promise.all([flushPendingMutations(), flushPendingMutations()]);
+    const [firstResult, secondResult] = await Promise.all([
+      flushPendingMutations(),
+      flushPendingMutations(),
+    ]);
 
     expect(applyPendingMutationMock).toHaveBeenCalledTimes(2);
     expect(removeMutationMock).toHaveBeenCalledWith('first');
     expect(removeMutationMock).toHaveBeenCalledWith('second');
+    expect(firstResult).toEqual({ syncedCount: 2, remainingCount: 0 });
+    expect(secondResult).toEqual({ syncedCount: 0, remainingCount: 0 });
   });
 
   it('does not flush when offline', async () => {
@@ -75,9 +80,10 @@ describe('flushPendingMutations', () => {
     getPendingMutationsMock.mockResolvedValue([mutation('first')]);
 
     const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
-    await flushPendingMutations();
+    const result = await flushPendingMutations();
 
     expect(applyPendingMutationMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ syncedCount: 0, remainingCount: 1 });
   });
 
   it('stops at the first failed mutation without dropping earlier successes', async () => {
@@ -92,10 +98,15 @@ describe('flushPendingMutations', () => {
     });
 
     const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
-    await flushPendingMutations();
+    const result = await flushPendingMutations();
 
     expect(removeMutationMock).toHaveBeenCalledWith('ok');
     expect(removeMutationMock).not.toHaveBeenCalledWith('fail');
     expect(applyPendingMutationMock).toHaveBeenCalledTimes(2);
+    expect(result).toEqual({
+      syncedCount: 1,
+      remainingCount: 1,
+      lastError: expect.any(Error),
+    });
   });
 });
