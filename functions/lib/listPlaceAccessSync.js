@@ -1,5 +1,3 @@
-const { FieldPath } = require('firebase-admin/firestore');
-
 function normalizedListCollaboratorIds(list) {
   if (Array.isArray(list.collaboratorIds) && list.collaboratorIds.length > 0) {
     return list.collaboratorIds;
@@ -26,10 +24,12 @@ function buildListPlaceAccessFields(listData) {
 
 /** Paginated listPlaces query for access-field backfill; requires orderBy for startAfter. */
 function buildListPlacesAccessSyncQuery(db, listId, lastDoc, batchSize = 400) {
+  // Use listId + addedAt DESC — composite index exists in firestore.indexes.json.
+  // orderBy(documentId()) alone requires a listId + __name__ index that is not deployed.
   let query = db
     .collection('listPlaces')
     .where('listId', '==', listId)
-    .orderBy(FieldPath.documentId())
+    .orderBy('addedAt', 'desc')
     .limit(batchSize);
 
   if (lastDoc) {
