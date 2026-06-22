@@ -66,8 +66,15 @@ async function drainPendingMutations(): Promise<FlushResult> {
   }
 }
 
-export async function flushPendingMutations(): Promise<FlushResult> {
-  if (!isBrowserOnline()) {
+export interface FlushPendingMutationsOptions {
+  /** When true, flush even if navigator.onLine is false (e.g. after a successful connectivity probe). */
+  ignoreBrowserOffline?: boolean;
+}
+
+export async function flushPendingMutations(
+  options: FlushPendingMutationsOptions = {}
+): Promise<FlushResult> {
+  if (!options.ignoreBrowserOffline && !isBrowserOnline()) {
     const remaining = await getPendingMutations();
     return { syncedCount: 0, remainingCount: remaining.length };
   }
