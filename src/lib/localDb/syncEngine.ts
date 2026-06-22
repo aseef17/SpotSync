@@ -20,11 +20,20 @@ function isPermanentDeleteListFailure(error: unknown): boolean {
   return code === 'functions/permission-denied' || code === 'permission-denied';
 }
 
-let flushChain: Promise<FlushResult> = Promise.resolve({
-  syncedCount: 0,
-  remainingCount: 0,
-});
+const EMPTY_FLUSH_RESULT: FlushResult = { syncedCount: 0, remainingCount: 0 };
+
+let flushChain: Promise<FlushResult> = Promise.resolve(EMPTY_FLUSH_RESULT);
 let listenersRegistered = false;
+
+function settleFlushResult(
+  promise: Promise<FlushResult>,
+  context: string
+): Promise<FlushResult> {
+  return promise.catch((error) => {
+    logger.error(`${context}:`, error);
+    return { ...EMPTY_FLUSH_RESULT, lastError: error };
+  });
+}
 
 async function drainPendingMutations(): Promise<FlushResult> {
   let syncedCount = 0;
@@ -55,7 +64,18 @@ async function drainPendingMutations(): Promise<FlushResult> {
           continue;
         }
 
-        if (await shouldDropStaleMutation(mutation, error)) {
+        let dropStale = false;
+        try {
+          dropStale = await shouldDropStaleMutation(mutation, error);
+        } catch (staleCheckError) {
+          logger.error(
+            'Failed to check whether mutation is stale; keeping it queued:',
+            mutation.id,
+            staleCheckError
+          );
+        }
+
+        if (dropStale) {
           logger.warn('Dropping stale mutation that already exists on server:', mutation.id, error);
           await removeMutation(mutation.id);
           syncedCount += 1;
@@ -92,7 +112,11 @@ export async function flushPendingMutations(
     return { syncedCount: 0, remainingCount: remaining.length };
   }
 
-  flushChain = flushChain.then(() => drainPendingMutations());
+  const context = options.force ? 'Manual sync drain failed' : 'Background sync drain failed';
+  flushChain = settleFlushResult(
+    flushChain.then(() => drainPendingMutations()),
+    context
+  );
   return flushChain;
 }
 
