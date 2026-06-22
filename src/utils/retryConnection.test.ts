@@ -14,6 +14,14 @@ vi.mock('@/hooks/useNetworkStatus', () => ({
   isBrowserOnline: isBrowserOnlineMock,
 }));
 
+vi.mock('@/lib/localDb/localDataStore', () => ({
+  initLocalDataStore: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/utils/syncDebug', () => ({
+  syncDebug: vi.fn(),
+}));
+
 vi.mock('@/lib/localDb', () => ({
   flushPendingMutations: flushPendingMutationsMock,
 }));
@@ -96,5 +104,43 @@ describe('retryPendingSync', () => {
     );
     expect(attempt.ok).toBe(false);
     expect(attempt.offline).toBe(true);
+  });
+
+  it('surfaces drain errors with pending work instead of reporting success', async () => {
+    isBrowserOnlineMock.mockReturnValue(true);
+    flushPendingMutationsMock.mockResolvedValue({
+      syncedCount: 0,
+      remainingCount: 2,
+      lastError: new Error('db write failed'),
+    });
+
+    const { retryPendingSync } = await import('@/utils/retryConnection');
+    const attempt = await retryPendingSync();
+
+    expect(attempt.ok).toBe(false);
+    expect(attempt.message).toContain('db write failed');
+    expect(toastMock.error).toHaveBeenCalledWith(
+      'Some changes could not sync',
+      expect.objectContaining({
+        description: expect.stringContaining('db write failed'),
+      })
+    );
+    expect(toastMock.success).not.toHaveBeenCalled();
+  });
+
+  it('does not report success when flush fails without a remaining count', async () => {
+    isBrowserOnlineMock.mockReturnValue(true);
+    flushPendingMutationsMock.mockResolvedValue({
+      syncedCount: 0,
+      remainingCount: 0,
+      lastError: new Error('db write failed'),
+    });
+
+    const { retryPendingSync } = await import('@/utils/retryConnection');
+    const attempt = await retryPendingSync();
+
+    expect(attempt.ok).toBe(false);
+    expect(attempt.message).toContain('db write failed');
+    expect(toastMock.success).not.toHaveBeenCalledWith('Everything is up to date.');
   });
 });

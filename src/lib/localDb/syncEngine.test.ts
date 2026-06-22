@@ -141,4 +141,35 @@ describe('flushPendingMutations', () => {
       lastFailedMutation: { id: 'fail', type: 'updatePlace' },
     });
   });
+
+  it('reports pending mutations when drain throws instead of claiming success', async () => {
+    getPendingMutationsMock
+      .mockRejectedValueOnce(new Error('db read failed'))
+      .mockResolvedValueOnce([mutation('first'), mutation('second')]);
+
+    const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
+    const result = await flushPendingMutations({ force: true });
+
+    expect(result).toEqual({
+      syncedCount: 0,
+      remainingCount: 2,
+      lastError: expect.any(Error),
+    });
+  });
+
+  it('rejects force flush when a prior drain does not settle in time', async () => {
+    vi.useFakeTimers();
+
+    getPendingMutationsMock.mockImplementation(() => new Promise(() => {}));
+
+    const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
+    void flushPendingMutations();
+
+    const forcedPromise = flushPendingMutations({ force: true });
+    const assertion = expect(forcedPromise).rejects.toThrow('Prior sync flush timed out');
+    await vi.advanceTimersByTimeAsync(8_000);
+    await assertion;
+
+    vi.useRealTimers();
+  });
 });

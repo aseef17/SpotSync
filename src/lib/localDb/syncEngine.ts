@@ -26,31 +26,37 @@ const FLUSH_CHAIN_SETTLE_TIMEOUT_MS = 8_000;
 let flushChain: Promise<FlushResult> = Promise.resolve(EMPTY_FLUSH_RESULT);
 let listenersRegistered = false;
 
+async function readPendingMutationCount(): Promise<number> {
+  const remaining = await getPendingMutations();
+  return remaining.length;
+}
+
 function settleFlushResult(
   promise: Promise<FlushResult>,
   context: string
 ): Promise<FlushResult> {
-  return promise.catch((error) => {
+  return promise.catch(async (error) => {
     logger.error(`${context}:`, error);
-    return { ...EMPTY_FLUSH_RESULT, lastError: error };
+    let remainingCount = 1;
+    try {
+      remainingCount = await readPendingMutationCount();
+    } catch (countError) {
+      logger.error(`${context}: failed to read pending mutation count:`, countError);
+    }
+    return { syncedCount: 0, remainingCount, lastError: error };
   });
 }
 
 async function awaitPriorFlushChain(): Promise<void> {
-  try {
-    await Promise.race([
-      flushChain,
+  await Promise.race([
+    flushChain,
       new Promise<never>((_, reject) => {
-        window.setTimeout(
+        globalThis.setTimeout(
           () => reject(new Error('Prior sync flush timed out')),
           FLUSH_CHAIN_SETTLE_TIMEOUT_MS
         );
       }),
-    ]);
-  } catch (error) {
-    logger.error('Prior sync flush did not settle before manual retry:', error);
-    flushChain = Promise.resolve(EMPTY_FLUSH_RESULT);
-  }
+  ]);
 }
 
 async function drainPendingMutations(): Promise<FlushResult> {
