@@ -13,10 +13,7 @@ const { getMessaging } = require('firebase-admin/messaging');
 const { shouldPruneAccountDeletionTombstone } = require('./lib/accountDeletionTombstonePrune');
 const { shouldSkipPlaceAddedNotification } = require('./lib/placeNotificationGate');
 const { shouldNotifyImportCompleted } = require('./lib/importCompletionGate');
-const {
-  listAccessFieldsChanged,
-  syncListPlaceAccessFields,
-} = require('./lib/listPlaceAccessSync');
+const { listAccessFieldsChanged, syncListPlaceAccessFields } = require('./lib/listPlaceAccessSync');
 
 initializeApp();
 

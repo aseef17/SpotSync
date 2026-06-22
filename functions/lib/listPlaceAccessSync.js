@@ -43,7 +43,8 @@ function membershipNeedsAccessFieldUpdate(data, accessFields) {
   return (
     data.listOwnerId !== accessFields.listOwnerId ||
     data.listIsPublic !== accessFields.listIsPublic ||
-    JSON.stringify(data.listCollaboratorIds || []) !== JSON.stringify(accessFields.listCollaboratorIds)
+    JSON.stringify(data.listCollaboratorIds || []) !==
+      JSON.stringify(accessFields.listCollaboratorIds)
   );
 }
 
