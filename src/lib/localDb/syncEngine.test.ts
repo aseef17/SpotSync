@@ -117,6 +117,52 @@ describe('flushPendingMutations', () => {
     expect(forced).toEqual({ syncedCount: 1, remainingCount: 0 });
   });
 
+  it('serializes concurrent force flushes so mutations are not applied twice', async () => {
+    const pending = new Set(['only']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    applyPendingMutationMock.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
+
+    await Promise.all([
+      flushPendingMutations({ force: true }),
+      flushPendingMutations({ force: true }),
+    ]);
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('serializes force flush with an in-flight non-force flush', async () => {
+    const pending = new Set(['only']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    applyPendingMutationMock.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
+
+    await Promise.all([
+      flushPendingMutations(),
+      flushPendingMutations({ force: true }),
+    ]);
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+  });
+
   it('stops at the first failed mutation without dropping earlier successes', async () => {
     getPendingMutationsMock
       .mockResolvedValueOnce([mutation('ok'), mutation('fail')])
