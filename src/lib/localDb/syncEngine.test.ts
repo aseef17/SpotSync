@@ -86,6 +86,17 @@ describe('flushPendingMutations', () => {
     expect(result).toEqual({ syncedCount: 0, remainingCount: 1 });
   });
 
+  it('flushes when offline if ignoreBrowserOffline is set', async () => {
+    isBrowserOnlineMock.mockReturnValue(false);
+    getPendingMutationsMock.mockResolvedValueOnce([mutation('first')]).mockResolvedValueOnce([]);
+
+    const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
+    const result = await flushPendingMutations({ ignoreBrowserOffline: true });
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ syncedCount: 1, remainingCount: 0 });
+  });
+
   it('stops at the first failed mutation without dropping earlier successes', async () => {
     getPendingMutationsMock
       .mockResolvedValueOnce([mutation('ok'), mutation('fail')])

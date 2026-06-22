@@ -4,8 +4,13 @@ import { flushPendingMutations, type FlushResult } from '@/lib/localDb';
 
 const CONNECTIVITY_PROBE_TIMEOUT_MS = 4000;
 
-async function probeNetwork(): Promise<boolean> {
-  if (!isBrowserOnline()) {
+interface ProbeNetworkOptions {
+  /** Attempt fetch even when navigator.onLine is false (manual retry while browser still reports offline). */
+  ignoreBrowserOffline?: boolean;
+}
+
+async function probeNetwork(options: ProbeNetworkOptions = {}): Promise<boolean> {
+  if (!options.ignoreBrowserOffline && !isBrowserOnline()) {
     return false;
   }
 
@@ -55,17 +60,19 @@ function notifySyncResult(result: FlushResult): boolean {
 
 /** Flushes the offline mutation queue in the background without reloading the app. */
 export async function retryPendingSync(): Promise<boolean> {
-  if (!isBrowserOnline()) {
-    const isReachable = await probeNetwork();
-    if (!isReachable) {
-      toast.message('Still offline', {
-        description: 'Cached data is still available. Reconnect to sync the latest changes.',
-      });
-      return false;
-    }
+  const browserSaysOnline = isBrowserOnline();
+  const isReachable = await probeNetwork({ ignoreBrowserOffline: !browserSaysOnline });
+
+  if (!isReachable) {
+    toast.message('Still offline', {
+      description: 'Cached data is still available. Reconnect to sync the latest changes.',
+    });
+    return false;
   }
 
-  const result = await flushPendingMutations();
+  const result = await flushPendingMutations({
+    ignoreBrowserOffline: !browserSaysOnline,
+  });
   return notifySyncResult(result);
 }
 
@@ -77,7 +84,8 @@ interface RetryConnectionOptions {
 /** Checks connectivity and optionally reloads. Use retryPendingSync for the offline sync banner. */
 export async function retryConnection(options: RetryConnectionOptions = {}): Promise<boolean> {
   const { reload = true } = options;
-  const isReachable = await probeNetwork();
+  const browserSaysOnline = isBrowserOnline();
+  const isReachable = await probeNetwork({ ignoreBrowserOffline: !browserSaysOnline });
 
   if (!isReachable) {
     toast.message('Still offline', {
@@ -86,7 +94,9 @@ export async function retryConnection(options: RetryConnectionOptions = {}): Pro
     return false;
   }
 
-  const result = await flushPendingMutations();
+  const result = await flushPendingMutations({
+    ignoreBrowserOffline: !browserSaysOnline,
+  });
   notifySyncResult(result);
 
   if (reload) {
