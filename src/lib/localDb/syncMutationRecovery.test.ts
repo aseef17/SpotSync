@@ -76,16 +76,14 @@ describe('shouldDropStaleMutation', () => {
     const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
     const membershipId = `${listId}_${chij}`;
 
-    getDocMock
-      .mockResolvedValueOnce({ exists: () => false })
-      .mockResolvedValueOnce({
-        exists: () => true,
-        data: () => ({
-          ownerId: 'user-1',
-          editorIds: ['user-1'],
-          collaboratorIds: ['user-1'],
-        }),
-      });
+    getDocMock.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        ownerId: 'user-1',
+        editorIds: ['user-1'],
+        collaboratorIds: ['user-1'],
+      }),
+    });
     findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
 
     const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
