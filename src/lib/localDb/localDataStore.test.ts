@@ -93,7 +93,7 @@ describe('resetLocalDataRuntime', () => {
 
     await resetLocalDataRuntime();
 
-    expect(invalidateSyncDrainMock).toHaveBeenCalledTimes(1);
+    expect(invalidateSyncDrainMock).not.toHaveBeenCalled();
     expect(awaitSyncDrainIdleMock).toHaveBeenCalledTimes(1);
     expect(flushPendingMutationsMock).toHaveBeenCalledTimes(1);
     expect(clearLocalDatabaseMock).toHaveBeenCalledTimes(1);
