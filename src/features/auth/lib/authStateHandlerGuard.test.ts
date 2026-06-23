@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import {
   beginAuthStateHandler,
+  isAccountSwitch,
   isCurrentAuthStateHandler,
   resetAuthStateHandlerGuardForTests,
   shouldRetainUserOnAuthChange,
@@ -23,5 +24,11 @@ describe('authStateHandlerGuard', () => {
     expect(shouldRetainUserOnAuthChange('user-a', 'user-b')).toBe(false);
     expect(shouldRetainUserOnAuthChange('user-a', 'user-a')).toBe(true);
     expect(shouldRetainUserOnAuthChange(undefined, 'user-b')).toBe(false);
+  });
+
+  it('detects account switch only when a prior authenticated uid is still recorded', () => {
+    expect(isAccountSwitch('user-a', 'user-b')).toBe(true);
+    expect(isAccountSwitch('user-a', 'user-a')).toBe(false);
+    expect(isAccountSwitch(null, 'user-b')).toBe(false);
   });
 });

@@ -16,6 +16,14 @@ export function shouldRetainUserOnAuthChange(
   return previousUserId === nextFirebaseUid;
 }
 
+/** True when auth uid changes from a previously authenticated session (not first login). */
+export function isAccountSwitch(
+  lastAuthenticatedUid: string | null,
+  nextFirebaseUid: string
+): boolean {
+  return Boolean(lastAuthenticatedUid && lastAuthenticatedUid !== nextFirebaseUid);
+}
+
 export function resetAuthStateHandlerGuardForTests(): void {
   authStateGeneration = 0;
 }

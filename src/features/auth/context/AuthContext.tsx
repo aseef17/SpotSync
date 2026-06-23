@@ -22,6 +22,7 @@ import { AccountService, checkUsernameExistsRemote } from '@/features/auth/api/a
 import { getAuthActionCodeSettings } from '@/features/auth/lib/authActionSettings';
 import {
   beginAuthStateHandler,
+  isAccountSwitch,
   isCurrentAuthStateHandler,
   shouldRetainUserOnAuthChange,
 } from '@/features/auth/lib/authStateHandlerGuard';
@@ -230,10 +231,8 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             return;
           }
 
-          const isAccountSwitch = Boolean(
-            lastAuthenticatedUid && lastAuthenticatedUid !== fbUser.uid
-          );
-          if (isAccountSwitch) {
+          const accountSwitch = isAccountSwitch(lastAuthenticatedUid, fbUser.uid);
+          if (accountSwitch) {
             beginLocalRuntimeReset();
             accountSwitchResetLockHeld = true;
           }
@@ -242,7 +241,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
             return;
           }
-          if (isAccountSwitch) {
+          if (accountSwitch) {
             await resetLocalDataRuntime({ skipPendingFlush: true });
           }
           lastAuthenticatedUid = fbUser.uid;
@@ -368,12 +367,12 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
             return;
           }
-          lastAuthenticatedUid = null;
           const { resetLocalDataRuntime } = await import('@/lib/localDb');
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
             return;
           }
           await resetLocalDataRuntime();
+          lastAuthenticatedUid = null;
           setFirebaseUser(null);
           setUser(null);
         }
