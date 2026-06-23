@@ -76,7 +76,16 @@ describe('shouldDropStaleMutation', () => {
     const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
     const membershipId = `${listId}_${chij}`;
 
-    getDocMock.mockResolvedValueOnce({ exists: () => false });
+    getDocMock
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          ownerId: 'user-1',
+          editorIds: ['user-1'],
+          collaboratorIds: ['user-1'],
+        }),
+      });
     findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
 
     const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
@@ -110,6 +119,23 @@ describe('shouldDropStaleMutation', () => {
         data: () => ({ listId, status: 'not_visited' }),
       })
       .mockResolvedValueOnce({ exists: () => false });
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(true);
+  });
+
+  it('drops updatePlaceStatus when legacy migration is possible but the parent list was deleted', async () => {
+    const listId = 'Gzzf9zOWcEkCxyJx2Mo8';
+    const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
+    const membershipId = `${listId}_${chij}`;
+
+    getDocMock
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce({ exists: () => false });
+    findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
 
     const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
       code: 'permission-denied',
@@ -189,7 +215,24 @@ describe('shouldDropStaleMutation', () => {
   });
 
   it('drops updatePlaceStatus on not-found errors when no legacy membership exists', async () => {
+    getDocMock.mockResolvedValueOnce({ exists: () => false });
+
     const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1'), {
+      code: 'not-found',
+    });
+
+    expect(shouldDrop).toBe(true);
+  });
+
+  it('drops updatePlaceStatus on not-found when the parent list was deleted', async () => {
+    const listId = 'Gzzf9zOWcEkCxyJx2Mo8';
+    const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
+    const membershipId = `${listId}_${chij}`;
+
+    getDocMock.mockResolvedValueOnce({ exists: () => false });
+    findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
       code: 'not-found',
     });
 
@@ -201,6 +244,14 @@ describe('shouldDropStaleMutation', () => {
     const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
     const membershipId = `${listId}_${chij}`;
 
+    getDocMock.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        ownerId: 'user-1',
+        editorIds: ['user-1'],
+        collaboratorIds: ['user-1'],
+      }),
+    });
     findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
 
     const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
@@ -208,7 +259,7 @@ describe('shouldDropStaleMutation', () => {
     });
 
     expect(shouldDrop).toBe(false);
-    expect(getDocMock).not.toHaveBeenCalled();
+    expect(getDocMock).toHaveBeenCalledTimes(1);
   });
 
   it('keeps updatePlaceStatus when membership get returns permission-denied for a missing doc', async () => {
@@ -233,7 +284,16 @@ describe('shouldDropStaleMutation', () => {
     const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
     const membershipId = `${listId}_${chij}`;
 
-    getDocMock.mockRejectedValueOnce({ code: 'permission-denied' });
+    getDocMock
+      .mockRejectedValueOnce({ code: 'permission-denied' })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          ownerId: 'user-1',
+          editorIds: ['user-1'],
+          collaboratorIds: ['user-1'],
+        }),
+      });
     findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
 
     const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {

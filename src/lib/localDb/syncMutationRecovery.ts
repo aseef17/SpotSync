@@ -130,6 +130,18 @@ async function shouldDropUpdatePlaceStatus(
   const listIdHint = parsed?.listId;
 
   if (isNotFoundError(error)) {
+    if (listIdHint) {
+      const access = await readListWriteAccess(listIdHint);
+      syncDebug('stale-updatePlaceStatus-not-found-access', {
+        membershipId,
+        listId: listIdHint,
+        access,
+      });
+      if (shouldDropForListAccess(access)) {
+        return true;
+      }
+    }
+
     const canMigrate = await canMigrateLegacyPassportMembership(membershipId);
     syncDebug('stale-updatePlaceStatus-not-found', { membershipId, canMigrate });
     if (canMigrate) {
@@ -145,6 +157,16 @@ async function shouldDropUpdatePlaceStatus(
       { membershipId }
     );
     if (!membershipSnap.exists()) {
+      const listId = listIdHint;
+      let access: ListWriteAccess | undefined;
+      if (listId) {
+        access = await readListWriteAccess(listId);
+        syncDebug('stale-updatePlaceStatus-missing-write-check', { membershipId, listId, access });
+        if (shouldDropForListAccess(access)) {
+          return true;
+        }
+      }
+
       const canMigrate = await canMigrateLegacyPassportMembership(membershipId);
       syncDebug('stale-updatePlaceStatus-missing-doc', { membershipId, canMigrate });
       if (canMigrate) {
@@ -153,13 +175,8 @@ async function shouldDropUpdatePlaceStatus(
 
       // Permission-denied reads look like missing docs under current rules. If the user can
       // still write the list, keep retrying instead of silently dropping the mutation.
-      const listId = listIdHint;
-      if (listId) {
-        const access = await readListWriteAccess(listId);
-        syncDebug('stale-updatePlaceStatus-missing-write-check', { membershipId, listId, access });
-        if (access === 'write' || access === 'unknown') {
-          return false;
-        }
+      if (listId && (access === 'write' || access === 'unknown')) {
+        return false;
       }
 
       return true;
