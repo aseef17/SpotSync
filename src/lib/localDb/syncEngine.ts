@@ -27,6 +27,8 @@ const EMPTY_FLUSH_RESULT: FlushResult = { syncedCount: 0, remainingCount: 0 };
 
 let flushChain: Promise<FlushResult> = Promise.resolve(EMPTY_FLUSH_RESULT);
 let listenersRegistered = false;
+/** Tracks the last auth uid seen by the sync engine to detect first sign-in after boot. */
+let lastObservedAuthUid: string | null = auth.currentUser?.uid ?? null;
 
 function settleFlushResult(promise: Promise<FlushResult>, context: string): Promise<FlushResult> {
   return promise.catch(async (error) => {
@@ -173,7 +175,11 @@ export function startSyncEngine(): void {
   window.addEventListener('online', handleOnline);
 
   onAuthStateChanged(auth, (user) => {
-    if (user?.uid && isBrowserOnline()) {
+    const nextUid = user?.uid ?? null;
+    const authJustBecameReady = nextUid !== null && lastObservedAuthUid === null;
+    lastObservedAuthUid = nextUid;
+
+    if (authJustBecameReady && isBrowserOnline()) {
       void flushPendingMutations();
     }
   });

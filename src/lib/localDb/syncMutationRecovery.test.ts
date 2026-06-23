@@ -336,7 +336,14 @@ describe('shouldDropStaleMutation', () => {
     const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
     const membershipId = `${listId}_${chij}`;
 
-    getDocMock.mockRejectedValueOnce({ code: 'permission-denied' });
+    getDocMock.mockRejectedValueOnce({ code: 'permission-denied' }).mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        ownerId: 'user-1',
+        editorIds: ['user-1'],
+        collaboratorIds: ['user-1'],
+      }),
+    });
     findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
     getDocMock.mockResolvedValueOnce({
       exists: () => true,
