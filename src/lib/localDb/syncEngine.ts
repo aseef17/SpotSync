@@ -43,7 +43,8 @@ function settleFlushResult(promise: Promise<FlushResult>, context: string): Prom
 }
 
 async function drainPendingMutations(): Promise<FlushResult> {
-  if (!auth.currentUser?.uid) {
+  const drainAuthUid = auth.currentUser?.uid;
+  if (!drainAuthUid) {
     const remaining = await getPendingMutations();
     syncDebug('drain-skipped-no-auth', { remainingCount: remaining.length });
     return { syncedCount: 0, remainingCount: remaining.length };
@@ -53,13 +54,23 @@ async function drainPendingMutations(): Promise<FlushResult> {
   let lastError: unknown;
 
   while (true) {
+    if (auth.currentUser?.uid !== drainAuthUid) {
+      const remaining = await getPendingMutations();
+      syncDebug('drain-aborted-auth-changed', {
+        drainAuthUid,
+        currentUid: auth.currentUser?.uid ?? null,
+        remainingCount: remaining.length,
+      });
+      return { syncedCount, remainingCount: remaining.length, lastError };
+    }
+
     const mutations = await getPendingMutations();
     if (mutations.length === 0) {
       return { syncedCount, remainingCount: 0, lastError };
     }
 
     syncDebug('drain-batch', {
-      uid: auth.currentUser?.uid ?? null,
+      uid: drainAuthUid,
       count: mutations.length,
       types: mutations.map((m) => m.type),
     });
@@ -67,6 +78,16 @@ async function drainPendingMutations(): Promise<FlushResult> {
     let blockedOnFailure = false;
     let lastFailedMutation: FlushResult['lastFailedMutation'];
     for (const mutation of mutations) {
+      if (auth.currentUser?.uid !== drainAuthUid) {
+        const remaining = await getPendingMutations();
+        syncDebug('drain-aborted-auth-changed', {
+          drainAuthUid,
+          currentUid: auth.currentUser?.uid ?? null,
+          remainingCount: remaining.length,
+        });
+        return { syncedCount, remainingCount: remaining.length, lastError };
+      }
+
       try {
         syncDebug('mutation-apply-start', {
           id: mutation.id,
@@ -138,6 +159,11 @@ export interface FlushPendingMutationsOptions {
   ignoreBrowserOffline?: boolean;
   /** Manual retry call sites set this; all flushes share the same serialized chain. */
   force?: boolean;
+}
+
+/** Waits for any in-flight sync drain to finish (used before tearing down local state). */
+export function waitForPendingFlushIdle(): Promise<FlushResult> {
+  return flushChain;
 }
 
 export async function flushPendingMutations(

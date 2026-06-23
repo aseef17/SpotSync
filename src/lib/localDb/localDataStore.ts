@@ -7,12 +7,23 @@ import { clearCompletedHydrationScopes } from '@/lib/localDb/initialCacheHydrati
 import { clearAllChangeListeners } from '@/lib/localDb/changeBus';
 import { clearAllUserListsSyncState } from '@/lib/localDb/sync/listSync';
 import { clearUserProfileSyncState } from '@/lib/localDb/sync/userProfileSync';
-import { flushPendingMutations, startSyncEngine } from '@/lib/localDb/syncEngine';
+import {
+  flushPendingMutations,
+  startSyncEngine,
+  waitForPendingFlushIdle,
+} from '@/lib/localDb/syncEngine';
 import { clearAllSubscriptions } from '@/lib/localDb/subscriptionRegistry';
 
 let initPromise: Promise<void> | null = null;
+let resetChain: Promise<void> = Promise.resolve();
+
+export function waitForLocalDataResetIdle(): Promise<void> {
+  return resetChain;
+}
 
 export async function initLocalDataStore(): Promise<void> {
+  await waitForLocalDataResetIdle();
+
   if (!initPromise) {
     initPromise = initLocalDatabase()
       .then(() => {
@@ -35,18 +46,25 @@ export interface ResetLocalDataRuntimeOptions {
 export async function resetLocalDataRuntime(
   options: ResetLocalDataRuntimeOptions = {}
 ): Promise<void> {
-  if (!options.skipPendingFlush && isBrowserOnline()) {
-    await flushPendingMutations();
-  }
+  const resetTask = resetChain.then(async () => {
+    if (!options.skipPendingFlush && isBrowserOnline()) {
+      await flushPendingMutations();
+    } else {
+      await waitForPendingFlushIdle();
+    }
 
-  clearPlaceListSubscriptions();
-  clearInvitationListSubscriptions();
-  clearInvitationRecipientSubscriptions();
-  clearAllSubscriptions();
-  clearAllChangeListeners();
-  clearAllUserListsSyncState();
-  clearUserProfileSyncState();
-  clearCompletedHydrationScopes();
-  initPromise = null;
-  await clearLocalDatabase();
+    clearPlaceListSubscriptions();
+    clearInvitationListSubscriptions();
+    clearInvitationRecipientSubscriptions();
+    clearAllSubscriptions();
+    clearAllChangeListeners();
+    clearAllUserListsSyncState();
+    clearUserProfileSyncState();
+    clearCompletedHydrationScopes();
+    initPromise = null;
+    await clearLocalDatabase();
+  });
+
+  resetChain = resetTask.catch(() => undefined);
+  await resetTask;
 }

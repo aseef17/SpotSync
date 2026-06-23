@@ -2,11 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   flushPendingMutationsMock,
+  waitForPendingFlushIdleMock,
   clearLocalDatabaseMock,
   initLocalDatabaseMock,
   isBrowserOnlineMock,
 } = vi.hoisted(() => ({
   flushPendingMutationsMock: vi.fn(),
+  waitForPendingFlushIdleMock: vi.fn(),
   clearLocalDatabaseMock: vi.fn(),
   initLocalDatabaseMock: vi.fn(),
   isBrowserOnlineMock: vi.fn(() => true),
@@ -18,6 +20,7 @@ vi.mock('@/hooks/useNetworkStatus', () => ({
 
 vi.mock('@/lib/localDb/syncEngine', () => ({
   flushPendingMutations: flushPendingMutationsMock,
+  waitForPendingFlushIdle: waitForPendingFlushIdleMock,
   startSyncEngine: vi.fn(),
 }));
 
@@ -62,10 +65,13 @@ describe('resetLocalDataRuntime', () => {
   beforeEach(async () => {
     vi.resetModules();
     flushPendingMutationsMock.mockReset();
+    waitForPendingFlushIdleMock.mockReset();
     clearLocalDatabaseMock.mockReset();
     isBrowserOnlineMock.mockReturnValue(true);
     flushPendingMutationsMock.mockResolvedValue({ syncedCount: 0, remainingCount: 0 });
+    waitForPendingFlushIdleMock.mockResolvedValue({ syncedCount: 0, remainingCount: 0 });
     clearLocalDatabaseMock.mockResolvedValue(undefined);
+    initLocalDatabaseMock.mockResolvedValue(undefined);
   });
 
   it('flushes pending mutations before clearing local state by default', async () => {
@@ -83,10 +89,11 @@ describe('resetLocalDataRuntime', () => {
     await resetLocalDataRuntime({ skipPendingFlush: true });
 
     expect(flushPendingMutationsMock).not.toHaveBeenCalled();
+    expect(waitForPendingFlushIdleMock).toHaveBeenCalledTimes(1);
     expect(clearLocalDatabaseMock).toHaveBeenCalledTimes(1);
   });
 
-  it('does not flush when offline even without skipPendingFlush', async () => {
+  it('waits for in-flight flush idle when offline without starting a new flush', async () => {
     isBrowserOnlineMock.mockReturnValue(false);
 
     const { resetLocalDataRuntime } = await import('@/lib/localDb/localDataStore');
@@ -94,6 +101,45 @@ describe('resetLocalDataRuntime', () => {
     await resetLocalDataRuntime();
 
     expect(flushPendingMutationsMock).not.toHaveBeenCalled();
+    expect(waitForPendingFlushIdleMock).toHaveBeenCalledTimes(1);
     expect(clearLocalDatabaseMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('serializes overlapping resets before clearing local state', async () => {
+    const callOrder: string[] = [];
+    clearLocalDatabaseMock.mockImplementation(async () => {
+      callOrder.push('clear');
+    });
+    flushPendingMutationsMock.mockImplementation(async () => {
+      callOrder.push('flush');
+      return { syncedCount: 0, remainingCount: 0 };
+    });
+
+    const { resetLocalDataRuntime } = await import('@/lib/localDb/localDataStore');
+
+    await Promise.all([resetLocalDataRuntime(), resetLocalDataRuntime()]);
+
+    expect(callOrder).toEqual(['flush', 'clear', 'flush', 'clear']);
+  });
+
+  it('initLocalDataStore waits for an in-flight reset before initializing', async () => {
+    let releaseClear!: () => void;
+    const clearGate = new Promise<void>((resolve) => {
+      releaseClear = resolve;
+    });
+    clearLocalDatabaseMock.mockImplementation(() => clearGate);
+
+    const { resetLocalDataRuntime, initLocalDataStore } = await import('@/lib/localDb/localDataStore');
+
+    const resetPromise = resetLocalDataRuntime();
+    await flushPendingMutationsMock.mock.results[0]?.value;
+    const initPromise = initLocalDataStore();
+
+    expect(initLocalDatabaseMock).not.toHaveBeenCalled();
+
+    releaseClear();
+    await Promise.all([resetPromise, initPromise]);
+
+    expect(initLocalDatabaseMock).toHaveBeenCalledTimes(1);
   });
 });

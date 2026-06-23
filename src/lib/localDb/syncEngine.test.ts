@@ -119,6 +119,29 @@ describe('flushPendingMutations', () => {
     expect(result).toEqual({ syncedCount: 0, remainingCount: 1 });
   });
 
+  it('aborts an in-flight drain when auth uid changes mid-sync', async () => {
+    const pending = new Set(['first', 'second']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    applyPendingMutationMock.mockImplementation(async (mutationToApply: PendingMutation) => {
+      if (mutationToApply.id === 'first') {
+        authMock.currentUser = { uid: 'user-2' };
+      }
+    });
+
+    const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
+    const result = await flushPendingMutations();
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    expect(removeMutationMock).toHaveBeenCalledWith('first');
+    expect(result).toEqual({ syncedCount: 1, remainingCount: 1 });
+  });
+
   it('flushes when offline if ignoreBrowserOffline is set', async () => {
     isBrowserOnlineMock.mockReturnValue(false);
     getPendingMutationsMock.mockResolvedValueOnce([mutation('first')]).mockResolvedValueOnce([]);
