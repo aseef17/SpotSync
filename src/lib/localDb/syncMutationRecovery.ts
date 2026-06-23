@@ -140,7 +140,7 @@ async function shouldDropUpdatePlaceStatus(
           listIdHint,
           access,
         });
-        if (access === 'none') {
+        if (shouldDropForListAccess(access)) {
           return true;
         }
       }
@@ -166,7 +166,7 @@ async function shouldDropUpdatePlaceStatus(
             listIdHint,
             access,
           });
-          if (access === 'none') {
+          if (shouldDropForListAccess(access)) {
             return true;
           }
         }
