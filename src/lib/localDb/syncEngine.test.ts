@@ -318,3 +318,43 @@ describe('startSyncEngine', () => {
     vi.unstubAllGlobals();
   });
 });
+
+describe('drainPendingMutations auth guard', () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    getPendingMutationsMock.mockReset();
+    removeMutationMock.mockReset();
+    applyPendingMutationMock.mockReset();
+    isBrowserOnlineMock.mockReturnValue(true);
+    authMock.currentUser = { uid: 'user-a' };
+    removeMutationMock.mockResolvedValue(undefined);
+    applyPendingMutationMock.mockResolvedValue(undefined);
+  });
+
+  it('stops applying mutations when auth uid changes mid-drain', async () => {
+    const pending = new Set(['first', 'second']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    applyPendingMutationMock.mockImplementation(async (mutationToApply: PendingMutation) => {
+      if (mutationToApply.id === 'first') {
+        authMock.currentUser = { uid: 'user-b' };
+      }
+    });
+
+    const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
+    const result = await flushPendingMutations();
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    expect(applyPendingMutationMock).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 'first' })
+    );
+    expect(result).toEqual({
+      syncedCount: 1,
+      remainingCount: 1,
+    });
+  });
+});

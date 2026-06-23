@@ -3,11 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const {
   isBrowserOnlineMock,
   flushPendingMutationsMock,
+  awaitPendingFlushSettlementMock,
   clearLocalDatabaseMock,
   initLocalDatabaseMock,
 } = vi.hoisted(() => ({
   isBrowserOnlineMock: vi.fn(() => true),
   flushPendingMutationsMock: vi.fn().mockResolvedValue({ syncedCount: 0, remainingCount: 0 }),
+  awaitPendingFlushSettlementMock: vi.fn().mockResolvedValue({ syncedCount: 0, remainingCount: 0 }),
   clearLocalDatabaseMock: vi.fn().mockResolvedValue(undefined),
   initLocalDatabaseMock: vi.fn().mockResolvedValue(undefined),
 }));
@@ -18,6 +20,7 @@ vi.mock('@/hooks/useNetworkStatus', () => ({
 
 vi.mock('@/lib/localDb/syncEngine', () => ({
   flushPendingMutations: flushPendingMutationsMock,
+  awaitPendingFlushSettlement: awaitPendingFlushSettlementMock,
   startSyncEngine: vi.fn(),
 }));
 
@@ -63,6 +66,7 @@ describe('resetLocalDataRuntime', () => {
     vi.resetModules();
     isBrowserOnlineMock.mockReturnValue(true);
     flushPendingMutationsMock.mockClear();
+    awaitPendingFlushSettlementMock.mockClear();
     clearLocalDatabaseMock.mockClear();
   });
 
@@ -81,16 +85,18 @@ describe('resetLocalDataRuntime', () => {
     await resetLocalDataRuntime({ flushPending: false });
 
     expect(flushPendingMutationsMock).not.toHaveBeenCalled();
+    expect(awaitPendingFlushSettlementMock).toHaveBeenCalledTimes(1);
     expect(clearLocalDatabaseMock).toHaveBeenCalledTimes(1);
   });
 
-  it('does not flush when offline even if flushPending is enabled', async () => {
+  it('waits for in-flight flush settlement when offline', async () => {
     isBrowserOnlineMock.mockReturnValue(false);
     const { resetLocalDataRuntime } = await import('@/lib/localDb/localDataStore');
 
     await resetLocalDataRuntime();
 
     expect(flushPendingMutationsMock).not.toHaveBeenCalled();
+    expect(awaitPendingFlushSettlementMock).toHaveBeenCalledTimes(1);
     expect(clearLocalDatabaseMock).toHaveBeenCalledTimes(1);
   });
 });

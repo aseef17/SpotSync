@@ -43,7 +43,8 @@ function settleFlushResult(promise: Promise<FlushResult>, context: string): Prom
 }
 
 async function drainPendingMutations(): Promise<FlushResult> {
-  if (!auth.currentUser?.uid) {
+  const drainAuthUid = auth.currentUser?.uid;
+  if (!drainAuthUid) {
     const remaining = await getPendingMutations();
     syncDebug('drain-skipped-no-auth', { remainingCount: remaining.length });
     return { syncedCount: 0, remainingCount: remaining.length };
@@ -52,7 +53,23 @@ async function drainPendingMutations(): Promise<FlushResult> {
   let syncedCount = 0;
   let lastError: unknown;
 
+  const authChangedDuringDrain = (): boolean => auth.currentUser?.uid !== drainAuthUid;
+
+  const abortDrainForAuthChange = async (): Promise<FlushResult> => {
+    const remaining = await getPendingMutations();
+    syncDebug('drain-aborted-auth-changed', {
+      drainAuthUid,
+      currentUid: auth.currentUser?.uid ?? null,
+      remainingCount: remaining.length,
+    });
+    return { syncedCount, remainingCount: remaining.length, lastError };
+  };
+
   while (true) {
+    if (authChangedDuringDrain()) {
+      return abortDrainForAuthChange();
+    }
+
     const mutations = await getPendingMutations();
     if (mutations.length === 0) {
       return { syncedCount, remainingCount: 0, lastError };
@@ -67,6 +84,10 @@ async function drainPendingMutations(): Promise<FlushResult> {
     let blockedOnFailure = false;
     let lastFailedMutation: FlushResult['lastFailedMutation'];
     for (const mutation of mutations) {
+      if (authChangedDuringDrain()) {
+        return abortDrainForAuthChange();
+      }
+
       try {
         syncDebug('mutation-apply-start', {
           id: mutation.id,
@@ -158,6 +179,11 @@ export async function flushPendingMutations(
     flushChain.then(() => drainPendingMutations()),
     context
   );
+  return flushChain;
+}
+
+/** Wait for any in-flight flush to finish before clearing local state. */
+export async function awaitPendingFlushSettlement(): Promise<FlushResult> {
   return flushChain;
 }
 
