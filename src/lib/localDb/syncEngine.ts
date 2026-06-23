@@ -70,7 +70,13 @@ function isDrainStillValid(generationAtStart: number, ownerUid: string | null): 
   return generationAtStart === drainGeneration && auth.currentUser?.uid === ownerUid;
 }
 
-async function drainPendingMutations(): Promise<FlushResult> {
+async function drainPendingMutations(allowDuringRuntimeReset = false): Promise<FlushResult> {
+  if (localRuntimeResetInProgress && !allowDuringRuntimeReset) {
+    const remaining = await getPendingMutations();
+    syncDebug('drain-skipped-runtime-reset', { remainingCount: remaining.length });
+    return { syncedCount: 0, remainingCount: remaining.length };
+  }
+
   const generationAtStart = drainGeneration;
   const ownerUid = auth.currentUser?.uid ?? null;
 
@@ -84,6 +90,15 @@ async function drainPendingMutations(): Promise<FlushResult> {
   let lastError: unknown;
 
   while (true) {
+    if (localRuntimeResetInProgress && !allowDuringRuntimeReset) {
+      const remaining = await getPendingMutations();
+      syncDebug('drain-aborted-runtime-reset', {
+        ownerUid,
+        remainingCount: remaining.length,
+      });
+      return { syncedCount, remainingCount: remaining.length, lastError };
+    }
+
     if (!isDrainStillValid(generationAtStart, ownerUid)) {
       const remaining = await getPendingMutations();
       syncDebug('drain-aborted-runtime-reset', {
@@ -219,8 +234,9 @@ export async function flushPendingMutations(
   }
 
   const context = options.force ? 'Manual sync drain failed' : 'Background sync drain failed';
+  const allowDuringRuntimeReset = options.allowDuringRuntimeReset === true;
   flushChain = settleFlushResult(
-    flushChain.then(() => drainPendingMutations()),
+    flushChain.then(() => drainPendingMutations(allowDuringRuntimeReset)),
     context
   );
   return flushChain;
