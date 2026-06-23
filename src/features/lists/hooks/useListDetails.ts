@@ -82,14 +82,14 @@ export const useListDetails = (listId: string | undefined) => {
       return null;
     }
     return getPlaceListAccessKey(listId, user.id, list);
-  }, [listId, user?.id, list?.ownerId, list?.isPublic]);
+  }, [listId, user?.id, list]);
 
   const placeAccessQuery = useMemo(() => {
     if (!listId || !user?.id || !list) {
       return null;
     }
     return toPlaceListAccessQuery(listId, user.id, list);
-  }, [listId, user?.id, list?.ownerId, list?.isPublic]);
+  }, [listId, user?.id, list]);
   const loadTrackingRef = useRef({
     listLoaded: false,
     hasCachedData: false,
@@ -386,6 +386,7 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
+    const loadTracking = loadTrackingRef.current;
     const contextList = listsRef.current.find((entry) => entry.id === listId) ?? null;
     pendingPlacesSnapshotRef.current = undefined;
     applyPendingPlacesRef.current = null;
@@ -400,12 +401,12 @@ export const useListDetails = (listId: string | undefined) => {
       })
     ) {
       listAccessibleRef.current = true;
-      loadTrackingRef.current.listLoaded = true;
-      loadTrackingRef.current.hasCachedData = true;
+      loadTracking.listLoaded = true;
+      loadTracking.hasCachedData = true;
     }
-    let listLoaded = loadTrackingRef.current.listLoaded;
+    let listLoaded = loadTracking.listLoaded;
     let placesLoaded = false;
-    let hasCachedData = loadTrackingRef.current.hasCachedData;
+    let hasCachedData = loadTracking.hasCachedData;
     paginationCursorRef.current = null;
     extraPlacesRef.current = [];
 
@@ -421,9 +422,9 @@ export const useListDetails = (listId: string | undefined) => {
       }
     };
 
-    loadTrackingRef.current.onProgress = () => {
-      listLoaded = loadTrackingRef.current.listLoaded;
-      hasCachedData = loadTrackingRef.current.hasCachedData;
+    loadTracking.onProgress = () => {
+      listLoaded = loadTracking.listLoaded;
+      hasCachedData = loadTracking.hasCachedData;
       finishLoading();
     };
 
@@ -575,7 +576,7 @@ export const useListDetails = (listId: string | undefined) => {
     return () => {
       cancelled = true;
       applyPendingPlacesRef.current = null;
-      loadTrackingRef.current.onProgress = null;
+      loadTracking.onProgress = null;
       window.clearTimeout(timeoutId);
       unsubscribePlaces();
     };
