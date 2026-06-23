@@ -45,17 +45,38 @@ export function invalidateSyncDrain(): void {
 export function beginLocalRuntimeReset(lockGeneration?: number): void {
   localRuntimeResetInProgress = true;
   if (lockGeneration !== undefined) {
-    runtimeResetLockOwnerGeneration = lockGeneration;
+    if (
+      runtimeResetLockOwnerGeneration === null ||
+      lockGeneration >= runtimeResetLockOwnerGeneration
+    ) {
+      runtimeResetLockOwnerGeneration = lockGeneration;
+    }
   }
+}
+
+/** Takes an unscoped reset lock for logout/sign-out (clears any generation owner). */
+export function beginUnscopedLocalRuntimeReset(): void {
+  localRuntimeResetInProgress = true;
+  runtimeResetLockOwnerGeneration = null;
+}
+
+/** Returns whether the caller still owns the runtime reset lock. */
+export function ownsRuntimeResetLock(lockGeneration?: number): boolean {
+  if (lockGeneration === undefined) {
+    return true;
+  }
+  return runtimeResetLockOwnerGeneration === lockGeneration;
 }
 
 /** Releases the runtime reset lock after local queue data is cleared. */
 export function endLocalRuntimeReset(releasingGeneration?: number): void {
-  if (
-    releasingGeneration !== undefined &&
-    runtimeResetLockOwnerGeneration !== releasingGeneration
-  ) {
-    return;
+  if (runtimeResetLockOwnerGeneration !== null) {
+    if (
+      releasingGeneration === undefined ||
+      runtimeResetLockOwnerGeneration !== releasingGeneration
+    ) {
+      return;
+    }
   }
   localRuntimeResetInProgress = false;
   runtimeResetLockOwnerGeneration = null;

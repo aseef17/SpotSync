@@ -390,6 +390,28 @@ describe('flushPendingMutations', () => {
     expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
   });
 
+  it('does not release a generation-owned lock without the matching generation', async () => {
+    getPendingMutationsMock.mockResolvedValue([mutation('blocked')]);
+
+    const {
+      beginLocalRuntimeReset,
+      endLocalRuntimeReset,
+      flushPendingMutations,
+      resetLocalRuntimeResetLockForTests,
+    } = await import('@/lib/localDb/syncEngine');
+
+    resetLocalRuntimeResetLockForTests();
+
+    beginLocalRuntimeReset(1);
+    endLocalRuntimeReset();
+
+    const blocked = await flushPendingMutations();
+    endLocalRuntimeReset(1);
+
+    expect(applyPendingMutationMock).not.toHaveBeenCalled();
+    expect(blocked).toEqual({ syncedCount: 0, remainingCount: 1 });
+  });
+
   it('skips flush while local runtime reset is in progress', async () => {
     getPendingMutationsMock.mockResolvedValue([mutation('blocked')]);
 
