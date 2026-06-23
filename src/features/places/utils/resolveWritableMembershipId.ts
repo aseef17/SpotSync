@@ -85,7 +85,9 @@ async function migrateLegacyMembershipToCanonical(
         canonicalRef,
         {
           ...canonicalSnap.data(),
-          ...pickLegacyMembershipMergeFields(legacySnap.data() as unknown as Record<string, unknown>),
+          ...pickLegacyMembershipMergeFields(
+            legacySnap.data() as unknown as Record<string, unknown>
+          ),
           googlePlaceId: canonicalGooglePlaceId,
           updatedAt: new Date(),
         },
