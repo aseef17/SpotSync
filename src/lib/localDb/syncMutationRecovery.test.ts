@@ -114,6 +114,32 @@ describe('shouldDropStaleMutation', () => {
     expect(shouldDrop).toBe(false);
   });
 
+  it('keeps updatePlaceStatus when auth is unavailable during stale checks', async () => {
+    authMock.currentUser = null;
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1', 'visited'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(false);
+    expect(getDocMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps updatePlaceStatus when list access cannot be verified', async () => {
+    getDocMock
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ listId: 'list-1', status: 'not_visited' }),
+      })
+      .mockRejectedValueOnce({ code: 'permission-denied' });
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1', 'visited'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(false);
+  });
+
   it('drops updatePlaceStatus on not-found errors', async () => {
     const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1'), {
       code: 'not-found',

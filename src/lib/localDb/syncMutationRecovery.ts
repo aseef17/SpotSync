@@ -34,10 +34,12 @@ function userCanWriteList(
   return (list.editorIds ?? []).includes(userId);
 }
 
-async function readListWriteAccess(listId: string): Promise<'write' | 'read' | 'none'> {
+type ListWriteAccess = 'write' | 'read' | 'none' | 'unknown';
+
+async function readListWriteAccess(listId: string): Promise<ListWriteAccess> {
   const userId = auth.currentUser?.uid;
   if (!userId) {
-    return 'none';
+    return 'unknown';
   }
 
   try {
@@ -68,10 +70,14 @@ async function readListWriteAccess(listId: string): Promise<'write' | 'read' | '
     return 'none';
   } catch (error) {
     if (isPermissionDeniedError(error)) {
-      return 'none';
+      return 'unknown';
     }
     throw error;
   }
+}
+
+function shouldDropForListAccess(access: ListWriteAccess): boolean {
+  return access === 'read' || access === 'none';
 }
 
 function placeStatusMatches(
@@ -101,6 +107,10 @@ async function shouldDropUpdatePlaceStatus(
     return false;
   }
 
+  if (!auth.currentUser?.uid) {
+    return false;
+  }
+
   const payload = mutation.payload as UpdatePlaceStatusPayload;
   const membershipId = payload.placeId;
   const parsed = parseListPlaceMembershipDocId(membershipId);
@@ -123,18 +133,18 @@ async function shouldDropUpdatePlaceStatus(
     }
 
     const access = await readListWriteAccess(listId);
-    return access !== 'write';
+    return shouldDropForListAccess(access);
   } catch (membershipError) {
     if (!isPermissionDeniedError(membershipError)) {
       throw membershipError;
     }
 
     if (!listIdHint) {
-      return true;
+      return false;
     }
 
     const access = await readListWriteAccess(listIdHint);
-    return access !== 'write';
+    return shouldDropForListAccess(access);
   }
 }
 
