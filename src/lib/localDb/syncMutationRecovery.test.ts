@@ -54,8 +54,17 @@ describe('shouldDropStaleMutation', () => {
     authMock.currentUser = { uid: 'user-1' };
   });
 
-  it('drops updatePlaceStatus when the membership no longer exists', async () => {
-    getDocMock.mockResolvedValueOnce({ exists: () => false });
+  it('drops updatePlaceStatus when the membership no longer exists and user lacks write access', async () => {
+    getDocMock
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          ownerId: 'owner-1',
+          editorIds: ['owner-1'],
+          collaboratorIds: ['owner-1', 'user-1'],
+        }),
+      });
 
     const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1'), {
       code: 'permission-denied',
@@ -185,14 +194,42 @@ describe('shouldDropStaleMutation', () => {
     expect(getDocMock).not.toHaveBeenCalled();
   });
 
-  it('drops updatePlaceStatus when membership get returns permission-denied for a missing doc', async () => {
-    getDocMock.mockRejectedValueOnce({ code: 'permission-denied' });
+  it('drops updatePlaceStatus when membership get returns permission-denied for a missing doc and user lacks write access', async () => {
+    getDocMock
+      .mockRejectedValueOnce({ code: 'permission-denied' })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          ownerId: 'owner-1',
+          editorIds: ['owner-1'],
+          collaboratorIds: ['owner-1', 'user-1'],
+        }),
+      });
 
     const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1'), {
       code: 'permission-denied',
     });
 
     expect(shouldDrop).toBe(true);
+  });
+
+  it('keeps updatePlaceStatus when permission-denied masks a missing doc and user can still write', async () => {
+    getDocMock
+      .mockRejectedValueOnce({ code: 'permission-denied' })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          ownerId: 'user-1',
+          editorIds: ['user-1'],
+          collaboratorIds: ['user-1'],
+        }),
+      });
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1', 'visited'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(false);
   });
 
   it('keeps updatePlaceStatus when permission-denied masks a missing doc but legacy can migrate', async () => {

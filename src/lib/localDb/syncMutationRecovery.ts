@@ -150,6 +150,18 @@ async function shouldDropUpdatePlaceStatus(
       if (canMigrate) {
         return false;
       }
+      // listPlaces GET on absent docs returns permission-denied (rules read resource.data),
+      // which safeGetMembershipDoc surfaces as exists:false. Match the old catch-path
+      // behavior: only drop when the user no longer has write access to the list.
+      if (listIdHint) {
+        const access = await readListWriteAccess(listIdHint);
+        syncDebug('stale-updatePlaceStatus-missing-access', {
+          membershipId,
+          listIdHint,
+          access,
+        });
+        return shouldDropForListAccess(access);
+      }
       return true;
     }
 
