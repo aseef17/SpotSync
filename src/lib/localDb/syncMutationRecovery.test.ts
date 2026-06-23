@@ -162,12 +162,26 @@ describe('shouldDropStaleMutation', () => {
     expect(shouldDrop).toBe(false);
   });
 
-  it('drops updatePlaceStatus on not-found errors', async () => {
+  it('drops updatePlaceStatus on not-found errors when no legacy membership exists', async () => {
     const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1'), {
       code: 'not-found',
     });
 
     expect(shouldDrop).toBe(true);
+  });
+
+  it('keeps updatePlaceStatus on not-found when a legacy manual_passport membership can be migrated', async () => {
+    const listId = 'Gzzf9zOWcEkCxyJx2Mo8';
+    const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
+    const membershipId = `${listId}_${chij}`;
+
+    findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
+      code: 'not-found',
+    });
+
+    expect(shouldDrop).toBe(false);
     expect(getDocMock).not.toHaveBeenCalled();
   });
 });
