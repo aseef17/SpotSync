@@ -3,6 +3,7 @@ import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { auth } from '@/lib/firebase';
 import { flushPendingMutations, type FlushResult } from '@/lib/localDb';
 import { initLocalDataStore } from '@/lib/localDb/localDataStore';
+import { requeueDriftedPlaceStatusMutations } from '@/lib/localDb/requeueDriftedPlaceStatusMutations';
 import { formatSyncFailureDetail } from '@/lib/localDb/syncMutationRecovery';
 import { isSyncDebugEnabled, syncDebug } from '@/utils/syncDebug';
 
@@ -114,6 +115,8 @@ export async function retryPendingSync(): Promise<SyncAttemptResult> {
   }
 
   try {
+    const requeued = await requeueDriftedPlaceStatusMutations();
+    syncDebug('requeue-drifted-status', { requeued });
     syncDebug('flush-start', { force: true, uid: auth.currentUser?.uid ?? null });
     const result = await flushPendingMutations({
       ignoreBrowserOffline: !browserSaysOnline,
