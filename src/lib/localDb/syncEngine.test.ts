@@ -155,10 +155,7 @@ describe('flushPendingMutations', () => {
 
     const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
 
-    await Promise.all([
-      flushPendingMutations(),
-      flushPendingMutations({ force: true }),
-    ]);
+    await Promise.all([flushPendingMutations(), flushPendingMutations({ force: true })]);
 
     expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
   });

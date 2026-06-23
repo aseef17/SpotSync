@@ -25,10 +25,7 @@ const EMPTY_FLUSH_RESULT: FlushResult = { syncedCount: 0, remainingCount: 0 };
 let flushChain: Promise<FlushResult> = Promise.resolve(EMPTY_FLUSH_RESULT);
 let listenersRegistered = false;
 
-function settleFlushResult(
-  promise: Promise<FlushResult>,
-  context: string
-): Promise<FlushResult> {
+function settleFlushResult(promise: Promise<FlushResult>, context: string): Promise<FlushResult> {
   return promise.catch(async (error) => {
     logger.error(`${context}:`, error);
     const remaining = await getPendingMutations();
