@@ -233,13 +233,13 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             lastAuthenticatedUid && lastAuthenticatedUid !== fbUser.uid
           );
           if (isAccountSwitch) {
-            beginLocalRuntimeReset();
+            beginLocalRuntimeReset(handlerGeneration);
           }
 
           const { initLocalDataStore, resetLocalDataRuntime } = await import('@/lib/localDb');
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
             if (isAccountSwitch) {
-              endLocalRuntimeReset();
+              endLocalRuntimeReset(handlerGeneration);
             }
             return;
           }
