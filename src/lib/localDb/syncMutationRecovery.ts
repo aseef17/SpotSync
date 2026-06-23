@@ -5,6 +5,7 @@ import { listPlaceMembershipDocRef } from '@/features/places/api/listPlaceMember
 import { findLegacyPassportMembershipId } from '@/features/places/utils/resolveWritableMembershipId';
 import type { PendingMutation } from '@/lib/localDb/types';
 import type { CreateListPayload, UpdatePlaceStatusPayload } from '@/lib/localDb/types';
+import { syncDebug } from '@/utils/syncDebug';
 
 export function isPermissionDeniedError(error: unknown): boolean {
   if (!error || typeof error !== 'object') {
@@ -130,7 +131,9 @@ async function shouldDropUpdatePlaceStatus(
   const listIdHint = parsed?.listId;
 
   if (isNotFoundError(error)) {
-    if (await canMigrateLegacyPassportMembership(membershipId)) {
+    const canMigrate = await canMigrateLegacyPassportMembership(membershipId);
+    syncDebug('stale-updatePlaceStatus-not-found', { membershipId, canMigrate });
+    if (canMigrate) {
       return false;
     }
     return true;
@@ -139,7 +142,9 @@ async function shouldDropUpdatePlaceStatus(
   try {
     const membershipSnap = await getDoc(listPlaceMembershipDocRef(membershipId));
     if (!membershipSnap.exists()) {
-      if (await canMigrateLegacyPassportMembership(membershipId)) {
+      const canMigrate = await canMigrateLegacyPassportMembership(membershipId);
+      syncDebug('stale-updatePlaceStatus-missing-doc', { membershipId, canMigrate });
+      if (canMigrate) {
         return false;
       }
       return true;
@@ -147,15 +152,18 @@ async function shouldDropUpdatePlaceStatus(
 
     const data = membershipSnap.data();
     if (placeStatusMatches(payload, data)) {
+      syncDebug('stale-updatePlaceStatus-already-matched', { membershipId });
       return true;
     }
 
     const listId = data.listId || listIdHint;
     if (!listId) {
+      syncDebug('stale-updatePlaceStatus-no-listId', { membershipId });
       return false;
     }
 
     const access = await readListWriteAccess(listId);
+    syncDebug('stale-updatePlaceStatus-access', { membershipId, listId, access });
     return shouldDropForListAccess(access);
   } catch (membershipError) {
     if (!isPermissionDeniedError(membershipError)) {
@@ -163,10 +171,12 @@ async function shouldDropUpdatePlaceStatus(
     }
 
     if (!listIdHint) {
+      syncDebug('stale-updatePlaceStatus-denied-no-hint', { membershipId });
       return false;
     }
 
     const access = await readListWriteAccess(listIdHint);
+    syncDebug('stale-updatePlaceStatus-denied-access', { membershipId, listIdHint, access });
     return shouldDropForListAccess(access);
   }
 }

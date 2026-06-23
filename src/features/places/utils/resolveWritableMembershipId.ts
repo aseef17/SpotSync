@@ -9,6 +9,7 @@ import {
 } from '@/features/places/constants/firestorePaths';
 import { stablePassportManualId } from '@/features/places/utils/stablePassportManualId';
 import { getCachedPlace } from '@/lib/localDb/placeCache';
+import { syncDebug, syncDebugError } from '@/utils/syncDebug';
 
 const LEGACY_MEMBERSHIP_MERGE_FIELDS = [
   'status',
@@ -139,12 +140,17 @@ async function migrateLegacyMembershipToCanonical(
  */
 export async function resolveWritableMembershipId(membershipId: string): Promise<string> {
   const directSnap = await getDoc(listPlaceMembershipDocRef(membershipId));
+  syncDebug('resolveMembership-direct-get', {
+    membershipId,
+    exists: directSnap.exists(),
+  });
   if (directSnap.exists()) {
     return membershipId;
   }
 
   const parsed = parseListPlaceMembershipDocId(membershipId);
   if (!parsed) {
+    syncDebug('resolveMembership-invalid-id', { membershipId });
     return membershipId;
   }
 
@@ -158,11 +164,32 @@ export async function resolveWritableMembershipId(membershipId: string): Promise
     googlePlaceId,
     membershipId
   );
+  syncDebug('resolveMembership-legacy-lookup', {
+    membershipId,
+    legacyMembershipId,
+  });
   if (!legacyMembershipId) {
     return membershipId;
   }
 
-  return migrateLegacyMembershipToCanonical(listId, legacyMembershipId, googlePlaceId);
+  try {
+    const migrated = await migrateLegacyMembershipToCanonical(
+      listId,
+      legacyMembershipId,
+      googlePlaceId
+    );
+    syncDebug('resolveMembership-migrated', {
+      from: legacyMembershipId,
+      to: migrated,
+    });
+    return migrated;
+  } catch (error) {
+    syncDebugError('resolveMembership-migrate-failed', error, {
+      membershipId,
+      legacyMembershipId,
+    });
+    throw error;
+  }
 }
 
 export { findLegacyPassportMembershipId };

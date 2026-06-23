@@ -1,8 +1,10 @@
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
+import { auth } from '@/lib/firebase';
 import { logger } from '@/utils/logger';
 import { getPendingMutations, removeMutation } from '@/lib/localDb/mutationQueue';
 import { applyPendingMutation } from '@/lib/localDb/syncHandlers';
 import { shouldDropStaleMutation } from '@/lib/localDb/syncMutationRecovery';
+import { syncDebug, syncDebugError } from '@/utils/syncDebug';
 
 export interface FlushResult {
   syncedCount: number;
@@ -47,14 +49,31 @@ async function drainPendingMutations(): Promise<FlushResult> {
       return { syncedCount, remainingCount: 0, lastError };
     }
 
+    syncDebug('drain-batch', {
+      uid: auth.currentUser?.uid ?? null,
+      count: mutations.length,
+      types: mutations.map((m) => m.type),
+    });
+
     let blockedOnFailure = false;
     let lastFailedMutation: FlushResult['lastFailedMutation'];
     for (const mutation of mutations) {
       try {
+        syncDebug('mutation-apply-start', {
+          id: mutation.id,
+          type: mutation.type,
+          entityId: mutation.entityId,
+        });
         await applyPendingMutation(mutation);
         await removeMutation(mutation.id);
         syncedCount += 1;
+        syncDebug('mutation-apply-ok', { id: mutation.id, type: mutation.type });
       } catch (error) {
+        syncDebugError('mutation-apply-failed', error, {
+          id: mutation.id,
+          type: mutation.type,
+          entityId: mutation.entityId,
+        });
         if (mutation.type === 'deleteList' && isPermanentDeleteListFailure(error)) {
           logger.warn(
             'Dropping deleteList mutation because the current user cannot delete this list:',
@@ -69,7 +88,12 @@ async function drainPendingMutations(): Promise<FlushResult> {
         let dropStale = false;
         try {
           dropStale = await shouldDropStaleMutation(mutation, error);
+          syncDebug('stale-check-result', {
+            id: mutation.id,
+            dropStale,
+          });
         } catch (staleCheckError) {
+          syncDebugError('stale-check-threw', staleCheckError, { id: mutation.id });
           logger.error(
             'Failed to check whether mutation is stale; keeping it queued:',
             mutation.id,
@@ -78,6 +102,7 @@ async function drainPendingMutations(): Promise<FlushResult> {
         }
 
         if (dropStale) {
+          syncDebug('mutation-dropped-stale', { id: mutation.id, type: mutation.type });
           logger.warn('Dropping stale mutation that already exists on server:', mutation.id, error);
           await removeMutation(mutation.id);
           syncedCount += 1;

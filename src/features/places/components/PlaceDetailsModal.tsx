@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Place } from '@/features/places/types/place';
 import { PlaceDetailsPane } from './PlaceDetailsPane';
@@ -30,7 +31,7 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
 }) => {
   useScrollLock(isOpen);
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <div
@@ -67,6 +68,7 @@ export const PlaceDetailsModal: React.FunctionComponent<PlaceDetailsModalProps> 
           </motion.div>
         </div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };

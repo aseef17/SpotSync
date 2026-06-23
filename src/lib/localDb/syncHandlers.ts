@@ -30,6 +30,7 @@ import type {
 } from '@/lib/localDb/types';
 import type { Place } from '@/features/places/types/place';
 import { omit } from '@/utils/objectUtils';
+import { syncDebug, syncDebugError } from '@/utils/syncDebug';
 import { Timestamp } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
@@ -114,6 +115,12 @@ export async function applyPendingMutation(mutation: PendingMutation): Promise<v
 }
 
 async function applyUpdatePlaceStatus(payload: UpdatePlaceStatusPayload): Promise<void> {
+  syncDebug('applyUpdatePlaceStatus', {
+    placeId: payload.placeId,
+    status: payload.status,
+    userId: payload.userId ?? null,
+    customValue: payload.customValue ?? null,
+  });
   const updates: Partial<Place> & { updatedAt: Date; updatedBy?: string } = {
     status: payload.status,
     updatedAt: new Date(),
@@ -124,7 +131,13 @@ async function applyUpdatePlaceStatus(payload: UpdatePlaceStatusPayload): Promis
   if (payload.userId) {
     updates.updatedBy = payload.userId;
   }
-  await writePlaceUpdates(payload.placeId, updates);
+  try {
+    await writePlaceUpdates(payload.placeId, updates);
+    syncDebug('applyUpdatePlaceStatus-ok', { placeId: payload.placeId });
+  } catch (error) {
+    syncDebugError('applyUpdatePlaceStatus-failed', error, { placeId: payload.placeId });
+    throw error;
+  }
 }
 
 async function applyUpdatePlace(payload: UpdatePlacePayload): Promise<void> {
