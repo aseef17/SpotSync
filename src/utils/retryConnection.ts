@@ -1,7 +1,9 @@
 import { toast } from 'sonner';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { flushPendingMutations, type FlushResult } from '@/lib/localDb';
+import { initLocalDataStore } from '@/lib/localDb/localDataStore';
 import { formatSyncFailureDetail } from '@/lib/localDb/syncMutationRecovery';
+import { syncDebug } from '@/utils/syncDebug';
 
 const CONNECTIVITY_PROBE_TIMEOUT_MS = 4000;
 
@@ -49,13 +51,27 @@ function getErrorMessage(error: unknown): string {
   return 'Unknown error';
 }
 
-function notifySyncResult(result: FlushResult): SyncAttemptResult {
+function notifySyncResult(
+  result: FlushResult,
+  options: { manual?: boolean } = {}
+): SyncAttemptResult {
+  if (result.lastError && result.remainingCount === 0 && result.syncedCount === 0) {
+    const detail = getErrorMessage(result.lastError);
+    toast.error('Sync failed', { description: detail });
+    return { ok: false, result, message: detail };
+  }
+
   if (result.remainingCount === 0) {
     if (result.syncedCount > 0) {
       toast.success('All changes synced');
       return { ok: true, result, message: 'All changes synced.' };
     }
-    return { ok: true, result, message: 'Everything is up to date.' };
+
+    const message = 'Everything is up to date.';
+    if (options.manual) {
+      toast.success(message);
+    }
+    return { ok: true, result, message };
   }
 
   const detail = formatSyncFailureDetail(result, getErrorMessage);
@@ -65,24 +81,52 @@ function notifySyncResult(result: FlushResult): SyncAttemptResult {
 
 /** Flushes the offline mutation queue in the background without reloading the app. */
 export async function retryPendingSync(): Promise<SyncAttemptResult> {
+  syncDebug('retry-start', { online: isBrowserOnline() });
+
+  try {
+    await initLocalDataStore();
+    syncDebug('local-store-ready');
+  } catch (error) {
+    const message = `Local database is not ready: ${getErrorMessage(error)}`;
+    syncDebug('local-store-failed', { error: getErrorMessage(error) });
+    toast.error('Could not start sync', { description: message });
+    return { ok: false, message };
+  }
+
   const browserSaysOnline = isBrowserOnline();
 
   if (!browserSaysOnline) {
+    syncDebug('probing-network');
     const isReachable = await probeNetwork({ ignoreBrowserOffline: true });
     if (!isReachable) {
       const message = 'Still offline. Cached data is available until you reconnect.';
+      syncDebug('probe-failed');
       toast.message('Still offline', {
         description: 'Cached data is still available. Reconnect to sync the latest changes.',
       });
       return { ok: false, offline: true, message };
     }
+    syncDebug('probe-succeeded');
   }
 
-  const result = await flushPendingMutations({
-    ignoreBrowserOffline: !browserSaysOnline,
-    force: true,
-  });
-  return notifySyncResult(result);
+  try {
+    syncDebug('flush-start', { force: true });
+    const result = await flushPendingMutations({
+      ignoreBrowserOffline: !browserSaysOnline,
+      force: true,
+    });
+    syncDebug('flush-complete', {
+      synced: result.syncedCount,
+      remaining: result.remainingCount,
+      hasError: Boolean(result.lastError),
+    });
+    return notifySyncResult(result, { manual: true });
+  } catch (error) {
+    const message = `Sync failed unexpectedly: ${getErrorMessage(error)}`;
+    syncDebug('flush-threw', { error: getErrorMessage(error) });
+    toast.error('Sync failed', { description: message });
+    return { ok: false, message };
+  }
 }
 
 interface RetryConnectionOptions {

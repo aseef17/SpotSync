@@ -20,11 +20,22 @@ function isPermanentDeleteListFailure(error: unknown): boolean {
   return code === 'functions/permission-denied' || code === 'permission-denied';
 }
 
-let flushChain: Promise<FlushResult> = Promise.resolve({
-  syncedCount: 0,
-  remainingCount: 0,
-});
+const EMPTY_FLUSH_RESULT: FlushResult = { syncedCount: 0, remainingCount: 0 };
+
+let flushChain: Promise<FlushResult> = Promise.resolve(EMPTY_FLUSH_RESULT);
 let listenersRegistered = false;
+
+function settleFlushResult(promise: Promise<FlushResult>, context: string): Promise<FlushResult> {
+  return promise.catch(async (error) => {
+    logger.error(`${context}:`, error);
+    const remaining = await getPendingMutations();
+    return {
+      syncedCount: 0,
+      remainingCount: remaining.length,
+      lastError: error,
+    };
+  });
+}
 
 async function drainPendingMutations(): Promise<FlushResult> {
   let syncedCount = 0;
@@ -55,7 +66,18 @@ async function drainPendingMutations(): Promise<FlushResult> {
           continue;
         }
 
-        if (await shouldDropStaleMutation(mutation, error)) {
+        let dropStale = false;
+        try {
+          dropStale = await shouldDropStaleMutation(mutation, error);
+        } catch (staleCheckError) {
+          logger.error(
+            'Failed to check whether mutation is stale; keeping it queued:',
+            mutation.id,
+            staleCheckError
+          );
+        }
+
+        if (dropStale) {
           logger.warn('Dropping stale mutation that already exists on server:', mutation.id, error);
           await removeMutation(mutation.id);
           syncedCount += 1;
@@ -80,7 +102,7 @@ async function drainPendingMutations(): Promise<FlushResult> {
 export interface FlushPendingMutationsOptions {
   /** When true, flush even if navigator.onLine is false (e.g. after a successful connectivity probe). */
   ignoreBrowserOffline?: boolean;
-  /** When true, wait for any in-flight flush then run a fresh drain (manual retry). */
+  /** Manual retry call sites set this; all flushes share the same serialized chain. */
   force?: boolean;
 }
 
@@ -92,14 +114,11 @@ export async function flushPendingMutations(
     return { syncedCount: 0, remainingCount: remaining.length };
   }
 
-  if (options.force) {
-    await flushChain;
-    const drainPromise = drainPendingMutations();
-    flushChain = drainPromise;
-    return drainPromise;
-  }
-
-  flushChain = flushChain.then(() => drainPendingMutations());
+  const context = options.force ? 'Manual sync drain failed' : 'Background sync drain failed';
+  flushChain = settleFlushResult(
+    flushChain.then(() => drainPendingMutations()),
+    context
+  );
   return flushChain;
 }
 

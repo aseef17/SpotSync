@@ -32,6 +32,14 @@ vi.mock('sonner', () => ({
   toast: toastMock,
 }));
 
+vi.mock('@/lib/localDb/localDataStore', () => ({
+  initLocalDataStore: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock('@/utils/syncDebug', () => ({
+  syncDebug: vi.fn(),
+}));
+
 describe('retryPendingSync', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -96,5 +104,24 @@ describe('retryPendingSync', () => {
     );
     expect(attempt.ok).toBe(false);
     expect(attempt.offline).toBe(true);
+  });
+
+  it('reports failure when flush settles with an infrastructure error and empty counts', async () => {
+    isBrowserOnlineMock.mockReturnValue(true);
+    flushPendingMutationsMock.mockResolvedValue({
+      syncedCount: 0,
+      remainingCount: 0,
+      lastError: new Error('db read failed'),
+    });
+
+    const { retryPendingSync } = await import('@/utils/retryConnection');
+    const attempt = await retryPendingSync();
+
+    expect(attempt.ok).toBe(false);
+    expect(attempt.message).toContain('db read failed');
+    expect(toastMock.error).toHaveBeenCalledWith(
+      'Sync failed',
+      expect.objectContaining({ description: expect.stringContaining('db read failed') })
+    );
   });
 });
