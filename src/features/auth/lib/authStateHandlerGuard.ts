@@ -16,6 +16,13 @@ export function shouldRetainUserOnAuthChange(
   return previousUserId === nextFirebaseUid;
 }
 
+export function isAccountSwitchOnSignIn(
+  lastAuthenticatedUid: string | null,
+  nextFirebaseUid: string
+): boolean {
+  return Boolean(lastAuthenticatedUid && lastAuthenticatedUid !== nextFirebaseUid);
+}
+
 export function resetAuthStateHandlerGuardForTests(): void {
   authStateGeneration = 0;
 }
