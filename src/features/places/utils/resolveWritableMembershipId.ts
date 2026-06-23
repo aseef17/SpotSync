@@ -57,6 +57,16 @@ async function migrateLegacyMembershipToCanonical(
   if (canonicalSnap.exists()) {
     if (legacySnap.exists() && legacyMembershipId !== canonicalMembershipId) {
       const batch = writeBatch(db);
+      batch.set(
+        canonicalRef,
+        {
+          ...canonicalSnap.data(),
+          ...legacySnap.data(),
+          googlePlaceId: canonicalGooglePlaceId,
+          updatedAt: new Date(),
+        },
+        { merge: true }
+      );
       batch.delete(legacyRef);
       const legacyGooglePlaceId = parseListPlaceMembershipDocId(legacyMembershipId)?.googlePlaceId;
       if (legacyGooglePlaceId) {
@@ -71,7 +81,9 @@ async function migrateLegacyMembershipToCanonical(
   }
 
   if (!legacySnap.exists()) {
-    return canonicalMembershipId;
+    throw new Error(
+      `Legacy membership ${legacyMembershipId} disappeared before migration to ${canonicalMembershipId}`
+    );
   }
 
   const legacyGooglePlaceId = parseListPlaceMembershipDocId(legacyMembershipId)?.googlePlaceId;

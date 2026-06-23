@@ -96,15 +96,27 @@ function placeStatusMatches(
   return true;
 }
 
+async function canMigrateLegacyPassportMembership(membershipId: string): Promise<boolean> {
+  const parsed = parseListPlaceMembershipDocId(membershipId);
+  const listId = parsed?.listId;
+  const googlePlaceId = parsed?.googlePlaceId;
+  if (!listId || !googlePlaceId || googlePlaceId.startsWith('manual_passport_')) {
+    return false;
+  }
+
+  const legacyMembershipId = await findLegacyPassportMembershipId(
+    listId,
+    googlePlaceId,
+    membershipId
+  );
+  return legacyMembershipId !== null;
+}
+
 async function shouldDropUpdatePlaceStatus(
   mutation: PendingMutation,
   error: unknown
 ): Promise<boolean> {
-  if (isNotFoundError(error)) {
-    return true;
-  }
-
-  if (!isPermissionDeniedError(error)) {
+  if (!isNotFoundError(error) && !isPermissionDeniedError(error)) {
     return false;
   }
 
@@ -117,20 +129,18 @@ async function shouldDropUpdatePlaceStatus(
   const parsed = parseListPlaceMembershipDocId(membershipId);
   const listIdHint = parsed?.listId;
 
+  if (isNotFoundError(error)) {
+    if (await canMigrateLegacyPassportMembership(membershipId)) {
+      return false;
+    }
+    return true;
+  }
+
   try {
     const membershipSnap = await getDoc(listPlaceMembershipDocRef(membershipId));
     if (!membershipSnap.exists()) {
-      const listId = listIdHint;
-      const googlePlaceId = parsed?.googlePlaceId;
-      if (listId && googlePlaceId && !googlePlaceId.startsWith('manual_passport_')) {
-        const legacyMembershipId = await findLegacyPassportMembershipId(
-          listId,
-          googlePlaceId,
-          membershipId
-        );
-        if (legacyMembershipId) {
-          return false;
-        }
+      if (await canMigrateLegacyPassportMembership(membershipId)) {
+        return false;
       }
       return true;
     }

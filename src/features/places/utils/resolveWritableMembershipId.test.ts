@@ -94,4 +94,54 @@ describe('resolveWritableMembershipId', () => {
     expect(batchCommitMock).toHaveBeenCalled();
     expect(updateDocMock).toHaveBeenCalled();
   });
+
+  it('merges legacy membership fields when canonical already exists', async () => {
+    getDocMock
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ name: 'MoMA PS1' }),
+      })
+      .mockResolvedValueOnce({ exists: () => true })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ listId: LIST_ID, status: 'visited', notes: 'legacy notes' }),
+      })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ listId: LIST_ID, status: 'not_visited' }),
+      });
+
+    await expect(resolveWritableMembershipId(CHIJ_MEMBERSHIP)).resolves.toBe(CHIJ_MEMBERSHIP);
+
+    expect(batchSetMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        status: 'visited',
+        notes: 'legacy notes',
+        googlePlaceId: CHIJ,
+      }),
+      { merge: true }
+    );
+    expect(batchDeleteMock).toHaveBeenCalled();
+  });
+
+  it('throws when legacy membership disappears before migration completes', async () => {
+    getDocMock
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ name: 'MoMA PS1' }),
+      })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ listId: LIST_ID, status: 'not_visited' }),
+      })
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce({ exists: () => false });
+
+    await expect(resolveWritableMembershipId(CHIJ_MEMBERSHIP)).rejects.toThrow(
+      'Legacy membership'
+    );
+  });
 });
