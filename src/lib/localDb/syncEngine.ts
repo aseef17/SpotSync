@@ -61,6 +61,14 @@ export function endLocalRuntimeReset(releasingGeneration?: number): void {
   runtimeResetLockOwnerGeneration = null;
 }
 
+/** Returns whether the caller still owns the scoped account-switch reset lock. */
+export function isLocalRuntimeResetLockOwner(lockGeneration?: number): boolean {
+  if (lockGeneration === undefined) {
+    return true;
+  }
+  return runtimeResetLockOwnerGeneration === lockGeneration;
+}
+
 /** Resets runtime reset lock state for unit tests. */
 export function resetLocalRuntimeResetLockForTests(): void {
   localRuntimeResetInProgress = false;

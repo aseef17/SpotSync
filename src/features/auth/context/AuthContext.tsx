@@ -244,7 +244,10 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             return;
           }
           if (isAccountSwitch) {
-            await resetLocalDataRuntime({ skipPendingFlush: true });
+            await resetLocalDataRuntime({
+              skipPendingFlush: true,
+              lockGeneration: handlerGeneration,
+            });
             if (!isCurrentAuthStateHandler(handlerGeneration)) {
               return;
             }
@@ -380,7 +383,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
             return;
           }
-          await resetLocalDataRuntime();
+          await resetLocalDataRuntime({ lockGeneration: handlerGeneration });
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
             return;
           }

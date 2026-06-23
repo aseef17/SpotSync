@@ -390,6 +390,30 @@ describe('flushPendingMutations', () => {
     expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
   });
 
+  it('reports superseded auth handlers no longer own the runtime reset lock', async () => {
+    const {
+      beginLocalRuntimeReset,
+      endLocalRuntimeReset,
+      isLocalRuntimeResetLockOwner,
+      resetLocalRuntimeResetLockForTests,
+    } = await import('@/lib/localDb/syncEngine');
+
+    resetLocalRuntimeResetLockForTests();
+
+    beginLocalRuntimeReset(1);
+    expect(isLocalRuntimeResetLockOwner(1)).toBe(true);
+
+    beginLocalRuntimeReset(2);
+    expect(isLocalRuntimeResetLockOwner(1)).toBe(false);
+    expect(isLocalRuntimeResetLockOwner(2)).toBe(true);
+
+    endLocalRuntimeReset(1);
+    expect(isLocalRuntimeResetLockOwner(2)).toBe(true);
+
+    endLocalRuntimeReset(2);
+    expect(isLocalRuntimeResetLockOwner(2)).toBe(false);
+  });
+
   it('skips flush while local runtime reset is in progress', async () => {
     getPendingMutationsMock.mockResolvedValue([mutation('blocked')]);
 

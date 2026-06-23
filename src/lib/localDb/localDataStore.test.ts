@@ -30,6 +30,7 @@ vi.mock('@/lib/localDb/syncEngine', () => ({
   awaitSyncDrainIdle: awaitSyncDrainIdleMock,
   beginLocalRuntimeReset: beginLocalRuntimeResetMock,
   endLocalRuntimeReset: endLocalRuntimeResetMock,
+  isLocalRuntimeResetLockOwner: vi.fn(() => true),
   startSyncEngine: vi.fn(),
 }));
 
@@ -129,6 +130,15 @@ describe('resetLocalDataRuntime', () => {
     expect(endLocalRuntimeResetMock.mock.invocationCallOrder[0]).toBeGreaterThan(
       clearLocalDatabaseMock.mock.invocationCallOrder[0] ?? -1
     );
+  });
+
+  it('scopes runtime reset lock acquisition and release to lockGeneration', async () => {
+    const { resetLocalDataRuntime } = await import('@/lib/localDb/localDataStore');
+
+    await resetLocalDataRuntime({ skipPendingFlush: true, lockGeneration: 7 });
+
+    expect(beginLocalRuntimeResetMock).toHaveBeenCalledWith(7);
+    expect(endLocalRuntimeResetMock).toHaveBeenCalledWith(7);
   });
 
   it('does not flush when offline even without skipPendingFlush', async () => {
