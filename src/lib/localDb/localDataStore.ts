@@ -37,6 +37,12 @@ export async function initLocalDataStore(): Promise<void> {
 export interface ResetLocalDataRuntimeOptions {
   /** Skip draining the mutation queue before clearing local state (e.g. account switch). */
   skipPendingFlush?: boolean;
+  /** When true, skip destructive cleanup (e.g. superseded auth handler). */
+  shouldAbort?: () => boolean;
+}
+
+function shouldAbortReset(options: ResetLocalDataRuntimeOptions): boolean {
+  return options.shouldAbort?.() === true;
 }
 
 export async function resetLocalDataRuntime(
@@ -52,8 +58,16 @@ export async function resetLocalDataRuntime(
     }
     await awaitSyncDrainIdle();
 
+    if (shouldAbortReset(options)) {
+      return;
+    }
+
     if (!options.skipPendingFlush && isBrowserOnline()) {
       await flushPendingMutations({ allowDuringRuntimeReset: true });
+    }
+
+    if (shouldAbortReset(options)) {
+      return;
     }
 
     clearPlaceListSubscriptions();
