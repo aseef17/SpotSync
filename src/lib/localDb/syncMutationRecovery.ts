@@ -3,17 +3,16 @@ import { auth, db } from '@/lib/firebase';
 import { parseListPlaceMembershipDocId } from '@/features/places/constants/firestorePaths';
 import { listPlaceMembershipDocRef } from '@/features/places/api/listPlaceMembershipFirestore';
 import { findLegacyPassportMembershipId } from '@/features/places/utils/resolveWritableMembershipId';
+import {
+  isFirestorePermissionDenied,
+  safeGetMembershipDoc,
+} from '@/features/places/utils/safeMembershipGetDoc';
 import type { PendingMutation } from '@/lib/localDb/types';
 import type { CreateListPayload, UpdatePlaceStatusPayload } from '@/lib/localDb/types';
 import { syncDebug } from '@/utils/syncDebug';
 
 export function isPermissionDeniedError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') {
-    return false;
-  }
-
-  const code = 'code' in error ? String(error.code) : '';
-  return code === 'permission-denied';
+  return isFirestorePermissionDenied(error);
 }
 
 function isNotFoundError(error: unknown): boolean {
@@ -140,7 +139,11 @@ async function shouldDropUpdatePlaceStatus(
   }
 
   try {
-    const membershipSnap = await getDoc(listPlaceMembershipDocRef(membershipId));
+    const membershipSnap = await safeGetMembershipDoc(
+      listPlaceMembershipDocRef(membershipId),
+      'stale-updatePlaceStatus-membership',
+      { membershipId }
+    );
     if (!membershipSnap.exists()) {
       const canMigrate = await canMigrateLegacyPassportMembership(membershipId);
       syncDebug('stale-updatePlaceStatus-missing-doc', { membershipId, canMigrate });

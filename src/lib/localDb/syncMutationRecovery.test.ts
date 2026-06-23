@@ -184,6 +184,31 @@ describe('shouldDropStaleMutation', () => {
     expect(shouldDrop).toBe(false);
     expect(getDocMock).not.toHaveBeenCalled();
   });
+
+  it('drops updatePlaceStatus when membership get returns permission-denied for a missing doc', async () => {
+    getDocMock.mockRejectedValueOnce({ code: 'permission-denied' });
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(true);
+  });
+
+  it('keeps updatePlaceStatus when permission-denied masks a missing doc but legacy can migrate', async () => {
+    const listId = 'Gzzf9zOWcEkCxyJx2Mo8';
+    const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
+    const membershipId = `${listId}_${chij}`;
+
+    getDocMock.mockRejectedValueOnce({ code: 'permission-denied' });
+    findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(false);
+  });
 });
 
 describe('formatSyncFailureDetail', () => {

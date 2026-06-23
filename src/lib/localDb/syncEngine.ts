@@ -40,6 +40,12 @@ function settleFlushResult(promise: Promise<FlushResult>, context: string): Prom
 }
 
 async function drainPendingMutations(): Promise<FlushResult> {
+  if (!auth.currentUser?.uid) {
+    const remaining = await getPendingMutations();
+    syncDebug('drain-skipped-no-auth', { remainingCount: remaining.length });
+    return { syncedCount: 0, remainingCount: remaining.length };
+  }
+
   let syncedCount = 0;
   let lastError: unknown;
 
