@@ -326,6 +326,26 @@ describe('flushPendingMutations', () => {
     expect(removeMutationMock).toHaveBeenCalledTimes(1);
   });
 
+  it('releases the runtime reset lock so sync drains can resume', async () => {
+    const pending = new Set(['after-release']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    const { beginLocalRuntimeReset, endLocalRuntimeReset, flushPendingMutations } =
+      await import('@/lib/localDb/syncEngine');
+
+    beginLocalRuntimeReset();
+    endLocalRuntimeReset();
+
+    await flushPendingMutations();
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+  });
+
   it('skips flush while local runtime reset is in progress', async () => {
     getPendingMutationsMock.mockResolvedValue([mutation('blocked')]);
 

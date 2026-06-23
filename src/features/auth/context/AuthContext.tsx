@@ -17,7 +17,7 @@ import { doc, setDoc, getDoc, getDocFromServer, runTransaction } from 'firebase/
 import { auth, db } from '@/lib/firebase';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import type { User } from '@/features/auth/types/user';
-import { beginLocalRuntimeReset } from '@/lib/localDb/syncEngine';
+import { beginLocalRuntimeReset, endLocalRuntimeReset } from '@/lib/localDb/syncEngine';
 import { AccountService, checkUsernameExistsRemote } from '@/features/auth/api/accountService';
 import { getAuthActionCodeSettings } from '@/features/auth/lib/authActionSettings';
 import {
@@ -237,11 +237,23 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           }
 
           const { initLocalDataStore, resetLocalDataRuntime } = await import('@/lib/localDb');
+          if (!isCurrentAuthStateHandler(handlerGeneration)) {
+            if (isAccountSwitch) {
+              endLocalRuntimeReset();
+            }
+            return;
+          }
           if (isAccountSwitch) {
             await resetLocalDataRuntime({ skipPendingFlush: true });
+            if (!isCurrentAuthStateHandler(handlerGeneration)) {
+              return;
+            }
           }
           lastAuthenticatedUid = fbUser.uid;
           await initLocalDataStore();
+          if (!isCurrentAuthStateHandler(handlerGeneration)) {
+            return;
+          }
 
           setFirebaseUser(fbUser);
           setUser((prev) => (shouldRetainUserOnAuthChange(prev?.id, fbUser.uid) ? prev : null));
@@ -365,7 +377,13 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           }
           lastAuthenticatedUid = null;
           const { resetLocalDataRuntime } = await import('@/lib/localDb');
+          if (!isCurrentAuthStateHandler(handlerGeneration)) {
+            return;
+          }
           await resetLocalDataRuntime();
+          if (!isCurrentAuthStateHandler(handlerGeneration)) {
+            return;
+          }
           setFirebaseUser(null);
           setUser(null);
         }
