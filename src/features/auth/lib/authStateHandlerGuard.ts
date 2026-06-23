@@ -16,6 +16,21 @@ export function shouldRetainUserOnAuthChange(
   return previousUserId === nextFirebaseUid;
 }
 
+export function isAccountSwitchOnSignIn(
+  lastAuthenticatedUid: string | null,
+  nextFirebaseUid: string
+): boolean {
+  return Boolean(lastAuthenticatedUid && lastAuthenticatedUid !== nextFirebaseUid);
+}
+
+/** Abort auth-scoped local resets when Firebase auth uid changes mid-reset (e.g. cross-tab sign-in). */
+export function shouldAbortResetForAuthUidChange(
+  uidAtResetStart: string | null,
+  currentUid: string | null
+): boolean {
+  return currentUid !== uidAtResetStart;
+}
+
 export function resetAuthStateHandlerGuardForTests(): void {
   authStateGeneration = 0;
 }
