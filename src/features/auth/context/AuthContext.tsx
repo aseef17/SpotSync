@@ -17,7 +17,7 @@ import { doc, setDoc, getDoc, getDocFromServer, runTransaction } from 'firebase/
 import { auth, db } from '@/lib/firebase';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import type { User } from '@/features/auth/types/user';
-import { beginLocalRuntimeReset } from '@/lib/localDb/syncEngine';
+import { beginLocalRuntimeReset, endLocalRuntimeReset } from '@/lib/localDb/syncEngine';
 import { AccountService, checkUsernameExistsRemote } from '@/features/auth/api/accountService';
 import { getAuthActionCodeSettings } from '@/features/auth/lib/authActionSettings';
 import {
@@ -222,6 +222,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       const handlerGeneration = beginAuthStateHandler();
+      let accountSwitchResetLockHeld = false;
 
       try {
         if (fbUser) {
@@ -234,9 +235,13 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           );
           if (isAccountSwitch) {
             beginLocalRuntimeReset();
+            accountSwitchResetLockHeld = true;
           }
 
           const { initLocalDataStore, resetLocalDataRuntime } = await import('@/lib/localDb');
+          if (!isCurrentAuthStateHandler(handlerGeneration)) {
+            return;
+          }
           if (isAccountSwitch) {
             await resetLocalDataRuntime({ skipPendingFlush: true });
           }
@@ -365,6 +370,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           }
           lastAuthenticatedUid = null;
           const { resetLocalDataRuntime } = await import('@/lib/localDb');
+          if (!isCurrentAuthStateHandler(handlerGeneration)) {
+            return;
+          }
           await resetLocalDataRuntime();
           setFirebaseUser(null);
           setUser(null);
@@ -375,6 +383,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           setUser(buildFallbackUserFromAuth(fbUser));
         }
       } finally {
+        if (accountSwitchResetLockHeld) {
+          endLocalRuntimeReset();
+        }
         if (isCurrentAuthStateHandler(handlerGeneration)) {
           setLoading(false);
         }

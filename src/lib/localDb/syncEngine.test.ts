@@ -369,6 +369,23 @@ describe('flushPendingMutations', () => {
     expect(removeMutationMock).not.toHaveBeenCalled();
   });
 
+  it('allows flush after early runtime reset lock is released without resetLocalDataRuntime', async () => {
+    getPendingMutationsMock
+      .mockResolvedValueOnce([mutation('after-abort')])
+      .mockResolvedValueOnce([]);
+
+    const { beginLocalRuntimeReset, endLocalRuntimeReset, flushPendingMutations } =
+      await import('@/lib/localDb/syncEngine');
+
+    beginLocalRuntimeReset();
+    endLocalRuntimeReset();
+
+    const result = await flushPendingMutations();
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    expect(result).toEqual({ syncedCount: 1, remainingCount: 0 });
+  });
+
   it('allows resetLocalDataRuntime to flush while the runtime reset lock is held', async () => {
     const pending = new Set(['during-reset']);
 
