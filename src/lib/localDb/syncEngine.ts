@@ -1,3 +1,4 @@
+import { onAuthStateChanged } from 'firebase/auth';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { auth } from '@/lib/firebase';
 import { logger } from '@/utils/logger';
@@ -40,6 +41,12 @@ function settleFlushResult(promise: Promise<FlushResult>, context: string): Prom
 }
 
 async function drainPendingMutations(): Promise<FlushResult> {
+  if (!auth.currentUser?.uid) {
+    const remaining = await getPendingMutations();
+    syncDebug('drain-skipped-no-auth', { remainingCount: remaining.length });
+    return { syncedCount: 0, remainingCount: remaining.length };
+  }
+
   let syncedCount = 0;
   let lastError: unknown;
 
@@ -134,6 +141,11 @@ export interface FlushPendingMutationsOptions {
 export async function flushPendingMutations(
   options: FlushPendingMutationsOptions = {}
 ): Promise<FlushResult> {
+  if (!auth.currentUser?.uid) {
+    const remaining = await getPendingMutations();
+    return { syncedCount: 0, remainingCount: remaining.length };
+  }
+
   if (!options.ignoreBrowserOffline && !isBrowserOnline()) {
     const remaining = await getPendingMutations();
     return { syncedCount: 0, remainingCount: remaining.length };
@@ -159,6 +171,12 @@ export function startSyncEngine(): void {
   };
 
   window.addEventListener('online', handleOnline);
+
+  onAuthStateChanged(auth, (user) => {
+    if (user?.uid && isBrowserOnline()) {
+      void flushPendingMutations();
+    }
+  });
 
   if (isBrowserOnline()) {
     void flushPendingMutations();
