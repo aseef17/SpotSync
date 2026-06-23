@@ -27,8 +27,20 @@ export async function initLocalDataStore(): Promise<void> {
   await initPromise;
 }
 
-export async function resetLocalDataRuntime(): Promise<void> {
-  if (isBrowserOnline()) {
+export interface ResetLocalDataRuntimeOptions {
+  /**
+   * When false, skip flushing the mutation queue before clearing local state.
+   * Required on account switch: Firebase auth already points at the new user, so
+   * flushing would replay the previous user's queue under the wrong credentials.
+   */
+  flushPending?: boolean;
+}
+
+export async function resetLocalDataRuntime(
+  options: ResetLocalDataRuntimeOptions = {}
+): Promise<void> {
+  const shouldFlushPending = options.flushPending !== false;
+  if (shouldFlushPending && isBrowserOnline()) {
     await flushPendingMutations();
   }
 
