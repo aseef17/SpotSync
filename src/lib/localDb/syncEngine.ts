@@ -1,3 +1,4 @@
+import { onAuthStateChanged } from 'firebase/auth';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { auth } from '@/lib/firebase';
 import { logger } from '@/utils/logger';
@@ -170,6 +171,12 @@ export function startSyncEngine(): void {
   };
 
   window.addEventListener('online', handleOnline);
+
+  onAuthStateChanged(auth, (user) => {
+    if (user?.uid && isBrowserOnline()) {
+      void flushPendingMutations();
+    }
+  });
 
   if (isBrowserOnline()) {
     void flushPendingMutations();
