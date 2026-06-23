@@ -133,6 +133,17 @@ async function shouldDropUpdatePlaceStatus(
     const canMigrate = await canMigrateLegacyPassportMembership(membershipId);
     syncDebug('stale-updatePlaceStatus-not-found', { membershipId, canMigrate });
     if (canMigrate) {
+      if (listIdHint) {
+        const access = await readListWriteAccess(listIdHint);
+        syncDebug('stale-updatePlaceStatus-not-found-list-access', {
+          membershipId,
+          listIdHint,
+          access,
+        });
+        if (access === 'none') {
+          return true;
+        }
+      }
       return false;
     }
     return true;
@@ -148,6 +159,17 @@ async function shouldDropUpdatePlaceStatus(
       const canMigrate = await canMigrateLegacyPassportMembership(membershipId);
       syncDebug('stale-updatePlaceStatus-missing-doc', { membershipId, canMigrate });
       if (canMigrate) {
+        if (listIdHint) {
+          const access = await readListWriteAccess(listIdHint);
+          syncDebug('stale-updatePlaceStatus-migrate-list-access', {
+            membershipId,
+            listIdHint,
+            access,
+          });
+          if (access === 'none') {
+            return true;
+          }
+        }
         return false;
       }
 
