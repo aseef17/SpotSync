@@ -106,6 +106,28 @@ describe('shouldDropStaleMutation', () => {
     expect(shouldDrop).toBe(true);
   });
 
+  it('drops updatePlaceStatus when passport migration is blocked by read-only list access', async () => {
+    const listId = 'Gzzf9zOWcEkCxyJx2Mo8';
+    const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
+    const membershipId = `${listId}_${chij}`;
+
+    getDocMock.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        ownerId: 'owner-1',
+        editorIds: ['owner-1'],
+        collaboratorIds: ['owner-1', 'user-1'],
+      }),
+    });
+    findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(true);
+  });
+
   it('drops updatePlaceStatus when migration is blocked because the parent list was deleted', async () => {
     const listId = 'Gzzf9zOWcEkCxyJx2Mo8';
     const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
@@ -243,6 +265,28 @@ describe('shouldDropStaleMutation', () => {
     expect(getDocMock).toHaveBeenCalledTimes(1);
   });
 
+  it('drops updatePlaceStatus on not-found when migration is blocked by read-only list access', async () => {
+    const listId = 'Gzzf9zOWcEkCxyJx2Mo8';
+    const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
+    const membershipId = `${listId}_${chij}`;
+
+    findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
+    getDocMock.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        ownerId: 'owner-1',
+        editorIds: ['owner-1'],
+        collaboratorIds: ['owner-1', 'user-1'],
+      }),
+    });
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
+      code: 'not-found',
+    });
+
+    expect(shouldDrop).toBe(true);
+  });
+
   it('drops updatePlaceStatus on not-found when migration is blocked by a deleted list', async () => {
     const listId = 'Gzzf9zOWcEkCxyJx2Mo8';
     const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
@@ -294,6 +338,14 @@ describe('shouldDropStaleMutation', () => {
 
     getDocMock.mockRejectedValueOnce({ code: 'permission-denied' });
     findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
+    getDocMock.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        ownerId: 'user-1',
+        editorIds: ['user-1'],
+        collaboratorIds: ['user-1'],
+      }),
+    });
 
     const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
       code: 'permission-denied',
