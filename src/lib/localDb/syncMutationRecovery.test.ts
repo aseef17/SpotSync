@@ -5,9 +5,10 @@ import {
   shouldDropStaleMutation,
 } from '@/lib/localDb/syncMutationRecovery';
 
-const { getDocMock, authMock } = vi.hoisted(() => ({
+const { getDocMock, authMock, findLegacyMock } = vi.hoisted(() => ({
   getDocMock: vi.fn(),
   authMock: { currentUser: { uid: 'user-1' } as { uid: string } | null },
+  findLegacyMock: vi.fn().mockResolvedValue(null),
 }));
 
 vi.mock('firebase/firestore', () => ({
@@ -18,6 +19,10 @@ vi.mock('firebase/firestore', () => ({
 vi.mock('@/lib/firebase', () => ({
   db: {},
   auth: authMock,
+}));
+
+vi.mock('@/features/places/utils/resolveWritableMembershipId', () => ({
+  findLegacyPassportMembershipId: findLegacyMock,
 }));
 
 vi.mock('@/features/places/api/listPlaceMembershipFirestore', () => ({
@@ -44,6 +49,8 @@ function statusMutation(
 describe('shouldDropStaleMutation', () => {
   beforeEach(() => {
     getDocMock.mockReset();
+    findLegacyMock.mockReset();
+    findLegacyMock.mockResolvedValue(null);
     authMock.currentUser = { uid: 'user-1' };
   });
 
@@ -55,6 +62,21 @@ describe('shouldDropStaleMutation', () => {
     });
 
     expect(shouldDrop).toBe(true);
+  });
+
+  it('keeps updatePlaceStatus when a legacy manual_passport membership can be migrated', async () => {
+    const listId = 'Gzzf9zOWcEkCxyJx2Mo8';
+    const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
+    const membershipId = `${listId}_${chij}`;
+
+    getDocMock.mockResolvedValueOnce({ exists: () => false });
+    findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(false);
   });
 
   it('drops updatePlaceStatus when the status already matches the server', async () => {

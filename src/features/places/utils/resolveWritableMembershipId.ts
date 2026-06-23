@@ -1,0 +1,135 @@
+import { arrayRemove, arrayUnion, doc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { db } from '@/lib/firebase';
+import { googlePlaceDocRef } from '@/features/places/api/googlePlaceFirestore';
+import { listPlaceMembershipDocRef } from '@/features/places/api/listPlaceMembershipFirestore';
+import {
+  LIST_PLACE_IDS_FIELD,
+  listPlaceMembershipDocId,
+  parseListPlaceMembershipDocId,
+} from '@/features/places/constants/firestorePaths';
+import { stablePassportManualId } from '@/features/places/utils/stablePassportManualId';
+import { getCachedPlace } from '@/lib/localDb/placeCache';
+
+async function legacyMembershipIdForPlaceName(
+  listId: string,
+  placeName: string
+): Promise<string | null> {
+  const legacyGooglePlaceId = await stablePassportManualId(placeName);
+  const legacyMembershipId = listPlaceMembershipDocId(listId, legacyGooglePlaceId);
+  const legacySnap = await getDoc(listPlaceMembershipDocRef(legacyMembershipId));
+  return legacySnap.exists() ? legacyMembershipId : null;
+}
+
+async function findLegacyPassportMembershipId(
+  listId: string,
+  canonicalGooglePlaceId: string,
+  membershipIdHint?: string
+): Promise<string | null> {
+  const canonicalSnap = await getDoc(googlePlaceDocRef(canonicalGooglePlaceId));
+  if (canonicalSnap.exists()) {
+    const placeName = canonicalSnap.data().name;
+    if (placeName) {
+      return legacyMembershipIdForPlaceName(listId, placeName);
+    }
+  }
+
+  if (membershipIdHint) {
+    const cachedPlace = await getCachedPlace(membershipIdHint);
+    if (cachedPlace?.name) {
+      return legacyMembershipIdForPlaceName(listId, cachedPlace.name);
+    }
+  }
+
+  return null;
+}
+
+async function migrateLegacyMembershipToCanonical(
+  listId: string,
+  legacyMembershipId: string,
+  canonicalGooglePlaceId: string
+): Promise<string> {
+  const canonicalMembershipId = listPlaceMembershipDocId(listId, canonicalGooglePlaceId);
+  const legacyRef = listPlaceMembershipDocRef(legacyMembershipId);
+  const canonicalRef = listPlaceMembershipDocRef(canonicalMembershipId);
+
+  const [legacySnap, canonicalSnap] = await Promise.all([getDoc(legacyRef), getDoc(canonicalRef)]);
+
+  if (canonicalSnap.exists()) {
+    if (legacySnap.exists() && legacyMembershipId !== canonicalMembershipId) {
+      const batch = writeBatch(db);
+      batch.delete(legacyRef);
+      const legacyGooglePlaceId = parseListPlaceMembershipDocId(legacyMembershipId)?.googlePlaceId;
+      if (legacyGooglePlaceId) {
+        batch.update(doc(db, 'lists', listId), {
+          [LIST_PLACE_IDS_FIELD]: arrayRemove(legacyGooglePlaceId),
+          updatedAt: new Date(),
+        });
+      }
+      await batch.commit();
+    }
+    return canonicalMembershipId;
+  }
+
+  if (!legacySnap.exists()) {
+    return canonicalMembershipId;
+  }
+
+  const legacyGooglePlaceId = parseListPlaceMembershipDocId(legacyMembershipId)?.googlePlaceId;
+  const listRef = doc(db, 'lists', listId);
+
+  const batch = writeBatch(db);
+  batch.set(canonicalRef, {
+    ...legacySnap.data(),
+    googlePlaceId: canonicalGooglePlaceId,
+    updatedAt: new Date(),
+  });
+  batch.delete(legacyRef);
+  batch.update(listRef, {
+    [LIST_PLACE_IDS_FIELD]: arrayUnion(canonicalGooglePlaceId),
+    updatedAt: new Date(),
+  });
+  await batch.commit();
+
+  if (legacyGooglePlaceId && legacyGooglePlaceId !== canonicalGooglePlaceId) {
+    await updateDoc(listRef, {
+      [LIST_PLACE_IDS_FIELD]: arrayRemove(legacyGooglePlaceId),
+      updatedAt: new Date(),
+    });
+  }
+
+  return canonicalMembershipId;
+}
+
+/**
+ * Resolves a membership document ID for writes. When the client targets a canonical
+ * ChIJ… membership that does not exist yet, migrates the legacy manual_passport_* doc.
+ */
+export async function resolveWritableMembershipId(membershipId: string): Promise<string> {
+  const directSnap = await getDoc(listPlaceMembershipDocRef(membershipId));
+  if (directSnap.exists()) {
+    return membershipId;
+  }
+
+  const parsed = parseListPlaceMembershipDocId(membershipId);
+  if (!parsed) {
+    return membershipId;
+  }
+
+  const { listId, googlePlaceId } = parsed;
+  if (googlePlaceId.startsWith('manual_passport_')) {
+    return membershipId;
+  }
+
+  const legacyMembershipId = await findLegacyPassportMembershipId(
+    listId,
+    googlePlaceId,
+    membershipId
+  );
+  if (!legacyMembershipId) {
+    return membershipId;
+  }
+
+  return migrateLegacyMembershipToCanonical(listId, legacyMembershipId, googlePlaceId);
+}
+
+export { findLegacyPassportMembershipId };
