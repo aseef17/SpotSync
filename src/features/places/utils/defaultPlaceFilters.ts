@@ -7,6 +7,10 @@ export function getDefaultPlaceFilters(isPassportList: boolean): FilterOptions {
   return { openNow: true };
 }
 
+export function getEmptyPlaceFilters(): FilterOptions {
+  return {};
+}
+
 function isSet(value: unknown): boolean {
   if (value === undefined || value === null) return false;
   if (Array.isArray(value)) return value.length > 0;
@@ -14,38 +18,16 @@ function isSet(value: unknown): boolean {
   return true;
 }
 
-export function hasNonDefaultPlaceFilters(
-  filters: FilterOptions,
-  isPassportList: boolean
-): boolean {
-  const defaults = getDefaultPlaceFilters(isPassportList);
-
-  if (isSet(filters.searchQuery)) return true;
-  if (isSet(filters.status)) return true;
-  if (isSet(filters.category)) return true;
-  if (isSet(filters.cuisine)) return true;
-  if (isSet(filters.passportStamp)) return true;
-  if (isSet(filters.passportCategory)) return true;
-  if (isSet(filters.minRating)) return true;
-  if (isSet(filters.maxRating)) return true;
-  if (isSet(filters.priceLevel)) return true;
-  if (filters.sortBy && filters.sortBy !== 'date') return true;
-  if (filters.sortDirection && filters.sortDirection !== 'desc') return true;
-  if (filters.location) return true;
-
-  if (filters.openNow !== defaults.openNow) return true;
-  if (filters.passportHasStamp !== defaults.passportHasStamp) return true;
-
-  return false;
+export function hasActivePlaceFilters(filters: FilterOptions): boolean {
+  return countActivePlaceFilters(filters) > 0;
 }
 
-export function countNonDefaultPlaceFilters(
-  filters: FilterOptions,
-  isPassportList: boolean
-): number {
-  const defaults = getDefaultPlaceFilters(isPassportList);
+export function countActivePlaceFilters(filters: FilterOptions): number {
   let count = 0;
 
+  if (filters.openNow) count++;
+  if (filters.passportHasStamp) count++;
+  if (isSet(filters.searchQuery)) count++;
   if (isSet(filters.status)) count++;
   if (isSet(filters.category)) count++;
   if (isSet(filters.cuisine)) count++;
@@ -53,9 +35,10 @@ export function countNonDefaultPlaceFilters(
   if (isSet(filters.passportCategory)) count++;
   if (filters.priceLevel && filters.priceLevel.length > 0) count++;
   if (isSet(filters.minRating)) count++;
+  if (isSet(filters.maxRating)) count++;
   if (filters.sortBy && filters.sortBy !== 'date') count++;
-  if (filters.openNow !== defaults.openNow) count++;
-  if (filters.passportHasStamp !== defaults.passportHasStamp) count++;
+  if (filters.sortDirection && filters.sortDirection !== 'desc') count++;
+  if (filters.location) count++;
 
   return count;
 }

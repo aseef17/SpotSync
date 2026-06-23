@@ -21,9 +21,9 @@ import { MultiSelectDropdown } from '@/components/Elements/Dropdown/MultiSelectD
 import { MobileFilterSheet } from '@/features/places/components/MobileFilterSheet';
 import { PASSPORT_STAMP_BY_ID } from '@/features/passport/constants/stamps';
 import {
-  countNonDefaultPlaceFilters,
-  getDefaultPlaceFilters,
-  hasNonDefaultPlaceFilters,
+  countActivePlaceFilters,
+  getEmptyPlaceFilters,
+  hasActivePlaceFilters,
 } from '@/features/places/utils/defaultPlaceFilters';
 
 interface PlaceFiltersProps {
@@ -117,14 +117,14 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
   };
 
   const clearFilters = () => {
-    onFiltersChange(getDefaultPlaceFilters(isPassportList));
+    onFiltersChange(getEmptyPlaceFilters());
     if (isAiMode && onAiModeChange) {
       onAiModeChange(false);
     }
     setLocalSearchQuery('');
   };
 
-  const hasActiveFilters = hasNonDefaultPlaceFilters(filters, isPassportList);
+  const hasActiveFilters = hasActivePlaceFilters(filters);
 
   const hasCategoryFilter = isPassportList
     ? Array.isArray(filters.passportStamp)
@@ -764,7 +764,7 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
             <>
               <span className="text-gray-300 dark:text-gray-700">•</span>
               <span className="text-blue-600 font-medium flex items-center gap-2">
-                {countNonDefaultPlaceFilters(filters, isPassportList)} filters
+                {countActivePlaceFilters(filters)} filters
                 <button
                   onClick={clearFilters}
                   className="text-[10px] font-bold text-red-600 dark:text-red-400 hover:text-red-800 dark:hover:text-red-200 uppercase tracking-wide transition-colors"
