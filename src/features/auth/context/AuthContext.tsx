@@ -17,6 +17,7 @@ import { doc, setDoc, getDoc, getDocFromServer, runTransaction } from 'firebase/
 import { auth, db } from '@/lib/firebase';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import type { User } from '@/features/auth/types/user';
+import { beginLocalRuntimeReset } from '@/lib/localDb/syncEngine';
 import { AccountService, checkUsernameExistsRemote } from '@/features/auth/api/accountService';
 import { getAuthActionCodeSettings } from '@/features/auth/lib/authActionSettings';
 import {
@@ -228,8 +229,15 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             return;
           }
 
+          const isAccountSwitch = Boolean(
+            lastAuthenticatedUid && lastAuthenticatedUid !== fbUser.uid
+          );
+          if (isAccountSwitch) {
+            beginLocalRuntimeReset();
+          }
+
           const { initLocalDataStore, resetLocalDataRuntime } = await import('@/lib/localDb');
-          if (lastAuthenticatedUid && lastAuthenticatedUid !== fbUser.uid) {
+          if (isAccountSwitch) {
             await resetLocalDataRuntime({ skipPendingFlush: true });
           }
           lastAuthenticatedUid = fbUser.uid;

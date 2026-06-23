@@ -340,6 +340,35 @@ describe('flushPendingMutations', () => {
     expect(blocked).toEqual({ syncedCount: 0, remainingCount: 1 });
   });
 
+  it('does not apply mutations when a pre-reset flush drain runs after runtime reset starts', async () => {
+    const pending = new Set(['prior-user']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    const {
+      beginLocalRuntimeReset,
+      endLocalRuntimeReset,
+      flushPendingMutations,
+      invalidateSyncDrain,
+      awaitSyncDrainIdle,
+    } = await import('@/lib/localDb/syncEngine');
+
+    const preResetFlush = flushPendingMutations();
+
+    beginLocalRuntimeReset();
+    invalidateSyncDrain();
+    await awaitSyncDrainIdle();
+    await preResetFlush;
+    endLocalRuntimeReset();
+
+    expect(applyPendingMutationMock).not.toHaveBeenCalled();
+    expect(removeMutationMock).not.toHaveBeenCalled();
+  });
+
   it('allows resetLocalDataRuntime to flush while the runtime reset lock is held', async () => {
     const pending = new Set(['during-reset']);
 
