@@ -21,6 +21,7 @@ import {
   buildMembershipPayload,
   splitPlaceUpdates,
 } from '@/features/places/utils/placeWriteSplit';
+import { resolveWritableMembershipId } from '@/features/places/utils/resolveWritableMembershipId';
 
 export interface WritePlaceCreateInput {
   listId: string;
@@ -90,7 +91,8 @@ export async function writePlaceUpdates(
   membershipId: string,
   updates: Partial<Place> & { updatedAt?: Date; updatedBy?: string }
 ): Promise<void> {
-  const googlePlaceId = resolveGooglePlaceIdFromMembershipId(membershipId);
+  const resolvedMembershipId = await resolveWritableMembershipId(membershipId);
+  const googlePlaceId = resolveGooglePlaceIdFromMembershipId(resolvedMembershipId);
   if (!googlePlaceId) {
     throw new Error(`Invalid membership ID: ${membershipId}`);
   }
@@ -103,7 +105,7 @@ export async function writePlaceUpdates(
       ...membershipUpdates,
       updatedAt: now,
     };
-    await updateDoc(listPlaceMembershipDocRef(membershipId), membershipPatch);
+    await updateDoc(listPlaceMembershipDocRef(resolvedMembershipId), membershipPatch);
   }
 
   if (Object.keys(googlePlaceUpdates).length > 0) {

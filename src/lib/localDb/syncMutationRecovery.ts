@@ -2,6 +2,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '@/lib/firebase';
 import { parseListPlaceMembershipDocId } from '@/features/places/constants/firestorePaths';
 import { listPlaceMembershipDocRef } from '@/features/places/api/listPlaceMembershipFirestore';
+import { findLegacyPassportMembershipId } from '@/features/places/utils/resolveWritableMembershipId';
 import type { PendingMutation } from '@/lib/localDb/types';
 import type { CreateListPayload, UpdatePlaceStatusPayload } from '@/lib/localDb/types';
 
@@ -119,6 +120,18 @@ async function shouldDropUpdatePlaceStatus(
   try {
     const membershipSnap = await getDoc(listPlaceMembershipDocRef(membershipId));
     if (!membershipSnap.exists()) {
+      const listId = listIdHint;
+      const googlePlaceId = parsed?.googlePlaceId;
+      if (listId && googlePlaceId && !googlePlaceId.startsWith('manual_passport_')) {
+        const legacyMembershipId = await findLegacyPassportMembershipId(
+          listId,
+          googlePlaceId,
+          membershipId
+        );
+        if (legacyMembershipId) {
+          return false;
+        }
+      }
       return true;
     }
 

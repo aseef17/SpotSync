@@ -55,7 +55,7 @@ export function useResolvedPlacePhotos(
         URL.revokeObjectURL(objectUrl);
       }
     };
-  }, [placeId, refsKey, maxWidth, maxHeight]);
+  }, [placeId, refsKey, maxWidth, maxHeight, photoRefs]);
 
   return urls;
 }
