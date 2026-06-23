@@ -73,7 +73,13 @@ function isDrainStillValid(generationAtStart: number, ownerUid: string | null): 
   return generationAtStart === drainGeneration && auth.currentUser?.uid === ownerUid;
 }
 
-async function drainPendingMutations(): Promise<FlushResult> {
+async function drainPendingMutations(options: { allowDuringRuntimeReset?: boolean } = {}): Promise<FlushResult> {
+  if (localRuntimeResetInProgress && !options.allowDuringRuntimeReset) {
+    const remaining = await getPendingMutations();
+    syncDebug('drain-skipped-runtime-reset', { remainingCount: remaining.length });
+    return { syncedCount: 0, remainingCount: remaining.length };
+  }
+
   const generationAtStart = drainGeneration;
   const ownerUid = auth.currentUser?.uid ?? null;
 
@@ -224,7 +230,9 @@ export async function flushPendingMutations(
 
   const context = options.force ? 'Manual sync drain failed' : 'Background sync drain failed';
   flushChain = settleFlushResult(
-    flushChain.then(() => drainPendingMutations()),
+    flushChain.then(() =>
+      drainPendingMutations({ allowDuringRuntimeReset: options.allowDuringRuntimeReset })
+    ),
     context
   );
   return flushChain;

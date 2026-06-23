@@ -373,6 +373,45 @@ describe('flushPendingMutations', () => {
 
     expect(applyPendingMutationMock).not.toHaveBeenCalled();
   });
+
+  it('does not apply queued drains after runtime reset begins', async () => {
+    const pending = new Set(['stale']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    let releaseBlockedApply: (() => void) | undefined;
+    let blockApply = true;
+    const blockedApplyStarted = new Promise<void>((resolve) => {
+      applyPendingMutationMock.mockImplementation(async () => {
+        if (!blockApply) {
+          return;
+        }
+        resolve();
+        await new Promise<void>((resolveApply) => {
+          releaseBlockedApply = resolveApply;
+        });
+      });
+    });
+
+    const { flushPendingMutations, beginLocalRuntimeReset, endLocalRuntimeReset, awaitSyncDrainIdle } =
+      await import('@/lib/localDb/syncEngine');
+
+    const firstFlush = flushPendingMutations();
+    await blockedApplyStarted;
+
+    const queuedFlush = flushPendingMutations();
+    beginLocalRuntimeReset({ invalidateDrain: true });
+    blockApply = false;
+    releaseBlockedApply?.();
+
+    await Promise.all([firstFlush, queuedFlush, awaitSyncDrainIdle()]);
+    endLocalRuntimeReset();
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('startSyncEngine', () => {
