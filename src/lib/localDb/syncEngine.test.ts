@@ -163,6 +163,24 @@ describe('flushPendingMutations', () => {
     expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
   });
 
+  it('recovers the flush chain after a drain throws', async () => {
+    getPendingMutationsMock
+      .mockRejectedValueOnce(new Error('db read failed'))
+      .mockResolvedValueOnce([mutation('still')])
+      .mockResolvedValueOnce([mutation('still')])
+      .mockResolvedValueOnce([]);
+
+    const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
+
+    const failed = await flushPendingMutations();
+    expect(failed.lastError).toBeInstanceOf(Error);
+    expect(failed.remainingCount).toBe(1);
+
+    const recovered = await flushPendingMutations();
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    expect(recovered).toEqual({ syncedCount: 1, remainingCount: 0 });
+  });
+
   it('stops at the first failed mutation without dropping earlier successes', async () => {
     getPendingMutationsMock
       .mockResolvedValueOnce([mutation('ok'), mutation('fail')])

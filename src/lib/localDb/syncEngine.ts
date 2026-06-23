@@ -29,9 +29,14 @@ function settleFlushResult(
   promise: Promise<FlushResult>,
   context: string
 ): Promise<FlushResult> {
-  return promise.catch((error) => {
+  return promise.catch(async (error) => {
     logger.error(`${context}:`, error);
-    return { ...EMPTY_FLUSH_RESULT, lastError: error };
+    const remaining = await getPendingMutations();
+    return {
+      syncedCount: 0,
+      remainingCount: remaining.length,
+      lastError: error,
+    };
   });
 }
 

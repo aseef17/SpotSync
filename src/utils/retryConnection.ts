@@ -52,6 +52,12 @@ function getErrorMessage(error: unknown): string {
 }
 
 function notifySyncResult(result: FlushResult, options: { manual?: boolean } = {}): SyncAttemptResult {
+  if (result.lastError && result.remainingCount === 0 && result.syncedCount === 0) {
+    const detail = getErrorMessage(result.lastError);
+    toast.error('Sync failed', { description: detail });
+    return { ok: false, result, message: detail };
+  }
+
   if (result.remainingCount === 0) {
     if (result.syncedCount > 0) {
       toast.success('All changes synced');
