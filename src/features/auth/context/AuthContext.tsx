@@ -231,9 +231,15 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           const { initLocalDataStore, resetLocalDataRuntime } = await import('@/lib/localDb');
           if (lastAuthenticatedUid && lastAuthenticatedUid !== fbUser.uid) {
             await resetLocalDataRuntime({ skipPendingFlush: true });
+            if (!isCurrentAuthStateHandler(handlerGeneration)) {
+              return;
+            }
           }
           lastAuthenticatedUid = fbUser.uid;
           await initLocalDataStore();
+          if (!isCurrentAuthStateHandler(handlerGeneration)) {
+            return;
+          }
 
           setFirebaseUser(fbUser);
           setUser((prev) => (shouldRetainUserOnAuthChange(prev?.id, fbUser.uid) ? prev : null));
@@ -358,6 +364,9 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           lastAuthenticatedUid = null;
           const { resetLocalDataRuntime } = await import('@/lib/localDb');
           await resetLocalDataRuntime();
+          if (!isCurrentAuthStateHandler(handlerGeneration)) {
+            return;
+          }
           setFirebaseUser(null);
           setUser(null);
         }
