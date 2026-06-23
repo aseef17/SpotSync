@@ -22,6 +22,12 @@ const LEGACY_MEMBERSHIP_MERGE_FIELDS = [
   'suppressNotifications',
 ] as const;
 
+function permissionDeniedError(message = 'Missing or insufficient permissions.'): Error {
+  const error = new Error(message);
+  (error as { code?: string }).code = 'permission-denied';
+  return error;
+}
+
 /** Copies user-owned membership fields without overwriting canonical list access denorm. */
 function pickLegacyMembershipMergeFields(
   legacyData: Record<string, unknown>
@@ -113,7 +119,15 @@ async function migrateLegacyMembershipToCanonical(
 
   const legacyGooglePlaceId = parseListPlaceMembershipDocId(legacyMembershipId)?.googlePlaceId;
   const listRef = doc(db, 'lists', listId);
-  const accessFields = await fetchListAccessFieldsForWrite(listId);
+  let accessFields;
+  try {
+    accessFields = await fetchListAccessFieldsForWrite(listId);
+  } catch (error) {
+    if (error instanceof Error && error.message === 'List not found') {
+      throw permissionDeniedError();
+    }
+    throw error;
+  }
   const legacyFields = pickLegacyMembershipMergeFields(
     legacySnap.data() as unknown as Record<string, unknown>
   );

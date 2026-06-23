@@ -230,6 +230,30 @@ describe('resolveWritableMembershipId', () => {
     );
   });
 
+  it('surfaces permission-denied when the parent list no longer exists during migration', async () => {
+    getDocMock
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ name: 'MoMA PS1' }),
+      })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ listId: LIST_ID, status: 'visited' }),
+      })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ listId: LIST_ID, status: 'visited' }),
+      })
+      .mockResolvedValueOnce({ exists: () => false });
+
+    fetchListAccessFieldsForWriteMock.mockRejectedValueOnce(new Error('List not found'));
+
+    await expect(resolveWritableMembershipId(CHIJ_MEMBERSHIP)).rejects.toMatchObject({
+      code: 'permission-denied',
+    });
+  });
+
   it('returns canonical id when legacy membership disappears before migration completes', async () => {
     getDocMock
       .mockResolvedValueOnce({ exists: () => false })

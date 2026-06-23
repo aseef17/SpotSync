@@ -92,6 +92,25 @@ describe('shouldDropStaleMutation', () => {
     expect(shouldDrop).toBe(true);
   });
 
+  it('drops updatePlaceStatus when migration fails because the parent list was deleted', async () => {
+    const listId = 'Gzzf9zOWcEkCxyJx2Mo8';
+    const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
+    const membershipId = `${listId}_${chij}`;
+
+    getDocMock
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ listId, status: 'not_visited' }),
+      })
+      .mockResolvedValueOnce({ exists: () => false });
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(true);
+  });
+
   it('drops updatePlaceStatus when the user no longer has write access', async () => {
     getDocMock
       .mockResolvedValueOnce({
