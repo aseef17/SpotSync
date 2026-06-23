@@ -133,14 +133,14 @@ async function migrateLegacyMembershipToCanonical(
   const legacyGooglePlaceId = parseListPlaceMembershipDocId(legacyMembershipId)?.googlePlaceId;
   const listRef = doc(db, 'lists', listId);
   const accessFields = await fetchListAccessFieldsForWrite(listId);
+  const legacyData = legacySnap.data();
 
   const batch = writeBatch(db);
   batch.set(canonicalRef, {
-    listId,
-    ...pickLegacyMembershipMergeFields(
-      legacySnap.data() as unknown as Record<string, unknown>
-    ),
+    ...legacyData,
     ...accessFields,
+    id: canonicalMembershipId,
+    listId,
     googlePlaceId: canonicalGooglePlaceId,
     updatedAt: new Date(),
   });
