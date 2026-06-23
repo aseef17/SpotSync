@@ -278,4 +278,43 @@ describe('startSyncEngine', () => {
 
     vi.unstubAllGlobals();
   });
+
+  it('does not flush when auth switches directly from one user to another', async () => {
+    const pending = new Set(['first']);
+    const addEventListenerMock = vi.fn();
+
+    vi.stubGlobal('window', { addEventListener: addEventListenerMock });
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    let authCallback: ((user: { uid: string } | null) => void) | undefined;
+    onAuthStateChangedMock.mockImplementation((_auth, callback) => {
+      authCallback = callback as (user: { uid: string } | null) => void;
+      return vi.fn();
+    });
+
+    const { startSyncEngine } = await import('@/lib/localDb/syncEngine');
+    startSyncEngine();
+
+    authMock.currentUser = { uid: 'user-a' };
+    authCallback?.({ uid: 'user-a' });
+
+    await vi.waitFor(() => {
+      expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    });
+
+    applyPendingMutationMock.mockClear();
+
+    authMock.currentUser = { uid: 'user-b' };
+    authCallback?.({ uid: 'user-b' });
+
+    await Promise.resolve();
+
+    expect(applyPendingMutationMock).not.toHaveBeenCalled();
+
+    vi.unstubAllGlobals();
+  });
 });
