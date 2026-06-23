@@ -4,6 +4,7 @@ import {
   isAccountSwitchOnSignIn,
   isCurrentAuthStateHandler,
   resetAuthStateHandlerGuardForTests,
+  shouldAbortResetForAuthUidChange,
   shouldRetainUserOnAuthChange,
 } from '@/features/auth/lib/authStateHandlerGuard';
 
@@ -32,5 +33,11 @@ describe('authStateHandlerGuard', () => {
     expect(isAccountSwitchOnSignIn('user-a', 'user-b')).toBe(true);
     expect(isAccountSwitchOnSignIn(null, 'user-b')).toBe(false);
     expect(isAccountSwitchOnSignIn('user-a', 'user-a')).toBe(false);
+  });
+
+  it('aborts auth-scoped local reset when Firebase uid changes mid-reset', () => {
+    expect(shouldAbortResetForAuthUidChange('user-a', 'user-a')).toBe(false);
+    expect(shouldAbortResetForAuthUidChange('user-a', 'user-b')).toBe(true);
+    expect(shouldAbortResetForAuthUidChange('user-a', null)).toBe(true);
   });
 });
