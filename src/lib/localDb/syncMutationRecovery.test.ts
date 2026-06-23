@@ -122,6 +122,22 @@ describe('shouldDropStaleMutation', () => {
     expect(shouldDrop).toBe(true);
     expect(getDocMock).not.toHaveBeenCalled();
   });
+
+  it('keeps updatePlaceStatus when auth is not ready yet', async () => {
+    authMock.currentUser = null;
+
+    getDocMock.mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({ listId: 'list-1', status: 'not_visited' }),
+    });
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1', 'visited'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(false);
+    expect(getDocMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('formatSyncFailureDetail', () => {

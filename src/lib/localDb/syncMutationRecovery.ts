@@ -101,6 +101,11 @@ async function shouldDropUpdatePlaceStatus(
     return false;
   }
 
+  // Auth may not be restored yet on cold start; dropping here would lose queued writes.
+  if (!auth.currentUser?.uid) {
+    return false;
+  }
+
   const payload = mutation.payload as UpdatePlaceStatusPayload;
   const membershipId = payload.placeId;
   const parsed = parseListPlaceMembershipDocId(membershipId);
