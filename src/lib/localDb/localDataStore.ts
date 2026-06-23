@@ -7,7 +7,7 @@ import { clearCompletedHydrationScopes } from '@/lib/localDb/initialCacheHydrati
 import { clearAllChangeListeners } from '@/lib/localDb/changeBus';
 import { clearAllUserListsSyncState } from '@/lib/localDb/sync/listSync';
 import { clearUserProfileSyncState } from '@/lib/localDb/sync/userProfileSync';
-import { flushPendingMutations, startSyncEngine } from '@/lib/localDb/syncEngine';
+import { abortSyncDrain, flushPendingMutations, startSyncEngine } from '@/lib/localDb/syncEngine';
 import { clearAllSubscriptions } from '@/lib/localDb/subscriptionRegistry';
 
 let initPromise: Promise<void> | null = null;
@@ -43,6 +43,7 @@ export async function resetLocalDataRuntime(
   if (shouldFlushPending && isBrowserOnline()) {
     await flushPendingMutations();
   }
+  await abortSyncDrain();
 
   clearPlaceListSubscriptions();
   clearInvitationListSubscriptions();

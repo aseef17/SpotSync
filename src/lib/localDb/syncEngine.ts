@@ -29,6 +29,18 @@ let flushChain: Promise<FlushResult> = Promise.resolve(EMPTY_FLUSH_RESULT);
 let listenersRegistered = false;
 /** Tracks the last auth uid seen by the sync engine to detect first sign-in after boot. */
 let lastObservedAuthUid: string | null = auth.currentUser?.uid ?? null;
+/** Bumped on auth uid changes so in-flight drains stop before applying stale-user mutations. */
+let drainGeneration = 0;
+
+function isDrainStale(generation: number, ownerUid: string): boolean {
+  return generation !== drainGeneration || auth.currentUser?.uid !== ownerUid;
+}
+
+/** Stops any in-flight sync drain and waits for it to settle. Call before clearing local DB. */
+export async function abortSyncDrain(): Promise<void> {
+  drainGeneration += 1;
+  await flushChain;
+}
 
 function settleFlushResult(promise: Promise<FlushResult>, context: string): Promise<FlushResult> {
   return promise.catch(async (error) => {
@@ -43,7 +55,9 @@ function settleFlushResult(promise: Promise<FlushResult>, context: string): Prom
 }
 
 async function drainPendingMutations(): Promise<FlushResult> {
-  if (!auth.currentUser?.uid) {
+  const generation = drainGeneration;
+  const ownerUid = auth.currentUser?.uid;
+  if (!ownerUid) {
     const remaining = await getPendingMutations();
     syncDebug('drain-skipped-no-auth', { remainingCount: remaining.length });
     return { syncedCount: 0, remainingCount: remaining.length };
@@ -53,13 +67,19 @@ async function drainPendingMutations(): Promise<FlushResult> {
   let lastError: unknown;
 
   while (true) {
+    if (isDrainStale(generation, ownerUid)) {
+      const remaining = await getPendingMutations();
+      syncDebug('drain-aborted-auth-change', { ownerUid, remainingCount: remaining.length });
+      return { syncedCount, remainingCount: remaining.length, lastError };
+    }
+
     const mutations = await getPendingMutations();
     if (mutations.length === 0) {
       return { syncedCount, remainingCount: 0, lastError };
     }
 
     syncDebug('drain-batch', {
-      uid: auth.currentUser?.uid ?? null,
+      uid: ownerUid,
       count: mutations.length,
       types: mutations.map((m) => m.type),
     });
@@ -67,6 +87,12 @@ async function drainPendingMutations(): Promise<FlushResult> {
     let blockedOnFailure = false;
     let lastFailedMutation: FlushResult['lastFailedMutation'];
     for (const mutation of mutations) {
+      if (isDrainStale(generation, ownerUid)) {
+        const remaining = await getPendingMutations();
+        syncDebug('drain-aborted-auth-change', { ownerUid, remainingCount: remaining.length });
+        return { syncedCount, remainingCount: remaining.length, lastError };
+      }
+
       try {
         syncDebug('mutation-apply-start', {
           id: mutation.id,
@@ -177,6 +203,9 @@ export function startSyncEngine(): void {
   onAuthStateChanged(auth, (user) => {
     const nextUid = user?.uid ?? null;
     const authJustBecameReady = nextUid !== null && lastObservedAuthUid === null;
+    if (nextUid !== lastObservedAuthUid) {
+      drainGeneration += 1;
+    }
     lastObservedAuthUid = nextUid;
 
     if (authJustBecameReady && isBrowserOnline()) {

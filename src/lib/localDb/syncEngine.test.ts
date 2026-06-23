@@ -317,4 +317,39 @@ describe('startSyncEngine', () => {
 
     vi.unstubAllGlobals();
   });
+
+  it('aborts an in-flight drain when auth uid changes before the next mutation', async () => {
+    authMock.currentUser = { uid: 'user-a' };
+    const pending = new Set(['first', 'second']);
+    let releaseFirst: (() => void) | undefined;
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    applyPendingMutationMock.mockImplementation(async (mutationToApply: PendingMutation) => {
+      if (mutationToApply.id === 'first') {
+        authMock.currentUser = { uid: 'user-b' };
+        await new Promise<void>((resolve) => {
+          releaseFirst = resolve;
+        });
+      }
+    });
+
+    const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
+    const drainPromise = flushPendingMutations();
+
+    await vi.waitFor(() => {
+      expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    });
+
+    releaseFirst?.();
+
+    const result = await drainPromise;
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    expect(removeMutationMock).toHaveBeenCalledWith('first');
+    expect(result).toEqual({ syncedCount: 1, remainingCount: 1 });
+  });
 });
