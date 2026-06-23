@@ -37,48 +37,69 @@ function userCanWriteList(
 
 type ListWriteAccess = 'write' | 'read' | 'none' | 'unknown';
 
-async function readListWriteAccess(listId: string): Promise<ListWriteAccess> {
+type ListAccessInfo = {
+  access: ListWriteAccess;
+  placeIds?: string[];
+};
+
+function listAccessFromSnapshot(
+  listSnap: { exists: () => boolean; data: () => Record<string, unknown> | undefined },
+  userId: string
+): ListAccessInfo {
+  if (!listSnap.exists()) {
+    return { access: 'none' };
+  }
+
+  const data = listSnap.data() as {
+    ownerId: string;
+    editorIds?: string[];
+    collaboratorIds?: string[];
+    isPublic?: boolean;
+    placeIds?: string[];
+  };
+
+  if (userCanWriteList(data, userId)) {
+    return { access: 'write', placeIds: data.placeIds };
+  }
+
+  if (data.ownerId === userId || data.collaboratorIds?.includes(userId) || data.isPublic === true) {
+    return { access: 'read', placeIds: data.placeIds };
+  }
+
+  return { access: 'none', placeIds: data.placeIds };
+}
+
+async function readListAccessInfo(listId: string): Promise<ListAccessInfo> {
   const userId = auth.currentUser?.uid;
   if (!userId) {
-    return 'unknown';
+    return { access: 'unknown' };
   }
 
   try {
     const listSnap = await getDoc(doc(db, 'lists', listId));
-    if (!listSnap.exists()) {
-      return 'none';
-    }
-
-    const data = listSnap.data() as {
-      ownerId: string;
-      editorIds?: string[];
-      collaboratorIds?: string[];
-      isPublic?: boolean;
-    };
-
-    if (userCanWriteList(data, userId)) {
-      return 'write';
-    }
-
-    if (
-      data.ownerId === userId ||
-      data.collaboratorIds?.includes(userId) ||
-      data.isPublic === true
-    ) {
-      return 'read';
-    }
-
-    return 'none';
+    return listAccessFromSnapshot(listSnap, userId);
   } catch (error) {
     if (isPermissionDeniedError(error)) {
-      return 'unknown';
+      return { access: 'unknown' };
     }
     throw error;
   }
 }
 
+async function readListWriteAccess(listId: string): Promise<ListWriteAccess> {
+  const listAccess = await readListAccessInfo(listId);
+  return listAccess.access;
+}
+
 function shouldDropForListAccess(access: ListWriteAccess): boolean {
   return access === 'read' || access === 'none';
+}
+
+function isGooglePlaceIdLinkedToList(
+  placeIds: string[] | undefined,
+  googlePlaceId: string
+): boolean {
+  return Array.isArray(placeIds) && placeIds.includes(googlePlaceId);
 }
 
 function placeStatusMatches(
@@ -177,9 +198,26 @@ async function shouldDropUpdatePlaceStatus(
       // still write the list, keep retrying instead of silently dropping the mutation.
       const listId = listIdHint;
       if (listId) {
-        const access = await readListWriteAccess(listId);
-        syncDebug('stale-updatePlaceStatus-missing-write-check', { membershipId, listId, access });
-        if (access === 'write') {
+        const listAccess = await readListAccessInfo(listId);
+        syncDebug('stale-updatePlaceStatus-missing-write-check', {
+          membershipId,
+          listId,
+          access: listAccess.access,
+        });
+        if (listAccess.access === 'write') {
+          const googlePlaceId = parsed?.googlePlaceId;
+          if (googlePlaceId) {
+            const linked = isGooglePlaceIdLinkedToList(listAccess.placeIds, googlePlaceId);
+            syncDebug('stale-updatePlaceStatus-missing-place-link', {
+              membershipId,
+              listId,
+              googlePlaceId,
+              linked,
+            });
+            if (!linked) {
+              return true;
+            }
+          }
           return false;
         }
       }
