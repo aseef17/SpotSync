@@ -179,7 +179,7 @@ async function shouldDropUpdatePlaceStatus(
       if (listId) {
         const access = await readListWriteAccess(listId);
         syncDebug('stale-updatePlaceStatus-missing-write-check', { membershipId, listId, access });
-        if (access === 'write' || access === 'unknown') {
+        if (access === 'write') {
           return false;
         }
       }
