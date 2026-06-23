@@ -5,15 +5,26 @@ const {
   removeMutationMock,
   applyPendingMutationMock,
   isBrowserOnlineMock,
+  authMock,
 } = vi.hoisted(() => ({
   getPendingMutationsMock: vi.fn(),
   removeMutationMock: vi.fn(),
   applyPendingMutationMock: vi.fn(),
   isBrowserOnlineMock: vi.fn(() => true),
+  authMock: { currentUser: { uid: 'user-1' } as { uid: string } | null },
 }));
 
 vi.mock('@/hooks/useNetworkStatus', () => ({
   isBrowserOnline: isBrowserOnlineMock,
+}));
+
+vi.mock('@/lib/firebase', () => ({
+  auth: authMock,
+}));
+
+vi.mock('@/utils/syncDebug', () => ({
+  syncDebug: vi.fn(),
+  syncDebugError: vi.fn(),
 }));
 
 vi.mock('@/lib/localDb/mutationQueue', () => ({
@@ -46,6 +57,7 @@ describe('flushPendingMutations', () => {
     removeMutationMock.mockReset();
     applyPendingMutationMock.mockReset();
     isBrowserOnlineMock.mockReturnValue(true);
+    authMock.currentUser = { uid: 'user-1' };
     removeMutationMock.mockResolvedValue(undefined);
     applyPendingMutationMock.mockResolvedValue(undefined);
   });
@@ -77,6 +89,17 @@ describe('flushPendingMutations', () => {
     expect(removeMutationMock).toHaveBeenCalledWith('second');
     expect(firstResult).toEqual({ syncedCount: 2, remainingCount: 0 });
     expect(secondResult).toEqual({ syncedCount: 0, remainingCount: 0 });
+  });
+
+  it('does not flush when auth is not ready', async () => {
+    authMock.currentUser = null;
+    getPendingMutationsMock.mockResolvedValue([mutation('first')]);
+
+    const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
+    const result = await flushPendingMutations();
+
+    expect(applyPendingMutationMock).not.toHaveBeenCalled();
+    expect(result).toEqual({ syncedCount: 0, remainingCount: 1 });
   });
 
   it('does not flush when offline', async () => {

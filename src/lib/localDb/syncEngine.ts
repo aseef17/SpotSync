@@ -134,6 +134,11 @@ export interface FlushPendingMutationsOptions {
 export async function flushPendingMutations(
   options: FlushPendingMutationsOptions = {}
 ): Promise<FlushResult> {
+  if (!auth.currentUser?.uid) {
+    const remaining = await getPendingMutations();
+    return { syncedCount: 0, remainingCount: remaining.length };
+  }
+
   if (!options.ignoreBrowserOffline && !isBrowserOnline()) {
     const remaining = await getPendingMutations();
     return { syncedCount: 0, remainingCount: remaining.length };
