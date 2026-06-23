@@ -231,6 +231,63 @@ describe('flushPendingMutations', () => {
       lastFailedMutation: { id: 'fail', type: 'updatePlace' },
     });
   });
+
+  it('stops applying mutations when the sync drain is invalidated mid-flush', async () => {
+    const pending = new Set(['first', 'second']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    let releaseFirstApply: (() => void) | undefined;
+    const firstApplyStarted = new Promise<void>((resolve) => {
+      releaseFirstApply = resolve;
+    });
+
+    applyPendingMutationMock.mockImplementation(async (mutationToApply: PendingMutation) => {
+      if (mutationToApply.id === 'first') {
+        await firstApplyStarted;
+      }
+    });
+
+    const { flushPendingMutations, invalidateSyncDrain } = await import('@/lib/localDb/syncEngine');
+
+    const flushPromise = flushPendingMutations();
+    await vi.waitFor(() => {
+      expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    });
+
+    invalidateSyncDrain();
+    releaseFirstApply?.();
+    const result = await flushPromise;
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    expect(removeMutationMock).not.toHaveBeenCalled();
+    expect(result.remainingCount).toBe(2);
+  });
+
+  it('stops applying mutations when auth uid changes mid-flush', async () => {
+    const pending = new Set(['first', 'second']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+
+    applyPendingMutationMock.mockImplementation(async (mutationToApply: PendingMutation) => {
+      if (mutationToApply.id === 'first') {
+        authMock.currentUser = { uid: 'user-2' };
+      }
+    });
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    const { flushPendingMutations } = await import('@/lib/localDb/syncEngine');
+    const result = await flushPendingMutations();
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    expect(result.remainingCount).toBe(2);
+  });
 });
 
 describe('startSyncEngine', () => {
