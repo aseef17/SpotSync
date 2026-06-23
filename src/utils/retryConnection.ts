@@ -1,9 +1,10 @@
 import { toast } from 'sonner';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
+import { auth } from '@/lib/firebase';
 import { flushPendingMutations, type FlushResult } from '@/lib/localDb';
 import { initLocalDataStore } from '@/lib/localDb/localDataStore';
 import { formatSyncFailureDetail } from '@/lib/localDb/syncMutationRecovery';
-import { syncDebug } from '@/utils/syncDebug';
+import { isSyncDebugEnabled, syncDebug } from '@/utils/syncDebug';
 
 const CONNECTIVITY_PROBE_TIMEOUT_MS = 4000;
 
@@ -81,7 +82,10 @@ function notifySyncResult(
 
 /** Flushes the offline mutation queue in the background without reloading the app. */
 export async function retryPendingSync(): Promise<SyncAttemptResult> {
-  syncDebug('retry-start', { online: isBrowserOnline() });
+  syncDebug('retry-start', {
+    online: isBrowserOnline(),
+    debugEnabled: isSyncDebugEnabled(),
+  });
 
   try {
     await initLocalDataStore();
@@ -110,7 +114,7 @@ export async function retryPendingSync(): Promise<SyncAttemptResult> {
   }
 
   try {
-    syncDebug('flush-start', { force: true });
+    syncDebug('flush-start', { force: true, uid: auth.currentUser?.uid ?? null });
     const result = await flushPendingMutations({
       ignoreBrowserOffline: !browserSaysOnline,
       force: true,

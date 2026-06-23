@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 import type { PlaceStatus } from '@/features/places/types/place';
 import { PASSPORT_STAMP_BY_ID } from '@/features/passport/constants/stamps';
@@ -59,7 +60,7 @@ export const PassportStampPreviewModal: React.FunctionComponent<PassportStampPre
 
   const label = statusLabel(status);
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[110] flex items-center justify-center p-4"
       role="dialog"
@@ -110,6 +111,7 @@ export const PassportStampPreviewModal: React.FunctionComponent<PassportStampPre
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };

@@ -22,6 +22,7 @@ import {
   splitPlaceUpdates,
 } from '@/features/places/utils/placeWriteSplit';
 import { resolveWritableMembershipId } from '@/features/places/utils/resolveWritableMembershipId';
+import { syncDebug, syncDebugError } from '@/utils/syncDebug';
 
 export interface WritePlaceCreateInput {
   listId: string;
@@ -91,7 +92,20 @@ export async function writePlaceUpdates(
   membershipId: string,
   updates: Partial<Place> & { updatedAt?: Date; updatedBy?: string }
 ): Promise<void> {
-  const resolvedMembershipId = await resolveWritableMembershipId(membershipId);
+  syncDebug('writePlaceUpdates-start', { membershipId, keys: Object.keys(updates) });
+  let resolvedMembershipId: string;
+  try {
+    resolvedMembershipId = await resolveWritableMembershipId(membershipId);
+    syncDebug('writePlaceUpdates-resolved-id', {
+      requested: membershipId,
+      resolved: resolvedMembershipId,
+      remapped: resolvedMembershipId !== membershipId,
+    });
+  } catch (error) {
+    syncDebugError('writePlaceUpdates-resolve-failed', error, { membershipId });
+    throw error;
+  }
+
   const googlePlaceId = resolveGooglePlaceIdFromMembershipId(resolvedMembershipId);
   if (!googlePlaceId) {
     throw new Error(`Invalid membership ID: ${membershipId}`);
@@ -105,7 +119,17 @@ export async function writePlaceUpdates(
       ...membershipUpdates,
       updatedAt: now,
     };
-    await updateDoc(listPlaceMembershipDocRef(resolvedMembershipId), membershipPatch);
+    syncDebug('writePlaceUpdates-membership-patch', {
+      resolvedMembershipId,
+      patch: membershipPatch,
+    });
+    try {
+      await updateDoc(listPlaceMembershipDocRef(resolvedMembershipId), membershipPatch);
+      syncDebug('writePlaceUpdates-membership-ok', { resolvedMembershipId });
+    } catch (error) {
+      syncDebugError('writePlaceUpdates-membership-failed', error, { resolvedMembershipId });
+      throw error;
+    }
   }
 
   if (Object.keys(googlePlaceUpdates).length > 0) {
