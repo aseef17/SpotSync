@@ -7,6 +7,7 @@ import {
   listPlaceMembershipDocId,
   parseListPlaceMembershipDocId,
 } from '@/features/places/constants/firestorePaths';
+import { fetchListAccessFieldsForWrite } from '@/features/places/utils/fetchListAccessFieldsForWrite';
 import { stablePassportManualId } from '@/features/places/utils/stablePassportManualId';
 import { getCachedPlace } from '@/lib/localDb/placeCache';
 import { syncDebug, syncDebugError } from '@/utils/syncDebug';
@@ -112,11 +113,18 @@ async function migrateLegacyMembershipToCanonical(
 
   const legacyGooglePlaceId = parseListPlaceMembershipDocId(legacyMembershipId)?.googlePlaceId;
   const listRef = doc(db, 'lists', listId);
+  const accessFields = await fetchListAccessFieldsForWrite(listId);
+  const legacyFields = pickLegacyMembershipMergeFields(
+    legacySnap.data() as unknown as Record<string, unknown>
+  );
 
   const batch = writeBatch(db);
   batch.set(canonicalRef, {
-    ...legacySnap.data(),
+    listId,
     googlePlaceId: canonicalGooglePlaceId,
+    ...accessFields,
+    ...legacyFields,
+    status: legacyFields.status ?? 'not_visited',
     updatedAt: new Date(),
   });
   batch.delete(legacyRef);

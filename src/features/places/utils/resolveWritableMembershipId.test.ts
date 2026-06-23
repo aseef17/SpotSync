@@ -7,6 +7,7 @@ const {
   batchDeleteMock,
   batchCommitMock,
   updateDocMock,
+  fetchListAccessFieldsForWriteMock,
 } = vi.hoisted(() => {
   const batchSetMock = vi.fn();
   const batchDeleteMock = vi.fn();
@@ -25,6 +26,11 @@ const {
     batchDeleteMock,
     batchCommitMock,
     updateDocMock: vi.fn().mockResolvedValue(undefined),
+    fetchListAccessFieldsForWriteMock: vi.fn().mockResolvedValue({
+      listOwnerId: 'owner-1',
+      listIsPublic: false,
+      listCollaboratorIds: ['owner-1'],
+    }),
   };
 });
 
@@ -47,6 +53,10 @@ vi.mock('@/features/places/api/listPlaceMembershipFirestore', () => ({
   listPlaceMembershipDocRef: vi.fn((id: string) => ({ collection: 'listPlaces', id })),
 }));
 
+vi.mock('@/features/places/utils/fetchListAccessFieldsForWrite', () => ({
+  fetchListAccessFieldsForWrite: fetchListAccessFieldsForWriteMock,
+}));
+
 import { resolveWritableMembershipId } from '@/features/places/utils/resolveWritableMembershipId';
 
 const LIST_ID = 'Gzzf9zOWcEkCxyJx2Mo8';
@@ -59,6 +69,12 @@ describe('resolveWritableMembershipId', () => {
     writeBatchMock.mockClear();
     batchCommitMock.mockClear();
     updateDocMock.mockClear();
+    fetchListAccessFieldsForWriteMock.mockClear();
+    fetchListAccessFieldsForWriteMock.mockResolvedValue({
+      listOwnerId: 'owner-1',
+      listIsPublic: false,
+      listCollaboratorIds: ['owner-1'],
+    });
   });
 
   it('returns the requested id when the membership already exists', async () => {
@@ -93,6 +109,49 @@ describe('resolveWritableMembershipId', () => {
     expect(batchDeleteMock).toHaveBeenCalled();
     expect(batchCommitMock).toHaveBeenCalled();
     expect(updateDocMock).toHaveBeenCalled();
+  });
+
+  it('uses current list access fields when creating canonical from legacy membership', async () => {
+    getDocMock
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ name: 'MoMA PS1' }),
+      })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          listId: LIST_ID,
+          status: 'visited',
+          listOwnerId: 'owner-1',
+          listIsPublic: true,
+          listCollaboratorIds: ['owner-1', 'revoked-user'],
+        }),
+      })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          listId: LIST_ID,
+          status: 'visited',
+          listOwnerId: 'owner-1',
+          listIsPublic: true,
+          listCollaboratorIds: ['owner-1', 'revoked-user'],
+        }),
+      })
+      .mockResolvedValueOnce({ exists: () => false });
+
+    await expect(resolveWritableMembershipId(CHIJ_MEMBERSHIP)).resolves.toBe(CHIJ_MEMBERSHIP);
+
+    expect(fetchListAccessFieldsForWriteMock).toHaveBeenCalledWith(LIST_ID);
+    expect(batchSetMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        status: 'visited',
+        listIsPublic: false,
+        listCollaboratorIds: ['owner-1'],
+        googlePlaceId: CHIJ,
+      })
+    );
   });
 
   it('merges legacy membership fields when canonical already exists', async () => {
