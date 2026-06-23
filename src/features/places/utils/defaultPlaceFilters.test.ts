@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  countNonDefaultPlaceFilters,
+  countActivePlaceFilters,
   getDefaultPlaceFilters,
-  hasNonDefaultPlaceFilters,
+  getEmptyPlaceFilters,
+  hasActivePlaceFilters,
 } from './defaultPlaceFilters';
 
 describe('defaultPlaceFilters', () => {
@@ -17,17 +18,26 @@ describe('defaultPlaceFilters', () => {
     });
   });
 
-  it('does not treat default toggles as active filters', () => {
-    expect(hasNonDefaultPlaceFilters({ openNow: true }, false)).toBe(false);
-    expect(hasNonDefaultPlaceFilters({ passportHasStamp: true, openNow: true }, true)).toBe(false);
-    expect(countNonDefaultPlaceFilters({ openNow: true }, false)).toBe(0);
+  it('treats enabled default toggles as active filters', () => {
+    expect(hasActivePlaceFilters({ openNow: true })).toBe(true);
+    expect(countActivePlaceFilters({ openNow: true })).toBe(1);
+    expect(hasActivePlaceFilters({ passportHasStamp: true, openNow: true })).toBe(true);
+    expect(countActivePlaceFilters({ passportHasStamp: true, openNow: true })).toBe(2);
   });
 
-  it('counts user changes from defaults', () => {
-    expect(countNonDefaultPlaceFilters({ openNow: undefined }, false)).toBe(1);
-    expect(countNonDefaultPlaceFilters({ passportHasStamp: undefined, openNow: true }, true)).toBe(
-      1
-    );
-    expect(countNonDefaultPlaceFilters({ status: 'visited', openNow: true }, false)).toBe(1);
+  it('does not count disabled toggles as active filters', () => {
+    expect(hasActivePlaceFilters({ openNow: undefined })).toBe(false);
+    expect(hasActivePlaceFilters({ passportHasStamp: undefined, openNow: undefined })).toBe(false);
+    expect(countActivePlaceFilters({ openNow: undefined })).toBe(0);
+  });
+
+  it('counts additive filters with default toggles', () => {
+    expect(countActivePlaceFilters({ status: 'visited', openNow: true })).toBe(2);
+    expect(countActivePlaceFilters({ searchQuery: 'pizza', openNow: true })).toBe(2);
+  });
+
+  it('clear resets to an empty filter set', () => {
+    expect(getEmptyPlaceFilters()).toEqual({});
+    expect(hasActivePlaceFilters(getEmptyPlaceFilters())).toBe(false);
   });
 });

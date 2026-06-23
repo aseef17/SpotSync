@@ -9,29 +9,49 @@ import {
 } from '@/features/places/constants/firestorePaths';
 import { fetchListAccessFieldsForWrite } from '@/features/places/utils/fetchListAccessFieldsForWrite';
 import { stablePassportManualId } from '@/features/places/utils/stablePassportManualId';
+import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
 import { getCachedPlace } from '@/lib/localDb/placeCache';
 import { syncDebug, syncDebugError } from '@/utils/syncDebug';
 
-const LEGACY_MEMBERSHIP_MERGE_FIELDS = [
-  'status',
-  'customStatus',
-  'notes',
-  'addedBy',
-  'addedAt',
-  'updatedBy',
-  'suppressNotifications',
-] as const;
+type LegacyMembershipMergePayload = Pick<
+  ListPlaceMembership,
+  | 'status'
+  | 'customStatus'
+  | 'notes'
+  | 'addedBy'
+  | 'addedAt'
+  | 'updatedBy'
+  | 'suppressNotifications'
+>;
 
 /** Copies user-owned membership fields without overwriting canonical list access denorm. */
 function pickLegacyMembershipMergeFields(
-  legacyData: Record<string, unknown>
-): Record<string, unknown> {
-  const merged: Record<string, unknown> = {};
-  for (const key of LEGACY_MEMBERSHIP_MERGE_FIELDS) {
-    if (legacyData[key] !== undefined) {
-      merged[key] = legacyData[key];
-    }
+  legacyData: ListPlaceMembership
+): Partial<LegacyMembershipMergePayload> {
+  const merged: Partial<LegacyMembershipMergePayload> = {};
+
+  if (legacyData.status !== undefined) {
+    merged.status = legacyData.status;
   }
+  if (legacyData.customStatus !== undefined) {
+    merged.customStatus = legacyData.customStatus;
+  }
+  if (legacyData.notes !== undefined) {
+    merged.notes = legacyData.notes;
+  }
+  if (legacyData.addedBy !== undefined) {
+    merged.addedBy = legacyData.addedBy;
+  }
+  if (legacyData.addedAt !== undefined) {
+    merged.addedAt = legacyData.addedAt;
+  }
+  if (legacyData.updatedBy !== undefined) {
+    merged.updatedBy = legacyData.updatedBy;
+  }
+  if (legacyData.suppressNotifications !== undefined) {
+    merged.suppressNotifications = legacyData.suppressNotifications;
+  }
+
   return merged;
 }
 
@@ -81,14 +101,13 @@ async function migrateLegacyMembershipToCanonical(
 
   if (canonicalSnap.exists()) {
     if (legacySnap.exists() && legacyMembershipId !== canonicalMembershipId) {
+      const legacyData = legacySnap.data();
       const batch = writeBatch(db);
       batch.set(
         canonicalRef,
         {
           ...canonicalSnap.data(),
-          ...pickLegacyMembershipMergeFields(
-            legacySnap.data() as unknown as Record<string, unknown>
-          ),
+          ...pickLegacyMembershipMergeFields(legacyData),
           googlePlaceId: canonicalGooglePlaceId,
           updatedAt: new Date(),
         },

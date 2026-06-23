@@ -2,7 +2,10 @@ import { useState, useMemo } from 'react';
 import type { Place } from '@/features/places/types/place';
 import type { FilterOptions } from '@/features/places/types/filters';
 import { isPlaceOpen } from '@/features/places/utils/placeHelpers';
-import { getDefaultPlaceFilters } from '@/features/places/utils/defaultPlaceFilters';
+import {
+  getDefaultPlaceFilters,
+  getEmptyPlaceFilters,
+} from '@/features/places/utils/defaultPlaceFilters';
 import { toMilliseconds } from '@/utils/date';
 
 type FilterScopeState = {
@@ -37,8 +40,6 @@ export const usePlaceFilters = (
       filters: typeof next === 'function' ? next(prev.filters) : next,
     }));
   };
-
-  const defaultFilters = useMemo(() => getDefaultPlaceFilters(isPassportList), [isPassportList]);
 
   const [viewMode, setViewMode] = useState<'list' | 'map'>('list');
 
@@ -217,7 +218,7 @@ export const usePlaceFilters = (
     return filtered;
   }, [places, filters, userLocation]);
 
-  const clearFilters = () => setFilters(defaultFilters);
+  const clearFilters = () => setFilters(getEmptyPlaceFilters());
 
   return {
     filters,
@@ -226,7 +227,6 @@ export const usePlaceFilters = (
     viewMode,
     setViewMode,
     clearFilters,
-    defaultFilters,
   };
 };
 
