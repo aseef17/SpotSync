@@ -346,6 +346,33 @@ describe('flushPendingMutations', () => {
     expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
     expect(result.remainingCount).toBe(2);
   });
+
+  it('does not flush while local runtime reset is in progress', async () => {
+    getPendingMutationsMock.mockResolvedValue([mutation('only')]);
+
+    const { flushPendingMutations, beginLocalRuntimeReset, endLocalRuntimeReset } =
+      await import('@/lib/localDb/syncEngine');
+
+    beginLocalRuntimeReset();
+    const result = await flushPendingMutations();
+    endLocalRuntimeReset();
+
+    expect(applyPendingMutationMock).not.toHaveBeenCalled();
+    expect(result.remainingCount).toBe(1);
+  });
+
+  it('allows logout flush during runtime reset when explicitly permitted', async () => {
+    getPendingMutationsMock.mockResolvedValue([]);
+
+    const { flushPendingMutations, beginLocalRuntimeReset, endLocalRuntimeReset } =
+      await import('@/lib/localDb/syncEngine');
+
+    beginLocalRuntimeReset();
+    await flushPendingMutations({ allowDuringRuntimeReset: true });
+    endLocalRuntimeReset();
+
+    expect(applyPendingMutationMock).not.toHaveBeenCalled();
+  });
 });
 
 describe('startSyncEngine', () => {

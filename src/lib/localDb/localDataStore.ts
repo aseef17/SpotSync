@@ -9,8 +9,9 @@ import { clearAllUserListsSyncState } from '@/lib/localDb/sync/listSync';
 import { clearUserProfileSyncState } from '@/lib/localDb/sync/userProfileSync';
 import {
   awaitSyncDrainIdle,
+  beginLocalRuntimeReset,
+  endLocalRuntimeReset,
   flushPendingMutations,
-  invalidateSyncDrain,
   startSyncEngine,
 } from '@/lib/localDb/syncEngine';
 import { clearAllSubscriptions } from '@/lib/localDb/subscriptionRegistry';
@@ -40,25 +41,27 @@ export interface ResetLocalDataRuntimeOptions {
 export async function resetLocalDataRuntime(
   options: ResetLocalDataRuntimeOptions = {}
 ): Promise<void> {
-  // Account switch must abort in-flight drains before clearing local state. Logout/sign-out
-  // should let the active drain finish so applied mutations are dequeued before we flush again.
-  if (options.skipPendingFlush) {
-    invalidateSyncDrain();
-  }
-  await awaitSyncDrainIdle();
+  // Account switch must abort in-flight drains and block new ones until the DB is cleared.
+  // Logout lets the active drain finish so applied mutations are dequeued before we flush again.
+  beginLocalRuntimeReset({ invalidateDrain: options.skipPendingFlush });
+  try {
+    await awaitSyncDrainIdle();
 
-  if (!options.skipPendingFlush && isBrowserOnline()) {
-    await flushPendingMutations();
-  }
+    if (!options.skipPendingFlush && isBrowserOnline()) {
+      await flushPendingMutations({ allowDuringRuntimeReset: true });
+    }
 
-  clearPlaceListSubscriptions();
-  clearInvitationListSubscriptions();
-  clearInvitationRecipientSubscriptions();
-  clearAllSubscriptions();
-  clearAllChangeListeners();
-  clearAllUserListsSyncState();
-  clearUserProfileSyncState();
-  clearCompletedHydrationScopes();
-  initPromise = null;
-  await clearLocalDatabase();
+    clearPlaceListSubscriptions();
+    clearInvitationListSubscriptions();
+    clearInvitationRecipientSubscriptions();
+    clearAllSubscriptions();
+    clearAllChangeListeners();
+    clearAllUserListsSyncState();
+    clearUserProfileSyncState();
+    clearCompletedHydrationScopes();
+    initPromise = null;
+    await clearLocalDatabase();
+  } finally {
+    endLocalRuntimeReset();
+  }
 }

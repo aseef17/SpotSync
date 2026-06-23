@@ -2,14 +2,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
   flushPendingMutationsMock,
-  invalidateSyncDrainMock,
+  beginLocalRuntimeResetMock,
+  endLocalRuntimeResetMock,
   awaitSyncDrainIdleMock,
   clearLocalDatabaseMock,
   initLocalDatabaseMock,
   isBrowserOnlineMock,
 } = vi.hoisted(() => ({
   flushPendingMutationsMock: vi.fn(),
-  invalidateSyncDrainMock: vi.fn(),
+  beginLocalRuntimeResetMock: vi.fn(),
+  endLocalRuntimeResetMock: vi.fn(),
   awaitSyncDrainIdleMock: vi.fn(),
   clearLocalDatabaseMock: vi.fn(),
   initLocalDatabaseMock: vi.fn(),
@@ -22,7 +24,8 @@ vi.mock('@/hooks/useNetworkStatus', () => ({
 
 vi.mock('@/lib/localDb/syncEngine', () => ({
   flushPendingMutations: flushPendingMutationsMock,
-  invalidateSyncDrain: invalidateSyncDrainMock,
+  beginLocalRuntimeReset: beginLocalRuntimeResetMock,
+  endLocalRuntimeReset: endLocalRuntimeResetMock,
   awaitSyncDrainIdle: awaitSyncDrainIdleMock,
   startSyncEngine: vi.fn(),
 }));
@@ -68,7 +71,8 @@ describe('resetLocalDataRuntime', () => {
   beforeEach(async () => {
     vi.resetModules();
     flushPendingMutationsMock.mockReset();
-    invalidateSyncDrainMock.mockReset();
+    beginLocalRuntimeResetMock.mockReset();
+    endLocalRuntimeResetMock.mockReset();
     awaitSyncDrainIdleMock.mockReset();
     clearLocalDatabaseMock.mockReset();
     isBrowserOnlineMock.mockReturnValue(true);
@@ -82,7 +86,8 @@ describe('resetLocalDataRuntime', () => {
 
     await resetLocalDataRuntime({ skipPendingFlush: true });
 
-    expect(invalidateSyncDrainMock).toHaveBeenCalledTimes(1);
+    expect(beginLocalRuntimeResetMock).toHaveBeenCalledWith({ invalidateDrain: true });
+    expect(endLocalRuntimeResetMock).toHaveBeenCalledTimes(1);
     expect(awaitSyncDrainIdleMock).toHaveBeenCalledTimes(1);
     expect(flushPendingMutationsMock).not.toHaveBeenCalled();
     expect(clearLocalDatabaseMock).toHaveBeenCalledTimes(1);
@@ -93,9 +98,10 @@ describe('resetLocalDataRuntime', () => {
 
     await resetLocalDataRuntime();
 
-    expect(invalidateSyncDrainMock).not.toHaveBeenCalled();
+    expect(beginLocalRuntimeResetMock).toHaveBeenCalledWith({ invalidateDrain: undefined });
+    expect(endLocalRuntimeResetMock).toHaveBeenCalledTimes(1);
     expect(awaitSyncDrainIdleMock).toHaveBeenCalledTimes(1);
-    expect(flushPendingMutationsMock).toHaveBeenCalledTimes(1);
+    expect(flushPendingMutationsMock).toHaveBeenCalledWith({ allowDuringRuntimeReset: true });
     expect(clearLocalDatabaseMock).toHaveBeenCalledTimes(1);
   });
 
