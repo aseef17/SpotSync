@@ -126,7 +126,52 @@ describe('resolveWritableMembershipId', () => {
     expect(batchDeleteMock).toHaveBeenCalled();
   });
 
-  it('throws when legacy membership disappears before migration completes', async () => {
+  it('preserves canonical list access fields when merging legacy membership data', async () => {
+    getDocMock
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ name: 'MoMA PS1' }),
+      })
+      .mockResolvedValueOnce({ exists: () => true })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          listId: LIST_ID,
+          status: 'visited',
+          notes: 'legacy notes',
+          listOwnerId: 'owner-1',
+          listIsPublic: true,
+          listCollaboratorIds: ['owner-1', 'revoked-user'],
+        }),
+      })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({
+          listId: LIST_ID,
+          status: 'not_visited',
+          listOwnerId: 'owner-1',
+          listIsPublic: false,
+          listCollaboratorIds: ['owner-1'],
+        }),
+      });
+
+    await expect(resolveWritableMembershipId(CHIJ_MEMBERSHIP)).resolves.toBe(CHIJ_MEMBERSHIP);
+
+    expect(batchSetMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        status: 'visited',
+        notes: 'legacy notes',
+        listIsPublic: false,
+        listCollaboratorIds: ['owner-1'],
+        googlePlaceId: CHIJ,
+      }),
+      { merge: true }
+    );
+  });
+
+  it('returns canonical id when legacy membership disappears before migration completes', async () => {
     getDocMock
       .mockResolvedValueOnce({ exists: () => false })
       .mockResolvedValueOnce({
@@ -140,6 +185,7 @@ describe('resolveWritableMembershipId', () => {
       .mockResolvedValueOnce({ exists: () => false })
       .mockResolvedValueOnce({ exists: () => false });
 
-    await expect(resolveWritableMembershipId(CHIJ_MEMBERSHIP)).rejects.toThrow('Legacy membership');
+    await expect(resolveWritableMembershipId(CHIJ_MEMBERSHIP)).resolves.toBe(CHIJ_MEMBERSHIP);
+    expect(writeBatchMock).not.toHaveBeenCalled();
   });
 });

@@ -10,6 +10,29 @@ import {
 import { stablePassportManualId } from '@/features/places/utils/stablePassportManualId';
 import { getCachedPlace } from '@/lib/localDb/placeCache';
 
+const LEGACY_MEMBERSHIP_MERGE_FIELDS = [
+  'status',
+  'customStatus',
+  'notes',
+  'addedBy',
+  'addedAt',
+  'updatedBy',
+  'suppressNotifications',
+] as const;
+
+/** Copies user-owned membership fields without overwriting canonical list access denorm. */
+function pickLegacyMembershipMergeFields(
+  legacyData: Record<string, unknown>
+): Record<string, unknown> {
+  const merged: Record<string, unknown> = {};
+  for (const key of LEGACY_MEMBERSHIP_MERGE_FIELDS) {
+    if (legacyData[key] !== undefined) {
+      merged[key] = legacyData[key];
+    }
+  }
+  return merged;
+}
+
 async function legacyMembershipIdForPlaceName(
   listId: string,
   placeName: string
@@ -61,7 +84,7 @@ async function migrateLegacyMembershipToCanonical(
         canonicalRef,
         {
           ...canonicalSnap.data(),
-          ...legacySnap.data(),
+          ...pickLegacyMembershipMergeFields(legacySnap.data() as Record<string, unknown>),
           googlePlaceId: canonicalGooglePlaceId,
           updatedAt: new Date(),
         },
@@ -81,9 +104,7 @@ async function migrateLegacyMembershipToCanonical(
   }
 
   if (!legacySnap.exists()) {
-    throw new Error(
-      `Legacy membership ${legacyMembershipId} disappeared before migration to ${canonicalMembershipId}`
-    );
+    return canonicalMembershipId;
   }
 
   const legacyGooglePlaceId = parseListPlaceMembershipDocId(legacyMembershipId)?.googlePlaceId;
