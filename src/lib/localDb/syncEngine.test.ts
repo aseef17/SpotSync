@@ -6,12 +6,14 @@ const {
   applyPendingMutationMock,
   isBrowserOnlineMock,
   authMock,
+  onAuthStateChangedMock,
 } = vi.hoisted(() => ({
   getPendingMutationsMock: vi.fn(),
   removeMutationMock: vi.fn(),
   applyPendingMutationMock: vi.fn(),
   isBrowserOnlineMock: vi.fn(() => true),
   authMock: { currentUser: { uid: 'user-1' } as { uid: string } | null },
+  onAuthStateChangedMock: vi.fn(),
 }));
 
 vi.mock('@/hooks/useNetworkStatus', () => ({
@@ -20,6 +22,10 @@ vi.mock('@/hooks/useNetworkStatus', () => ({
 
 vi.mock('@/lib/firebase', () => ({
   auth: authMock,
+}));
+
+vi.mock('firebase/auth', () => ({
+  onAuthStateChanged: onAuthStateChangedMock,
 }));
 
 vi.mock('@/utils/syncDebug', () => ({
@@ -224,5 +230,52 @@ describe('flushPendingMutations', () => {
       lastError: expect.any(Error),
       lastFailedMutation: { id: 'fail', type: 'updatePlace' },
     });
+  });
+});
+
+describe('startSyncEngine', () => {
+  beforeEach(async () => {
+    vi.resetModules();
+    getPendingMutationsMock.mockReset();
+    removeMutationMock.mockReset();
+    applyPendingMutationMock.mockReset();
+    isBrowserOnlineMock.mockReturnValue(true);
+    authMock.currentUser = null;
+    onAuthStateChangedMock.mockReset();
+    removeMutationMock.mockResolvedValue(undefined);
+    applyPendingMutationMock.mockResolvedValue(undefined);
+  });
+
+  it('flushes pending mutations when auth becomes ready after boot', async () => {
+    const pending = new Set(['first']);
+    const addEventListenerMock = vi.fn();
+
+    vi.stubGlobal('window', { addEventListener: addEventListenerMock });
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    let authCallback: ((user: { uid: string } | null) => void) | undefined;
+    onAuthStateChangedMock.mockImplementation((_auth, callback) => {
+      authCallback = callback as (user: { uid: string } | null) => void;
+      return vi.fn();
+    });
+
+    const { startSyncEngine } = await import('@/lib/localDb/syncEngine');
+    startSyncEngine();
+
+    expect(onAuthStateChangedMock).toHaveBeenCalled();
+    expect(applyPendingMutationMock).not.toHaveBeenCalled();
+
+    authMock.currentUser = { uid: 'user-1' };
+    authCallback?.({ uid: 'user-1' });
+
+    await vi.waitFor(() => {
+      expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    });
+
+    vi.unstubAllGlobals();
   });
 });
