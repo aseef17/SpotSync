@@ -33,10 +33,10 @@ export function useInitialCacheHydrationScope(
   const { setScopeHydrating } = useInitialCacheHydration();
   const waitForPhotoWarm = options.waitForPhotoWarm ?? false;
   const listIdForPhotoWarm = waitForPhotoWarm ? resolveListIdFromScopeKey(scopeKey) : null;
-  const readPhotoWarmInFlight = () =>
-    listIdForPhotoWarm ? getPhotoWarmInFlightForList(listIdForPhotoWarm) : 0;
 
-  const [photoWarmInFlight, setPhotoWarmInFlight] = useState(readPhotoWarmInFlight);
+  const [photoWarmInFlight, setPhotoWarmInFlight] = useState(() =>
+    listIdForPhotoWarm ? getPhotoWarmInFlightForList(listIdForPhotoWarm) : 0
+  );
   const [hydrationTimedOut, setHydrationTimedOut] = useState(false);
   const [hydrationCompletionRevision, setHydrationCompletionRevision] = useState(0);
   const hydrationStartedAtRef = useRef<number | null>(null);
@@ -55,7 +55,9 @@ export function useInitialCacheHydrationScope(
     }
 
     return subscribePhotoWarmInFlight(() => {
-      setPhotoWarmInFlight(readPhotoWarmInFlight());
+      setPhotoWarmInFlight(
+        listIdForPhotoWarm ? getPhotoWarmInFlightForList(listIdForPhotoWarm) : 0
+      );
     });
   }, [waitForPhotoWarm, listIdForPhotoWarm]);
 

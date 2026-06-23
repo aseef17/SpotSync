@@ -32,7 +32,7 @@ export const InvitationList: React.FunctionComponent<InvitationListProps> = ({
       recipientEmail: recipientEmail ?? null,
       recipientUsername: recipientUsername ?? null,
     });
-  }, []);
+  }, [authLoading, recipientEmail, recipientUsername]);
 
   useEffect(() => {
     if (authLoading) {

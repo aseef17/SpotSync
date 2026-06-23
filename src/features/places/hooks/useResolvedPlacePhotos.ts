@@ -15,15 +15,16 @@ export function useResolvedPlacePhotos(
   useEffect(() => {
     const objectUrls: string[] = [];
     let cancelled = false;
+    const photoRefList = refsKey.length === 0 ? [] : refsKey.split('\u0000');
 
     const resolve = async () => {
-      if (!placeId || photoRefs.length === 0) {
+      if (!placeId || photoRefList.length === 0) {
         setUrls([]);
         return;
       }
 
       const resolved = await Promise.all(
-        photoRefs.map(async (photoRef, photoIndex) => {
+        photoRefList.map(async (photoRef, photoIndex) => {
           const blob = await loadPlacePhotoBlob(placeId, photoRef, photoIndex, maxWidth, maxHeight);
           if (cancelled) {
             return '';
