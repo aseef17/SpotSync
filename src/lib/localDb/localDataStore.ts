@@ -10,9 +10,11 @@ import { clearUserProfileSyncState } from '@/lib/localDb/sync/userProfileSync';
 import {
   awaitSyncDrainIdle,
   beginLocalRuntimeReset,
+  beginUnscopedLocalRuntimeReset,
   endLocalRuntimeReset,
   flushPendingMutations,
   invalidateSyncDrain,
+  ownsRuntimeResetLock,
   startSyncEngine,
 } from '@/lib/localDb/syncEngine';
 import { clearAllSubscriptions } from '@/lib/localDb/subscriptionRegistry';
@@ -37,12 +39,20 @@ export async function initLocalDataStore(): Promise<void> {
 export interface ResetLocalDataRuntimeOptions {
   /** Skip draining the mutation queue before clearing local state (e.g. account switch). */
   skipPendingFlush?: boolean;
+  /** Auth handler generation that owns the early account-switch reset lock. */
+  lockGeneration?: number;
 }
 
 export async function resetLocalDataRuntime(
   options: ResetLocalDataRuntimeOptions = {}
 ): Promise<void> {
-  beginLocalRuntimeReset();
+  const { lockGeneration } = options;
+
+  if (lockGeneration !== undefined) {
+    beginLocalRuntimeReset(lockGeneration);
+  } else {
+    beginUnscopedLocalRuntimeReset();
+  }
 
   try {
     // Account switch must abort in-flight drains before clearing local state. Logout/sign-out
@@ -52,8 +62,16 @@ export async function resetLocalDataRuntime(
     }
     await awaitSyncDrainIdle();
 
+    if (!ownsRuntimeResetLock(lockGeneration)) {
+      return;
+    }
+
     if (!options.skipPendingFlush && isBrowserOnline()) {
       await flushPendingMutations({ allowDuringRuntimeReset: true });
+    }
+
+    if (!ownsRuntimeResetLock(lockGeneration)) {
+      return;
     }
 
     clearPlaceListSubscriptions();
@@ -67,6 +85,6 @@ export async function resetLocalDataRuntime(
     initPromise = null;
     await clearLocalDatabase();
   } finally {
-    endLocalRuntimeReset();
+    endLocalRuntimeReset(lockGeneration);
   }
 }

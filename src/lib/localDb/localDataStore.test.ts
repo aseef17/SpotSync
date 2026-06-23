@@ -5,6 +5,7 @@ const {
   invalidateSyncDrainMock,
   awaitSyncDrainIdleMock,
   beginLocalRuntimeResetMock,
+  beginUnscopedLocalRuntimeResetMock,
   endLocalRuntimeResetMock,
   clearLocalDatabaseMock,
   initLocalDatabaseMock,
@@ -14,6 +15,7 @@ const {
   invalidateSyncDrainMock: vi.fn(),
   awaitSyncDrainIdleMock: vi.fn(),
   beginLocalRuntimeResetMock: vi.fn(),
+  beginUnscopedLocalRuntimeResetMock: vi.fn(),
   endLocalRuntimeResetMock: vi.fn(),
   clearLocalDatabaseMock: vi.fn(),
   initLocalDatabaseMock: vi.fn(),
@@ -29,7 +31,9 @@ vi.mock('@/lib/localDb/syncEngine', () => ({
   invalidateSyncDrain: invalidateSyncDrainMock,
   awaitSyncDrainIdle: awaitSyncDrainIdleMock,
   beginLocalRuntimeReset: beginLocalRuntimeResetMock,
+  beginUnscopedLocalRuntimeReset: beginUnscopedLocalRuntimeResetMock,
   endLocalRuntimeReset: endLocalRuntimeResetMock,
+  ownsRuntimeResetLock: vi.fn(() => true),
   startSyncEngine: vi.fn(),
 }));
 
@@ -77,6 +81,7 @@ describe('resetLocalDataRuntime', () => {
     invalidateSyncDrainMock.mockReset();
     awaitSyncDrainIdleMock.mockReset();
     beginLocalRuntimeResetMock.mockReset();
+    beginUnscopedLocalRuntimeResetMock.mockReset();
     endLocalRuntimeResetMock.mockReset();
     clearLocalDatabaseMock.mockReset();
     isBrowserOnlineMock.mockReturnValue(true);
@@ -121,9 +126,9 @@ describe('resetLocalDataRuntime', () => {
 
     await resetLocalDataRuntime({ skipPendingFlush: true });
 
-    expect(beginLocalRuntimeResetMock).toHaveBeenCalledTimes(1);
+    expect(beginUnscopedLocalRuntimeResetMock).toHaveBeenCalledTimes(1);
     expect(endLocalRuntimeResetMock).toHaveBeenCalledTimes(1);
-    expect(beginLocalRuntimeResetMock.mock.invocationCallOrder[0]).toBeLessThan(
+    expect(beginUnscopedLocalRuntimeResetMock.mock.invocationCallOrder[0]).toBeLessThan(
       clearLocalDatabaseMock.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER
     );
     expect(endLocalRuntimeResetMock.mock.invocationCallOrder[0]).toBeGreaterThan(
