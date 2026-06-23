@@ -40,7 +40,11 @@ export interface ResetLocalDataRuntimeOptions {
 export async function resetLocalDataRuntime(
   options: ResetLocalDataRuntimeOptions = {}
 ): Promise<void> {
-  invalidateSyncDrain();
+  // Account switch must abort in-flight drains before clearing local state. Logout/sign-out
+  // should let the active drain finish so applied mutations are dequeued before we flush again.
+  if (options.skipPendingFlush) {
+    invalidateSyncDrain();
+  }
   await awaitSyncDrainIdle();
 
   if (!options.skipPendingFlush && isBrowserOnline()) {

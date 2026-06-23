@@ -268,6 +268,64 @@ describe('flushPendingMutations', () => {
     expect(result.remainingCount).toBe(2);
   });
 
+  it('does not double-apply when a follow-up flush runs after awaiting idle without invalidation', async () => {
+    const pending = new Set(['only']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    applyPendingMutationMock.mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    });
+
+    const { flushPendingMutations, awaitSyncDrainIdle } = await import('@/lib/localDb/syncEngine');
+
+    const inFlightFlush = flushPendingMutations();
+    await awaitSyncDrainIdle();
+    await flushPendingMutations();
+    await inFlightFlush;
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('re-applies mutations when invalidate aborts a drain that already applied them', async () => {
+    const pending = new Set(['only']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    let releaseApply: (() => void) | undefined;
+    const applyStarted = new Promise<void>((resolve) => {
+      releaseApply = resolve;
+    });
+
+    applyPendingMutationMock.mockImplementation(async () => {
+      await applyStarted;
+    });
+
+    const { flushPendingMutations, invalidateSyncDrain } = await import('@/lib/localDb/syncEngine');
+
+    const firstFlush = flushPendingMutations();
+    await vi.waitFor(() => {
+      expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    });
+
+    invalidateSyncDrain();
+    releaseApply?.();
+    await firstFlush;
+
+    await flushPendingMutations();
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(2);
+    expect(removeMutationMock).toHaveBeenCalledTimes(1);
+  });
+
   it('stops applying mutations when auth uid changes mid-flush', async () => {
     const pending = new Set(['first', 'second']);
 
