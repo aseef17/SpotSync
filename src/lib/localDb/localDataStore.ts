@@ -27,8 +27,15 @@ export async function initLocalDataStore(): Promise<void> {
   await initPromise;
 }
 
-export async function resetLocalDataRuntime(): Promise<void> {
-  if (isBrowserOnline()) {
+export interface ResetLocalDataRuntimeOptions {
+  /** Skip draining the mutation queue before clearing local state (e.g. account switch). */
+  skipPendingFlush?: boolean;
+}
+
+export async function resetLocalDataRuntime(
+  options: ResetLocalDataRuntimeOptions = {}
+): Promise<void> {
+  if (!options.skipPendingFlush && isBrowserOnline()) {
     await flushPendingMutations();
   }
 

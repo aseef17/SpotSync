@@ -230,7 +230,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
 
           const { initLocalDataStore, resetLocalDataRuntime } = await import('@/lib/localDb');
           if (lastAuthenticatedUid && lastAuthenticatedUid !== fbUser.uid) {
-            await resetLocalDataRuntime();
+            await resetLocalDataRuntime({ skipPendingFlush: true });
           }
           lastAuthenticatedUid = fbUser.uid;
           await initLocalDataStore();
