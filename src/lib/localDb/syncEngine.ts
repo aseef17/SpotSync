@@ -33,6 +33,8 @@ let lastObservedAuthUid: string | null = auth.currentUser?.uid ?? null;
 let drainGeneration = 0;
 /** Blocks new sync drains while local runtime reset clears auth-scoped queue data. */
 let localRuntimeResetInProgress = false;
+/** Auth handler generation that acquired the early account-switch reset lock. */
+let runtimeResetLockOwnerGeneration: number | null = null;
 
 /** Invalidates any in-flight sync drain (e.g. account switch clearing local state). */
 export function invalidateSyncDrain(): void {
@@ -40,13 +42,29 @@ export function invalidateSyncDrain(): void {
 }
 
 /** Prevents concurrent flushes from applying the prior user's queue during reset. */
-export function beginLocalRuntimeReset(): void {
+export function beginLocalRuntimeReset(lockGeneration?: number): void {
   localRuntimeResetInProgress = true;
+  if (lockGeneration !== undefined) {
+    runtimeResetLockOwnerGeneration = lockGeneration;
+  }
 }
 
 /** Releases the runtime reset lock after local queue data is cleared. */
-export function endLocalRuntimeReset(): void {
+export function endLocalRuntimeReset(releasingGeneration?: number): void {
+  if (
+    releasingGeneration !== undefined &&
+    runtimeResetLockOwnerGeneration !== releasingGeneration
+  ) {
+    return;
+  }
   localRuntimeResetInProgress = false;
+  runtimeResetLockOwnerGeneration = null;
+}
+
+/** Resets runtime reset lock state for unit tests. */
+export function resetLocalRuntimeResetLockForTests(): void {
+  localRuntimeResetInProgress = false;
+  runtimeResetLockOwnerGeneration = null;
 }
 
 /** Waits until the serialized flush chain has settled after invalidation. */

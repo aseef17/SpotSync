@@ -346,6 +346,50 @@ describe('flushPendingMutations', () => {
     expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
   });
 
+  it('does not release the runtime reset lock owned by a newer auth handler', async () => {
+    getPendingMutationsMock.mockResolvedValue([mutation('blocked')]);
+
+    const {
+      beginLocalRuntimeReset,
+      endLocalRuntimeReset,
+      flushPendingMutations,
+      resetLocalRuntimeResetLockForTests,
+    } = await import('@/lib/localDb/syncEngine');
+
+    resetLocalRuntimeResetLockForTests();
+
+    beginLocalRuntimeReset(1);
+    beginLocalRuntimeReset(2);
+
+    endLocalRuntimeReset(1);
+
+    const blocked = await flushPendingMutations();
+    endLocalRuntimeReset(2);
+
+    expect(applyPendingMutationMock).not.toHaveBeenCalled();
+    expect(blocked).toEqual({ syncedCount: 0, remainingCount: 1 });
+  });
+
+  it('releases the early account-switch lock when the owning auth handler is superseded first', async () => {
+    getPendingMutationsMock.mockResolvedValue([mutation('after-release')]);
+
+    const {
+      beginLocalRuntimeReset,
+      endLocalRuntimeReset,
+      flushPendingMutations,
+      resetLocalRuntimeResetLockForTests,
+    } = await import('@/lib/localDb/syncEngine');
+
+    resetLocalRuntimeResetLockForTests();
+
+    beginLocalRuntimeReset(1);
+    endLocalRuntimeReset(1);
+
+    await flushPendingMutations();
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+  });
+
   it('skips flush while local runtime reset is in progress', async () => {
     getPendingMutationsMock.mockResolvedValue([mutation('blocked')]);
 
