@@ -32,7 +32,7 @@ let lastObservedAuthUid: string | null = auth.currentUser?.uid ?? null;
 /** Bumped when local runtime resets so in-flight drains stop before the DB is cleared. */
 let drainGeneration = 0;
 /** Blocks new sync drains while local runtime reset clears auth-scoped queue data. */
-let localRuntimeResetInProgress = false;
+let localRuntimeResetDepth = 0;
 
 /** Invalidates any in-flight sync drain (e.g. account switch clearing local state). */
 export function invalidateSyncDrain(): void {
@@ -41,12 +41,16 @@ export function invalidateSyncDrain(): void {
 
 /** Prevents concurrent flushes from applying the prior user's queue during reset. */
 export function beginLocalRuntimeReset(): void {
-  localRuntimeResetInProgress = true;
+  localRuntimeResetDepth += 1;
 }
 
 /** Releases the runtime reset lock after local queue data is cleared. */
 export function endLocalRuntimeReset(): void {
-  localRuntimeResetInProgress = false;
+  localRuntimeResetDepth = Math.max(0, localRuntimeResetDepth - 1);
+}
+
+function isLocalRuntimeResetInProgress(): boolean {
+  return localRuntimeResetDepth > 0;
 }
 
 /** Waits until the serialized flush chain has settled after invalidation. */
@@ -203,7 +207,7 @@ export interface FlushPendingMutationsOptions {
 export async function flushPendingMutations(
   options: FlushPendingMutationsOptions = {}
 ): Promise<FlushResult> {
-  if (localRuntimeResetInProgress && !options.allowDuringRuntimeReset) {
+  if (isLocalRuntimeResetInProgress() && !options.allowDuringRuntimeReset) {
     const remaining = await getPendingMutations();
     return { syncedCount: 0, remainingCount: remaining.length };
   }

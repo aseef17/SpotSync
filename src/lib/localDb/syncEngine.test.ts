@@ -340,6 +340,32 @@ describe('flushPendingMutations', () => {
     expect(blocked).toEqual({ syncedCount: 0, remainingCount: 1 });
   });
 
+  it('keeps the runtime reset lock held until all overlapping resets finish', async () => {
+    const pending = new Set(['blocked']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    const { beginLocalRuntimeReset, endLocalRuntimeReset, flushPendingMutations } =
+      await import('@/lib/localDb/syncEngine');
+
+    beginLocalRuntimeReset();
+    beginLocalRuntimeReset();
+    endLocalRuntimeReset();
+
+    const stillBlocked = await flushPendingMutations();
+    endLocalRuntimeReset();
+
+    expect(applyPendingMutationMock).not.toHaveBeenCalled();
+    expect(stillBlocked).toEqual({ syncedCount: 0, remainingCount: 1 });
+
+    await flushPendingMutations();
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+  });
+
   it('allows resetLocalDataRuntime to flush while the runtime reset lock is held', async () => {
     const pending = new Set(['during-reset']);
 
