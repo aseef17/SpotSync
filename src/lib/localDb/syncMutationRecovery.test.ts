@@ -258,6 +258,18 @@ describe('shouldDropStaleMutation', () => {
     expect(shouldDrop).toBe(true);
   });
 
+  it('drops updatePlaceStatus when membership is missing and list access is unverified', async () => {
+    getDocMock
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockRejectedValueOnce({ code: 'permission-denied' });
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(true);
+  });
+
   it('keeps updatePlaceStatus when membership get returns permission-denied for a missing doc', async () => {
     getDocMock.mockRejectedValueOnce({ code: 'permission-denied' }).mockResolvedValueOnce({
       exists: () => true,
