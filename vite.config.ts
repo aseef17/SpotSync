@@ -26,8 +26,10 @@ export default defineConfig({
     allowedHosts: true,
   },
   esbuild: {
-    // Remove console statements ONLY in production builds
-    drop: process.env.NODE_ENV === 'production' ? ['console', 'debugger'] : [],
+    drop:
+      process.env.NODE_ENV === 'production' && process.env.VITE_SYNC_DEBUG !== 'true'
+        ? ['console', 'debugger']
+        : [],
   },
   define: {
     // Globally define __DEV__ for conditional console logging

@@ -4,6 +4,7 @@
 
 [build.environment]
   SECRETS_SCAN_ENABLED = "false"
+  VITE_SYNC_DEBUG = "true"
 
 [[redirects]]
   from = "/*"
