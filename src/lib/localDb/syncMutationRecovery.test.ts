@@ -55,16 +55,14 @@ describe('shouldDropStaleMutation', () => {
   });
 
   it('drops updatePlaceStatus when the membership no longer exists', async () => {
-    getDocMock
-      .mockResolvedValueOnce({ exists: () => false })
-      .mockResolvedValueOnce({
-        exists: () => true,
-        data: () => ({
-          ownerId: 'owner-1',
-          editorIds: ['owner-1'],
-          collaboratorIds: ['owner-1'],
-        }),
-      });
+    getDocMock.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        ownerId: 'owner-1',
+        editorIds: ['owner-1'],
+        collaboratorIds: ['owner-1'],
+      }),
+    });
 
     const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1'), {
       code: 'permission-denied',
@@ -195,16 +193,14 @@ describe('shouldDropStaleMutation', () => {
   });
 
   it('keeps updatePlaceStatus when membership get returns permission-denied for a missing doc', async () => {
-    getDocMock
-      .mockRejectedValueOnce({ code: 'permission-denied' })
-      .mockResolvedValueOnce({
-        exists: () => true,
-        data: () => ({
-          ownerId: 'user-1',
-          editorIds: ['user-1'],
-          collaboratorIds: ['user-1'],
-        }),
-      });
+    getDocMock.mockRejectedValueOnce({ code: 'permission-denied' }).mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        ownerId: 'user-1',
+        editorIds: ['user-1'],
+        collaboratorIds: ['user-1'],
+      }),
+    });
 
     const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1'), {
       code: 'permission-denied',

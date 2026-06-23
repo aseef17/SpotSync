@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Bell, LogOut, Save, AlertTriangle, RefreshCw, CloudUpload } from 'lucide-react';
+import {
+  ArrowLeft,
+  User,
+  Bell,
+  LogOut,
+  Save,
+  AlertTriangle,
+  RefreshCw,
+  CloudUpload,
+} from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { AccountService, getCallableErrorMessage } from '@/features/auth/api/accountService';
 import { logger } from '@/utils/logger';
