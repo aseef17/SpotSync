@@ -24,6 +24,7 @@ import type { Place, PlaceStatus } from '@/features/places/types/place';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import { logger } from '@/utils/logger';
 import { omit } from '@/utils/objectUtils';
+import { fetchListAccessFieldsForWrite } from '@/features/places/utils/fetchListAccessFieldsForWrite';
 import {
   getPlaceListAccessFields,
   getPrimaryPhotoUrl,
@@ -55,11 +56,7 @@ export const BULK_CREATE_BATCH_SIZE = 249;
 
 export class PlaceService {
   private static async fetchListAccessFields(listId: string): Promise<PlaceListAccessFields> {
-    const list = await listRepository.getById(listId);
-    if (!list) {
-      throw new Error('List not found');
-    }
-    return getPlaceListAccessFields(list);
+    return fetchListAccessFieldsForWrite(listId);
   }
 
   private static enrichPlaceWrite(
