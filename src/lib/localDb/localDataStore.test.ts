@@ -4,6 +4,8 @@ const {
   flushPendingMutationsMock,
   invalidateSyncDrainMock,
   awaitSyncDrainIdleMock,
+  beginLocalRuntimeResetMock,
+  endLocalRuntimeResetMock,
   clearLocalDatabaseMock,
   initLocalDatabaseMock,
   isBrowserOnlineMock,
@@ -11,6 +13,8 @@ const {
   flushPendingMutationsMock: vi.fn(),
   invalidateSyncDrainMock: vi.fn(),
   awaitSyncDrainIdleMock: vi.fn(),
+  beginLocalRuntimeResetMock: vi.fn(),
+  endLocalRuntimeResetMock: vi.fn(),
   clearLocalDatabaseMock: vi.fn(),
   initLocalDatabaseMock: vi.fn(),
   isBrowserOnlineMock: vi.fn(() => true),
@@ -24,6 +28,8 @@ vi.mock('@/lib/localDb/syncEngine', () => ({
   flushPendingMutations: flushPendingMutationsMock,
   invalidateSyncDrain: invalidateSyncDrainMock,
   awaitSyncDrainIdle: awaitSyncDrainIdleMock,
+  beginLocalRuntimeReset: beginLocalRuntimeResetMock,
+  endLocalRuntimeReset: endLocalRuntimeResetMock,
   startSyncEngine: vi.fn(),
 }));
 
@@ -70,6 +76,8 @@ describe('resetLocalDataRuntime', () => {
     flushPendingMutationsMock.mockReset();
     invalidateSyncDrainMock.mockReset();
     awaitSyncDrainIdleMock.mockReset();
+    beginLocalRuntimeResetMock.mockReset();
+    endLocalRuntimeResetMock.mockReset();
     clearLocalDatabaseMock.mockReset();
     isBrowserOnlineMock.mockReturnValue(true);
     flushPendingMutationsMock.mockResolvedValue({ syncedCount: 0, remainingCount: 0 });
@@ -95,7 +103,7 @@ describe('resetLocalDataRuntime', () => {
 
     expect(invalidateSyncDrainMock).not.toHaveBeenCalled();
     expect(awaitSyncDrainIdleMock).toHaveBeenCalledTimes(1);
-    expect(flushPendingMutationsMock).toHaveBeenCalledTimes(1);
+    expect(flushPendingMutationsMock).toHaveBeenCalledWith({ allowDuringRuntimeReset: true });
     expect(clearLocalDatabaseMock).toHaveBeenCalledTimes(1);
   });
 
@@ -106,6 +114,21 @@ describe('resetLocalDataRuntime', () => {
 
     expect(flushPendingMutationsMock).not.toHaveBeenCalled();
     expect(clearLocalDatabaseMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('wraps reset in a runtime lock so concurrent flushes cannot run mid-reset', async () => {
+    const { resetLocalDataRuntime } = await import('@/lib/localDb/localDataStore');
+
+    await resetLocalDataRuntime({ skipPendingFlush: true });
+
+    expect(beginLocalRuntimeResetMock).toHaveBeenCalledTimes(1);
+    expect(endLocalRuntimeResetMock).toHaveBeenCalledTimes(1);
+    expect(beginLocalRuntimeResetMock.mock.invocationCallOrder[0]).toBeLessThan(
+      clearLocalDatabaseMock.mock.invocationCallOrder[0] ?? Number.MAX_SAFE_INTEGER
+    );
+    expect(endLocalRuntimeResetMock.mock.invocationCallOrder[0]).toBeGreaterThan(
+      clearLocalDatabaseMock.mock.invocationCallOrder[0] ?? -1
+    );
   });
 
   it('does not flush when offline even without skipPendingFlush', async () => {

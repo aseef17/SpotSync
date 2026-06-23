@@ -326,6 +326,39 @@ describe('flushPendingMutations', () => {
     expect(removeMutationMock).toHaveBeenCalledTimes(1);
   });
 
+  it('skips flush while local runtime reset is in progress', async () => {
+    getPendingMutationsMock.mockResolvedValue([mutation('blocked')]);
+
+    const { beginLocalRuntimeReset, endLocalRuntimeReset, flushPendingMutations } =
+      await import('@/lib/localDb/syncEngine');
+
+    beginLocalRuntimeReset();
+    const blocked = await flushPendingMutations();
+    endLocalRuntimeReset();
+
+    expect(applyPendingMutationMock).not.toHaveBeenCalled();
+    expect(blocked).toEqual({ syncedCount: 0, remainingCount: 1 });
+  });
+
+  it('allows resetLocalDataRuntime to flush while the runtime reset lock is held', async () => {
+    const pending = new Set(['during-reset']);
+
+    getPendingMutationsMock.mockImplementation(async () => Array.from(pending).map(mutation));
+
+    removeMutationMock.mockImplementation(async (id: string) => {
+      pending.delete(id);
+    });
+
+    const { beginLocalRuntimeReset, endLocalRuntimeReset, flushPendingMutations } =
+      await import('@/lib/localDb/syncEngine');
+
+    beginLocalRuntimeReset();
+    await flushPendingMutations({ allowDuringRuntimeReset: true });
+    endLocalRuntimeReset();
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+  });
+
   it('stops applying mutations when auth uid changes mid-flush', async () => {
     const pending = new Set(['first', 'second']);
 
