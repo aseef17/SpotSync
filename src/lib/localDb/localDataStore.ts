@@ -7,7 +7,12 @@ import { clearCompletedHydrationScopes } from '@/lib/localDb/initialCacheHydrati
 import { clearAllChangeListeners } from '@/lib/localDb/changeBus';
 import { clearAllUserListsSyncState } from '@/lib/localDb/sync/listSync';
 import { clearUserProfileSyncState } from '@/lib/localDb/sync/userProfileSync';
-import { flushPendingMutations, startSyncEngine } from '@/lib/localDb/syncEngine';
+import {
+  awaitSyncDrainIdle,
+  flushPendingMutations,
+  invalidateSyncDrain,
+  startSyncEngine,
+} from '@/lib/localDb/syncEngine';
 import { clearAllSubscriptions } from '@/lib/localDb/subscriptionRegistry';
 
 let initPromise: Promise<void> | null = null;
@@ -35,6 +40,9 @@ export interface ResetLocalDataRuntimeOptions {
 export async function resetLocalDataRuntime(
   options: ResetLocalDataRuntimeOptions = {}
 ): Promise<void> {
+  invalidateSyncDrain();
+  await awaitSyncDrainIdle();
+
   if (!options.skipPendingFlush && isBrowserOnline()) {
     await flushPendingMutations();
   }
