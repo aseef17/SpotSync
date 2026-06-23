@@ -1,6 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { ArrowLeft, User, Bell, LogOut, Save, AlertTriangle } from 'lucide-react';
+import {
+  ArrowLeft,
+  User,
+  Bell,
+  LogOut,
+  Save,
+  AlertTriangle,
+  RefreshCw,
+  CloudUpload,
+} from 'lucide-react';
 import { useAuth } from '@/features/auth/context/AuthContext';
 import { AccountService, getCallableErrorMessage } from '@/features/auth/api/accountService';
 import { logger } from '@/utils/logger';
@@ -14,6 +23,8 @@ import { useToast } from '@/hooks/useToast';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
 import { readUserProfileFromCache } from '@/features/auth/api/userProfileBootstrap';
 import { useInitialCacheHydrationScope } from '@/hooks/useInitialCacheHydrationScope';
+import { usePendingSyncCount } from '@/hooks/usePendingSyncCount';
+import { retryPendingSync } from '@/utils/retryConnection';
 
 const DELETE_ACCOUNT_PHRASE = 'Delete my SpotSync account';
 
@@ -61,6 +72,9 @@ export const Settings: React.FunctionComponent = () => {
   } = useNotifications();
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
+  const [syncingChanges, setSyncingChanges] = useState(false);
+  const [syncStatusMessage, setSyncStatusMessage] = useState<string | null>(null);
+  const pendingSyncCount = usePendingSyncCount();
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [showDeleteAccountConfirm, setShowDeleteAccountConfirm] = useState(false);
   const [deletingAccount, setDeletingAccount] = useState(false);
@@ -76,6 +90,19 @@ export const Settings: React.FunctionComponent = () => {
   } = useProfile();
 
   const { trigger: triggerAction } = useDeferredAction();
+
+  const handleSyncChanges = async () => {
+    setSyncingChanges(true);
+    setSyncStatusMessage(null);
+    try {
+      const attempt = await retryPendingSync();
+      setSyncStatusMessage(attempt.message);
+    } catch {
+      setSyncStatusMessage('Sync failed unexpectedly. Please try again.');
+    } finally {
+      setSyncingChanges(false);
+    }
+  };
 
   const handleSaveProfile = async () => {
     if (user && displayName === user.displayName && username === user.username) {
@@ -302,6 +329,38 @@ export const Settings: React.FunctionComponent = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        <div className={`light-bg-card rounded-lg shadow-sm border light-border-default`}>
+          <div className="px-6 py-4 border-b light-border-default">
+            <div className="flex items-center">
+              <CloudUpload className={`h-5 w-5 light-text-secondary mr-3`} />
+              <h2 className={`text-lg font-semibold light-text-primary`}>Sync</h2>
+            </div>
+            <p className={`mt-1 text-sm light-text-secondary`}>
+              Push local changes (like visited places) to the cloud
+            </p>
+          </div>
+
+          <div className="px-6 py-4 space-y-3">
+            <p className={`text-sm light-text-secondary`}>
+              {pendingSyncCount > 0
+                ? `${pendingSyncCount} change${pendingSyncCount === 1 ? '' : 's'} waiting to sync.`
+                : 'No pending changes in the sync queue. Tap Sync to recover visited statuses saved only on this device.'}
+            </p>
+            {syncStatusMessage && (
+              <p className="text-sm text-amber-800 dark:text-amber-300">{syncStatusMessage}</p>
+            )}
+            <button
+              type="button"
+              onClick={() => void handleSyncChanges()}
+              disabled={syncingChanges}
+              className="inline-flex items-center rounded-lg border light-border-default px-4 py-2 text-sm font-medium light-text-primary transition-colors hover:bg-gray-50 disabled:opacity-60 dark:hover:bg-gray-800"
+            >
+              <RefreshCw className={`mr-2 h-4 w-4 ${syncingChanges ? 'animate-spin' : ''}`} />
+              {syncingChanges ? 'Syncing...' : 'Sync now'}
+            </button>
           </div>
         </div>
 

@@ -55,7 +55,14 @@ describe('shouldDropStaleMutation', () => {
   });
 
   it('drops updatePlaceStatus when the membership no longer exists', async () => {
-    getDocMock.mockResolvedValueOnce({ exists: () => false });
+    getDocMock.mockResolvedValueOnce({ exists: () => false }).mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        ownerId: 'owner-1',
+        editorIds: ['owner-1'],
+        collaboratorIds: ['owner-1'],
+      }),
+    });
 
     const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1'), {
       code: 'permission-denied',
@@ -183,6 +190,38 @@ describe('shouldDropStaleMutation', () => {
 
     expect(shouldDrop).toBe(false);
     expect(getDocMock).not.toHaveBeenCalled();
+  });
+
+  it('keeps updatePlaceStatus when membership get returns permission-denied for a missing doc', async () => {
+    getDocMock.mockRejectedValueOnce({ code: 'permission-denied' }).mockResolvedValueOnce({
+      exists: () => true,
+      data: () => ({
+        ownerId: 'user-1',
+        editorIds: ['user-1'],
+        collaboratorIds: ['user-1'],
+      }),
+    });
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation('list-1_place-1'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(false);
+  });
+
+  it('keeps updatePlaceStatus when permission-denied masks a missing doc but legacy can migrate', async () => {
+    const listId = 'Gzzf9zOWcEkCxyJx2Mo8';
+    const chij = 'ChIJwfbFiiNZwokRN8hnF940DbY';
+    const membershipId = `${listId}_${chij}`;
+
+    getDocMock.mockRejectedValueOnce({ code: 'permission-denied' });
+    findLegacyMock.mockResolvedValueOnce(`${listId}_manual_passport_0f6e093656b1354e`);
+
+    const shouldDrop = await shouldDropStaleMutation(statusMutation(membershipId, 'visited'), {
+      code: 'permission-denied',
+    });
+
+    expect(shouldDrop).toBe(false);
   });
 });
 
