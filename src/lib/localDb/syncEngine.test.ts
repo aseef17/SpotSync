@@ -288,6 +288,46 @@ describe('flushPendingMutations', () => {
     expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
     expect(result.remainingCount).toBe(2);
   });
+
+  it('skips external flushes while local runtime reset is in progress', async () => {
+    getPendingMutationsMock.mockResolvedValue([mutation('first')]);
+
+    const { beginLocalRuntimeReset, endLocalRuntimeReset, flushPendingMutations } = await import(
+      '@/lib/localDb/syncEngine'
+    );
+
+    beginLocalRuntimeReset();
+    const blocked = await flushPendingMutations();
+
+    expect(applyPendingMutationMock).not.toHaveBeenCalled();
+    expect(blocked).toEqual({ syncedCount: 0, remainingCount: 1 });
+
+    endLocalRuntimeReset();
+    getPendingMutationsMock.mockResolvedValueOnce([mutation('first')]).mockResolvedValueOnce([]);
+
+    const allowed = await flushPendingMutations();
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    expect(allowed).toEqual({ syncedCount: 1, remainingCount: 0 });
+  });
+
+  it('allows resetLocalDataRuntime to flush while the reset lock is held', async () => {
+    getPendingMutationsMock
+      .mockResolvedValueOnce([mutation('first')])
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([mutation('first')])
+      .mockResolvedValueOnce([]);
+
+    const { beginLocalRuntimeReset, endLocalRuntimeReset, flushPendingMutations } = await import(
+      '@/lib/localDb/syncEngine'
+    );
+
+    beginLocalRuntimeReset();
+    const internal = await flushPendingMutations({ duringRuntimeReset: true });
+    endLocalRuntimeReset();
+
+    expect(applyPendingMutationMock).toHaveBeenCalledTimes(1);
+    expect(internal).toEqual({ syncedCount: 1, remainingCount: 0 });
+  });
 });
 
 describe('startSyncEngine', () => {

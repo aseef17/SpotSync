@@ -9,8 +9,9 @@ import { clearAllUserListsSyncState } from '@/lib/localDb/sync/listSync';
 import { clearUserProfileSyncState } from '@/lib/localDb/sync/userProfileSync';
 import {
   awaitSyncDrainIdle,
+  beginLocalRuntimeReset,
+  endLocalRuntimeReset,
   flushPendingMutations,
-  invalidateSyncDrain,
   startSyncEngine,
 } from '@/lib/localDb/syncEngine';
 import { clearAllSubscriptions } from '@/lib/localDb/subscriptionRegistry';
@@ -40,21 +41,26 @@ export interface ResetLocalDataRuntimeOptions {
 export async function resetLocalDataRuntime(
   options: ResetLocalDataRuntimeOptions = {}
 ): Promise<void> {
-  invalidateSyncDrain();
-  await awaitSyncDrainIdle();
+  beginLocalRuntimeReset();
 
-  if (!options.skipPendingFlush && isBrowserOnline()) {
-    await flushPendingMutations();
+  try {
+    await awaitSyncDrainIdle();
+
+    if (!options.skipPendingFlush && isBrowserOnline()) {
+      await flushPendingMutations({ duringRuntimeReset: true });
+    }
+
+    clearPlaceListSubscriptions();
+    clearInvitationListSubscriptions();
+    clearInvitationRecipientSubscriptions();
+    clearAllSubscriptions();
+    clearAllChangeListeners();
+    clearAllUserListsSyncState();
+    clearUserProfileSyncState();
+    clearCompletedHydrationScopes();
+    initPromise = null;
+    await clearLocalDatabase();
+  } finally {
+    endLocalRuntimeReset();
   }
-
-  clearPlaceListSubscriptions();
-  clearInvitationListSubscriptions();
-  clearInvitationRecipientSubscriptions();
-  clearAllSubscriptions();
-  clearAllChangeListeners();
-  clearAllUserListsSyncState();
-  clearUserProfileSyncState();
-  clearCompletedHydrationScopes();
-  initPromise = null;
-  await clearLocalDatabase();
 }
