@@ -1,4 +1,5 @@
 import { arrayRemove, arrayUnion, doc, getDoc, updateDoc, writeBatch } from 'firebase/firestore';
+import { safeGetMembershipDoc } from '@/features/places/utils/safeMembershipGetDoc';
 import { db } from '@/lib/firebase';
 import { googlePlaceDocRef } from '@/features/places/api/googlePlaceFirestore';
 import { listPlaceMembershipDocRef } from '@/features/places/api/listPlaceMembershipFirestore';
@@ -67,7 +68,10 @@ async function legacyMembershipIdForPlaceName(
 ): Promise<string | null> {
   const legacyGooglePlaceId = await stablePassportManualId(placeName);
   const legacyMembershipId = listPlaceMembershipDocId(listId, legacyGooglePlaceId);
-  const legacySnap = await getDoc(listPlaceMembershipDocRef(legacyMembershipId));
+  const legacySnap = await safeGetMembershipDoc(
+    listPlaceMembershipDocRef(legacyMembershipId),
+    'legacyMembershipIdForPlaceName'
+  );
   return legacySnap.exists() ? legacyMembershipId : null;
 }
 
@@ -103,7 +107,10 @@ async function migrateLegacyMembershipToCanonical(
   const legacyRef = listPlaceMembershipDocRef(legacyMembershipId);
   const canonicalRef = listPlaceMembershipDocRef(canonicalMembershipId);
 
-  const [legacySnap, canonicalSnap] = await Promise.all([getDoc(legacyRef), getDoc(canonicalRef)]);
+  const [legacySnap, canonicalSnap] = await Promise.all([
+    safeGetMembershipDoc(legacyRef, 'migrate-legacy'),
+    safeGetMembershipDoc(canonicalRef, 'migrate-canonical'),
+  ]);
 
   if (canonicalSnap.exists()) {
     if (legacySnap.exists() && legacyMembershipId !== canonicalMembershipId) {
@@ -180,7 +187,11 @@ async function migrateLegacyMembershipToCanonical(
  * ChIJ… membership that does not exist yet, migrates the legacy manual_passport_* doc.
  */
 export async function resolveWritableMembershipId(membershipId: string): Promise<string> {
-  const directSnap = await getDoc(listPlaceMembershipDocRef(membershipId));
+  const directSnap = await safeGetMembershipDoc(
+    listPlaceMembershipDocRef(membershipId),
+    'resolveMembership-direct-get',
+    { membershipId }
+  );
   syncDebug('resolveMembership-direct-get', {
     membershipId,
     exists: directSnap.exists(),

@@ -257,6 +257,30 @@ describe('resolveWritableMembershipId', () => {
     });
   });
 
+  it('continues legacy migration when direct membership get returns permission-denied', async () => {
+    getDocMock
+      .mockRejectedValueOnce({ code: 'permission-denied' })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ name: 'MoMA PS1' }),
+      })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ listId: LIST_ID, status: 'not_visited' }),
+      })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ listId: LIST_ID, status: 'not_visited' }),
+      })
+      .mockResolvedValueOnce({ exists: () => false });
+
+    const resolved = await resolveWritableMembershipId(CHIJ_MEMBERSHIP);
+
+    expect(resolved).toBe(CHIJ_MEMBERSHIP);
+    expect(writeBatchMock).toHaveBeenCalledTimes(1);
+    expect(batchCommitMock).toHaveBeenCalled();
+  });
+
   it('returns canonical id when legacy membership disappears before migration completes', async () => {
     getDocMock
       .mockResolvedValueOnce({ exists: () => false })
