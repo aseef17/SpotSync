@@ -165,7 +165,12 @@ export const useListDetails = (listId: string | undefined) => {
           }
         });
     },
-    [setAccessRevoked, setSavedPrivateDenied, flushPendingPlacesSnapshot, clearPendingPlacesSnapshot]
+    [
+      setAccessRevoked,
+      setSavedPrivateDenied,
+      flushPendingPlacesSnapshot,
+      clearPendingPlacesSnapshot,
+    ]
   );
 
   useEffect(() => {
