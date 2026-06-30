@@ -1,6 +1,8 @@
 import { doc, updateDoc } from 'firebase/firestore';
+import { ListService } from '@/features/lists/api/listService';
 import type { PlaceList } from '@/features/lists/types/list';
 import { db } from '@/lib/firebase';
+import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 
 export function getExpectedCollaboratorIds(list: PlaceList): string[] {
   return Array.from(new Set([list.ownerId, ...(list.collaborators?.map((c) => c.userId) || [])]));
@@ -68,11 +70,19 @@ export async function reconcileListPermissionsIfOwner(
     return list;
   }
 
-  const updates = getListPermissionUpdates(list);
+  let sourceList = list;
+  if (isBrowserOnline()) {
+    const serverList = await ListService.getListFromServer(listId);
+    if (serverList) {
+      sourceList = serverList;
+    }
+  }
+
+  const updates = getListPermissionUpdates(sourceList);
   if (!updates) {
-    return list;
+    return sourceList;
   }
 
   await updateDoc(doc(db, 'lists', listId), { ...updates, updatedAt: new Date() });
-  return { ...list, ...updates };
+  return { ...sourceList, ...updates };
 }

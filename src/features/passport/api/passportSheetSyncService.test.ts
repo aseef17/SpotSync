@@ -73,10 +73,14 @@ vi.mock('@/features/places/api/googleMapsService', () => ({
   },
 }));
 
-vi.mock('@/features/places/utils/resolveWritableMembershipId', () => ({
-  migrateLegacyMembershipToCanonical: (...args: unknown[]) =>
-    migrateLegacyMembershipToCanonicalMock(...args),
-}));
+vi.mock('@/features/places/utils/resolveWritableMembershipId', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/places/utils/resolveWritableMembershipId')>();
+  return {
+    ...actual,
+    migrateLegacyMembershipToCanonical: (...args: unknown[]) =>
+      migrateLegacyMembershipToCanonicalMock(...args),
+  };
+});
 
 import { syncPassportListFromSheet } from '@/features/passport/api/passportSheetSyncService';
 
@@ -208,7 +212,7 @@ describe('syncPassportListFromSheet', () => {
       },
     ];
 
-    getAllForListMock.mockResolvedValueOnce(places).mockResolvedValueOnce(places);
+    getAllForListMock.mockResolvedValue(places);
     fetchGroupedPassportSheetVenuesMock.mockResolvedValue([
       {
         title: 'New York Botanical Garden',
@@ -232,5 +236,47 @@ describe('syncPassportListFromSheet', () => {
     );
     expect(result.cleaned).toBe(1);
     expect(result.unchanged).toBe(1);
+  });
+
+  it('does not remove manual_passport rows when the only keeper is also unenriched', async () => {
+    const places = [
+      {
+        id: 'list-1_ChIJwrong',
+        googlePlaceId: 'ChIJwrong',
+        name: 'New York Botanical Garden',
+        passportStampIds: ['stamp-a'],
+        status: 'not_visited',
+        location: { lat: 0, lng: 0 },
+      },
+      {
+        id: 'list-1_manual_passport_new york botanical garden',
+        googlePlaceId: 'manual_passport_new york botanical garden',
+        name: 'New York Botanical Garden',
+        passportStampIds: ['stamp-a'],
+        status: 'not_visited',
+        location: { lat: 0, lng: 0 },
+      },
+    ];
+
+    getAllForListMock.mockResolvedValue(places);
+    fetchGroupedPassportSheetVenuesMock.mockResolvedValue([
+      {
+        title: 'New York Botanical Garden',
+        normalizedTitle: 'new york botanical garden',
+        stampIds: ['stamp-a'],
+        notes: [],
+        location: 'Bronx',
+      },
+    ]);
+
+    const result = await syncPassportListFromSheet({
+      listId: 'list-1',
+      sheetUrl: 'https://docs.google.com/spreadsheets/d/sheet-id/edit',
+      userId: 'owner-1',
+      list: ownerList,
+    });
+
+    expect(deletePlaceMembershipMock).not.toHaveBeenCalled();
+    expect(result.cleaned).toBe(0);
   });
 });

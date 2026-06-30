@@ -17,7 +17,10 @@ import { fetchListAccessFieldsForWrite } from '@/features/places/utils/fetchList
 import { createPlaceFromGoogleDetails } from '@/features/places/utils/placeFactory';
 import { toPlaceListAccessQuery } from '@/features/places/utils/placeAccess';
 import { buildGooglePlacePayload } from '@/features/places/utils/placeWriteSplit';
-import { migrateLegacyMembershipToCanonical } from '@/features/places/utils/resolveWritableMembershipId';
+import {
+  migrateLegacyMembershipToCanonical,
+  pickLegacyMembershipMergeFields,
+} from '@/features/places/utils/resolveWritableMembershipId';
 import { stablePassportManualId } from '@/features/places/utils/stablePassportManualId';
 import { fetchGroupedPassportSheetVenues } from '@/features/passport/lib/parsePassportSheet';
 import { normalizePassportName } from '@/features/passport/utils/normalizePassportName';
@@ -267,7 +270,11 @@ function findManualPassportDuplicates(places: Place[]): Array<{ manual: Place; k
       });
 
     for (const manual of manuals) {
-      if (manual.googlePlaceId !== keep.googlePlaceId) {
+      if (
+        manual.googlePlaceId !== keep.googlePlaceId &&
+        needsPlaceEnrichment(manual) &&
+        !needsPlaceEnrichment(keep)
+      ) {
         duplicates.push({ manual, keep });
       }
     }
@@ -297,8 +304,20 @@ async function cleanupManualPassportDuplicates(options: {
         manual.notes && keep.notes && manual.notes !== keep.notes
           ? `${keep.notes}\n${manual.notes}`
           : manual.notes || keep.notes;
+      const membershipMerge = pickLegacyMembershipMergeFields({
+        ...(manual.status !== 'not_visited' && keep.status === 'not_visited'
+          ? { status: manual.status }
+          : {}),
+        ...(manual.customStatus && !keep.customStatus ? { customStatus: manual.customStatus } : {}),
+        ...(mergedNotes !== keep.notes ? { notes: mergedNotes } : {}),
+        updatedBy: options.userId,
+      });
+      const membershipNeedsMerge =
+        membershipMerge.status !== undefined ||
+        membershipMerge.customStatus !== undefined ||
+        membershipMerge.notes !== undefined;
 
-      if (stampsNeedMerge || mergedNotes !== keep.notes) {
+      if (stampsNeedMerge || membershipNeedsMerge) {
         const batch = writeBatch(db);
         if (stampsNeedMerge) {
           batch.set(
@@ -312,11 +331,11 @@ async function cleanupManualPassportDuplicates(options: {
             { merge: true }
           );
         }
-        if (mergedNotes !== keep.notes) {
+        if (membershipNeedsMerge) {
           batch.set(
             listPlaceMembershipDocRef(keep.id),
             omitUndefined({
-              notes: mergedNotes,
+              ...membershipMerge,
               updatedAt: options.now,
               updatedBy: options.userId,
             }),

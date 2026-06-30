@@ -244,4 +244,8 @@ export async function resolveWritableMembershipId(membershipId: string): Promise
   }
 }
 
-export { findLegacyPassportMembershipId, migrateLegacyMembershipToCanonical };
+export {
+  findLegacyPassportMembershipId,
+  migrateLegacyMembershipToCanonical,
+  pickLegacyMembershipMergeFields,
+};
