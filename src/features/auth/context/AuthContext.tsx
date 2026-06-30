@@ -23,6 +23,7 @@ import { getAuthActionCodeSettings } from '@/features/auth/lib/authActionSetting
 import {
   beginAuthStateHandler,
   isCurrentAuthStateHandler,
+  isAccountSwitchOnSignIn,
   shouldAbortResetForAuthUidChange,
   shouldRetainUserOnAuthChange,
 } from '@/features/auth/lib/authStateHandlerGuard';
@@ -230,9 +231,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             return;
           }
 
-          const isAccountSwitch = Boolean(
-            lastAuthenticatedUid && lastAuthenticatedUid !== fbUser.uid
-          );
+          const isAccountSwitch = isAccountSwitchOnSignIn(lastAuthenticatedUid, fbUser.uid);
           if (isAccountSwitch) {
             beginLocalRuntimeReset(handlerGeneration);
           }
@@ -379,15 +378,21 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
             return;
           }
-          lastAuthenticatedUid = null;
           const { resetLocalDataRuntime } = await import('@/lib/localDb');
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
             return;
           }
-          await resetLocalDataRuntime();
+          await resetLocalDataRuntime({
+            shouldAbort: () =>
+              shouldAbortResetForAuthUidChange(null, auth.currentUser?.uid ?? null),
+          });
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
             return;
           }
+          if (shouldAbortResetForAuthUidChange(null, auth.currentUser?.uid ?? null)) {
+            return;
+          }
+          lastAuthenticatedUid = null;
           setFirebaseUser(null);
           setUser(null);
         }

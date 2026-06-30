@@ -146,4 +146,20 @@ describe('resetLocalDataRuntime', () => {
     expect(flushPendingMutationsMock).not.toHaveBeenCalled();
     expect(clearLocalDatabaseMock).toHaveBeenCalledTimes(1);
   });
+
+  it('skips destructive cleanup when shouldAbort becomes true mid-reset', async () => {
+    let abort = false;
+    awaitSyncDrainIdleMock.mockImplementation(async () => {
+      abort = true;
+    });
+
+    const { resetLocalDataRuntime } = await import('@/lib/localDb/localDataStore');
+
+    await resetLocalDataRuntime({
+      shouldAbort: () => abort,
+    });
+
+    expect(clearLocalDatabaseMock).not.toHaveBeenCalled();
+    expect(endLocalRuntimeResetMock).toHaveBeenCalledTimes(1);
+  });
 });
