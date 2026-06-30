@@ -12,15 +12,16 @@ import {
   deletePlaceMembership,
   writePlaceCreateAndLinkToList,
 } from '@/features/places/api/placeFirestoreWrite';
-import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
 import type { Place } from '@/features/places/types/place';
+import { listPlaceMembershipDocId } from '@/features/places/constants/firestorePaths';
 import { fetchListAccessFieldsForWrite } from '@/features/places/utils/fetchListAccessFieldsForWrite';
 import { createPlaceFromGoogleDetails } from '@/features/places/utils/placeFactory';
 import { toPlaceListAccessQuery } from '@/features/places/utils/placeAccess';
 import { buildGooglePlacePayload } from '@/features/places/utils/placeWriteSplit';
+import { safeGetMembershipDoc } from '@/features/places/utils/safeMembershipGetDoc';
 import {
+  mergeMembershipProgressFields,
   migrateLegacyMembershipToCanonical,
-  pickLegacyMembershipMergeFields,
 } from '@/features/places/utils/resolveWritableMembershipId';
 import { stablePassportManualId } from '@/features/places/utils/stablePassportManualId';
 import { fetchGroupedPassportSheetVenues } from '@/features/passport/lib/parsePassportSheet';
@@ -231,14 +232,21 @@ async function upgradeManualPlaceToCanonical(options: {
     return { googlePlaceId: canonicalGooglePlaceId, membershipId: existing.id };
   }
 
-  const membershipId = `${listId}_${canonicalGooglePlaceId}`;
-  await writePlaceCreateAndLinkToList({
-    listId,
-    googlePlaceId: canonicalGooglePlaceId,
-    membershipId,
-    place: { ...enrichedPlace, addedAt: now, updatedAt: now },
-    timestamps: { addedAt: now, updatedAt: now },
-  });
+  const membershipId = listPlaceMembershipDocId(listId, canonicalGooglePlaceId);
+  const canonicalSnap = await safeGetMembershipDoc(
+    listPlaceMembershipDocRef(membershipId),
+    'passport-upgrade-canonical-check'
+  );
+
+  if (!canonicalSnap.exists()) {
+    await writePlaceCreateAndLinkToList({
+      listId,
+      googlePlaceId: canonicalGooglePlaceId,
+      membershipId,
+      place: { ...enrichedPlace, addedAt: now, updatedAt: now },
+      timestamps: { addedAt: now, updatedAt: now },
+    });
+  }
 
   const migratedMembershipId = await migrateLegacyMembershipToCanonical(
     listId,
@@ -306,18 +314,7 @@ async function cleanupManualPassportDuplicates(options: {
       const keepStamps = getPassportStampIds(keep);
       const mergedStamps = mergePassportStampIds([...keepStamps, ...manualStamps]);
       const stampsNeedMerge = stampIdsChanged(keepStamps, mergedStamps);
-      const mergedNotes =
-        manual.notes && keep.notes && manual.notes !== keep.notes
-          ? `${keep.notes}\n${manual.notes}`
-          : manual.notes || keep.notes;
-      const membershipMerge = pickLegacyMembershipMergeFields({
-        ...(manual.status !== 'not_visited' && keep.status === 'not_visited'
-          ? { status: manual.status }
-          : {}),
-        ...(manual.customStatus && !keep.customStatus ? { customStatus: manual.customStatus } : {}),
-        ...(mergedNotes !== keep.notes ? { notes: mergedNotes } : {}),
-        updatedBy: options.userId,
-      } as ListPlaceMembership);
+      const membershipMerge = mergeMembershipProgressFields(keep, manual);
       const membershipNeedsMerge =
         membershipMerge.status !== undefined ||
         membershipMerge.customStatus !== undefined ||

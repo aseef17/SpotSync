@@ -31,6 +31,41 @@ function permissionDeniedError(message = 'Missing or insufficient permissions.')
   return error;
 }
 
+/** Merges user progress from a legacy row without downgrading an existing keeper. */
+export function mergeMembershipProgressFields(
+  keeper: ListPlaceMembership,
+  legacy: ListPlaceMembership
+): Partial<LegacyMembershipMergePayload> {
+  const merged = pickLegacyMembershipMergeFields(legacy);
+
+  const keeperHasProgress = keeper.status !== undefined && keeper.status !== 'not_visited';
+  const legacyHasProgress = legacy.status !== undefined && legacy.status !== 'not_visited';
+
+  if (keeperHasProgress && !legacyHasProgress) {
+    delete merged.status;
+  } else if (!keeperHasProgress && legacyHasProgress) {
+    merged.status = legacy.status;
+  } else if (keeperHasProgress && legacyHasProgress) {
+    delete merged.status;
+  }
+
+  if (legacy.customStatus && !keeper.customStatus) {
+    merged.customStatus = legacy.customStatus;
+  } else if (legacy.customStatus && keeper.customStatus) {
+    delete merged.customStatus;
+  }
+
+  if (legacy.notes && keeper.notes && legacy.notes !== keeper.notes) {
+    merged.notes = `${keeper.notes}\n${legacy.notes}`;
+  } else if (legacy.notes && !keeper.notes) {
+    merged.notes = legacy.notes;
+  } else if (!legacy.notes) {
+    delete merged.notes;
+  }
+
+  return merged;
+}
+
 /** Copies user-owned membership fields without overwriting canonical list access denorm. */
 function pickLegacyMembershipMergeFields(
   legacyData: ListPlaceMembership
@@ -115,12 +150,13 @@ async function migrateLegacyMembershipToCanonical(
   if (canonicalSnap.exists()) {
     if (legacySnap.exists() && legacyMembershipId !== canonicalMembershipId) {
       const legacyData = legacySnap.data() as ListPlaceMembership;
+      const canonicalData = canonicalSnap.data() as ListPlaceMembership;
       const batch = writeBatch(db);
       batch.set(
         canonicalRef,
         {
-          ...canonicalSnap.data(),
-          ...pickLegacyMembershipMergeFields(legacyData),
+          ...canonicalData,
+          ...mergeMembershipProgressFields(canonicalData, legacyData),
           googlePlaceId: canonicalGooglePlaceId,
           updatedAt: new Date(),
         },

@@ -9,6 +9,7 @@ const bulkCreatePlacesMock = vi.fn();
 const reconcileListPermissionsIfOwnerMock = vi.fn();
 const resolvePlaceDetailsForImportMock = vi.fn();
 const migrateLegacyMembershipToCanonicalMock = vi.fn();
+const safeGetMembershipDocMock = vi.fn();
 const batchCommitMock = vi.fn().mockResolvedValue(undefined);
 const batchSetMock = vi.fn();
 
@@ -83,6 +84,10 @@ vi.mock('@/features/places/utils/resolveWritableMembershipId', async (importOrig
   };
 });
 
+vi.mock('@/features/places/utils/safeMembershipGetDoc', () => ({
+  safeGetMembershipDoc: (...args: unknown[]) => safeGetMembershipDocMock(...args),
+}));
+
 import { syncPassportListFromSheet } from '@/features/passport/api/passportSheetSyncService';
 import type { PlaceList } from '@/features/lists/types/list';
 
@@ -112,12 +117,15 @@ describe('syncPassportListFromSheet', () => {
     reconcileListPermissionsIfOwnerMock.mockReset();
     resolvePlaceDetailsForImportMock.mockReset();
     migrateLegacyMembershipToCanonicalMock.mockReset();
+    safeGetMembershipDocMock.mockReset();
     batchCommitMock.mockClear();
     batchSetMock.mockClear();
 
     reconcileListPermissionsIfOwnerMock.mockImplementation(async (_listId, list) => list);
     deletePlaceMembershipMock.mockResolvedValue(undefined);
     bulkCreatePlacesMock.mockResolvedValue({ successCount: 0, failedCount: 0, errors: [] });
+    migrateLegacyMembershipToCanonicalMock.mockResolvedValue('list-1_ChIJfoo');
+    safeGetMembershipDocMock.mockResolvedValue({ exists: () => false });
     resolvePlaceDetailsForImportMock.mockResolvedValue({ details: null, canonicalId: null });
     fetchListAccessFieldsForWriteMock.mockResolvedValue({
       listOwnerId: 'owner-1',
@@ -287,5 +295,62 @@ describe('syncPassportListFromSheet', () => {
 
     expect(deletePlaceMembershipMock).not.toHaveBeenCalled();
     expect(result.cleaned).toBe(0);
+  });
+
+  it('does not recreate canonical membership when upgrading a manual duplicate', async () => {
+    getAllForListMock.mockResolvedValue([
+      {
+        id: 'list-1_manual_passport_new york botanical garden',
+        googlePlaceId: 'manual_passport_new york botanical garden',
+        name: 'New York Botanical Garden',
+        passportStampIds: ['stamp-a'],
+        status: 'not_visited',
+        location: { lat: 0, lng: 0 },
+      },
+      {
+        id: 'list-1_ChIJbotanical',
+        googlePlaceId: 'ChIJbotanical',
+        name: 'New York Botanical Garden',
+        passportStampIds: ['stamp-a'],
+        status: 'visited',
+        location: { lat: 40.862, lng: -73.877 },
+      },
+    ]);
+    fetchGroupedPassportSheetVenuesMock.mockResolvedValue([
+      {
+        title: 'New York Botanical Garden',
+        normalizedTitle: 'new york botanical garden',
+        stampIds: ['stamp-a'],
+        notes: [],
+        location: 'Bronx',
+      },
+    ]);
+    resolvePlaceDetailsForImportMock.mockResolvedValue({
+      details: {
+        place_id: 'ChIJbotanical',
+        name: 'New York Botanical Garden',
+        formatted_address: 'Bronx, NY',
+        geometry: { location: { lat: 40.862, lng: -73.877 } },
+      },
+      canonicalId: 'ChIJbotanical',
+    });
+    safeGetMembershipDocMock.mockResolvedValue({
+      exists: () => true,
+      data: () => ({ listId: 'list-1', status: 'visited' }),
+    });
+
+    await syncPassportListFromSheet({
+      listId: 'list-1',
+      sheetUrl: 'https://docs.google.com/spreadsheets/d/sheet-id/edit',
+      userId: 'owner-1',
+      list: ownerList,
+    });
+
+    expect(writePlaceCreateAndLinkToListMock).not.toHaveBeenCalled();
+    expect(migrateLegacyMembershipToCanonicalMock).toHaveBeenCalledWith(
+      'list-1',
+      'list-1_manual_passport_new york botanical garden',
+      'ChIJbotanical'
+    );
   });
 });
