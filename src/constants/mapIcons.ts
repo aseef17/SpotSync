@@ -183,3 +183,14 @@ export const COLOR_PALETTES = [
 export const getColorByName = (name: string) => {
   return COLOR_PALETTES.find((c) => c.name === name) || COLOR_PALETTES[0];
 };
+
+/** Default home-screen list card when cardIcon/cardColor are unset. */
+export const DEFAULT_LIST_CARD_ICON = 'MapPin';
+export const DEFAULT_LIST_CARD_COLOR = 'Blue';
+
+export function resolveListCardAppearance(cardIcon?: string, cardColor?: string) {
+  return {
+    icon: cardIcon || DEFAULT_LIST_CARD_ICON,
+    color: cardColor || DEFAULT_LIST_CARD_COLOR,
+  };
+}

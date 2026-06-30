@@ -44,9 +44,15 @@ export interface PlaceList {
   placeIds?: string[];
   customStatuses: string[];
   tags: string[];
+  /** Map marker icon: AUTO or a Lucide icon name. */
   icon?: string;
+  /** Map marker color: AUTO or a palette name. */
   color?: string;
   iconSize?: number;
+  /** Home-screen list card icon (always a concrete Lucide icon name). */
+  cardIcon?: string;
+  /** Home-screen list card color (always a concrete palette name). */
+  cardColor?: string;
   isSavedList?: boolean;
   createdAt: Date;
   updatedAt: Date;

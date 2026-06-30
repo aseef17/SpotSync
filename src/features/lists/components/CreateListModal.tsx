@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { LoadingButton } from '@/components/Elements/Button/LoadingButton';
 import { themeColors, colors } from '@/styles/colors';
 import { IconPicker } from '@/components/Elements/IconPicker/IconPicker';
+import { ListCardIconPicker } from '@/features/lists/components/ListCardIconPicker';
+import { DEFAULT_LIST_CARD_COLOR, DEFAULT_LIST_CARD_ICON } from '@/constants/mapIcons';
 import { CollaboratorManager } from '@/features/lists/components/CollaboratorManager';
 import type { PlaceList } from '@/features/lists/types/list';
 import { LIST_NAME_MAX_LENGTH, LIST_DESCRIPTION_MAX_LENGTH } from '@/features/lists/types/list';
@@ -17,6 +19,8 @@ interface CreateListModalProps {
     icon: string;
     color: string;
     iconSize: number;
+    cardIcon: string;
+    cardColor: string;
     isPublic: boolean;
   }) => Promise<void>;
   editingList?: PlaceList | null;
@@ -42,6 +46,8 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
   const [listIcon, setListIcon] = useState(editingList?.icon || 'AUTO');
   const [listColor, setListColor] = useState(editingList?.color || 'AUTO');
   const [listIconSize, setListIconSize] = useState(editingList?.iconSize || 36);
+  const [cardIcon, setCardIcon] = useState(editingList?.cardIcon || DEFAULT_LIST_CARD_ICON);
+  const [cardColor, setCardColor] = useState(editingList?.cardColor || DEFAULT_LIST_CARD_COLOR);
   const [isPublic, setIsPublic] = useState(editingList?.isPublic || false);
   const [validationError, setValidationError] = useState('');
   const isListOwner = Boolean(
@@ -60,6 +66,8 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
       setListIcon(editingList?.icon || 'AUTO');
       setListColor(editingList?.color || 'AUTO');
       setListIconSize(editingList?.iconSize || 36);
+      setCardIcon(editingList?.cardIcon || DEFAULT_LIST_CARD_ICON);
+      setCardColor(editingList?.cardColor || DEFAULT_LIST_CARD_COLOR);
       setIsPublic(editingList?.isPublic || false);
     }
   }, [isOpen, editingList]);
@@ -92,6 +100,8 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
         listIcon !== editingList.icon ||
         listColor !== editingList.color ||
         listIconSize !== editingList.iconSize ||
+        cardIcon !== (editingList.cardIcon || DEFAULT_LIST_CARD_ICON) ||
+        cardColor !== (editingList.cardColor || DEFAULT_LIST_CARD_COLOR) ||
         isPublic !== editingList.isPublic;
 
       if (!hasChanges) {
@@ -106,6 +116,8 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
       icon: listIcon,
       color: listColor,
       iconSize: listIconSize,
+      cardIcon,
+      cardColor,
       isPublic,
     });
   };
@@ -246,6 +258,13 @@ export const CreateListModal: React.FunctionComponent<CreateListModalProps> = ({
                     onIconChange={setListIcon}
                     onColorChange={setListColor}
                     onSizeChange={setListIconSize}
+                  />
+
+                  <ListCardIconPicker
+                    selectedIcon={cardIcon}
+                    selectedColor={cardColor}
+                    onIconChange={setCardIcon}
+                    onColorChange={setCardColor}
                   />
 
                   <div className="flex items-center">

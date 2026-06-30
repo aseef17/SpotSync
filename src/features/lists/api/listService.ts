@@ -20,6 +20,7 @@ import type { PlaceList, Collaborator, Permission } from '@/features/lists/types
 import { logger } from '@/utils/logger';
 import { listConverter } from '@/features/lists/api/listFirestore';
 import { omit } from '@/utils/objectUtils';
+import { DEFAULT_LIST_CARD_COLOR, DEFAULT_LIST_CARD_ICON } from '@/constants/mapIcons';
 
 function getExpectedEditorIds(list: PlaceList): string[] {
   return Array.from(
@@ -41,6 +42,8 @@ export class ListService {
     icon?: string,
     color?: string,
     iconSize?: number,
+    cardIcon?: string,
+    cardColor?: string,
     isPublic: boolean = false,
     ownerEmail?: string,
     ownerUsername?: string,
@@ -69,8 +72,10 @@ export class ListService {
         customStatuses: [],
         tags: [],
         icon: icon || 'AUTO',
-        color: color || 'Blue',
+        color: color || 'AUTO',
         iconSize: iconSize || 36,
+        cardIcon: cardIcon || DEFAULT_LIST_CARD_ICON,
+        cardColor: cardColor || DEFAULT_LIST_CARD_COLOR,
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy: ownerId,
