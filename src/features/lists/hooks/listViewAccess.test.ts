@@ -6,6 +6,7 @@ import {
   listViewRemountKey,
   readPersistedListAccessRevoked,
   readPersistedListSavedPrivateDenied,
+  shouldClearListOnNullSnapshot,
   shouldClearStaleListView,
   shouldHydrateListFromPersistentCache,
   shouldTrustPrivateListSnapshot,
@@ -75,6 +76,35 @@ describe('isFirestorePermissionDenied', () => {
   it('detects Firestore permission errors', () => {
     expect(isFirestorePermissionDenied({ code: 'permission-denied' })).toBe(true);
     expect(isFirestorePermissionDenied(new Error('offline'))).toBe(false);
+  });
+});
+
+describe('shouldClearListOnNullSnapshot', () => {
+  it('waits on the initial empty cache read before clearing the view', () => {
+    expect(
+      shouldClearListOnNullSnapshot({
+        fromCache: true,
+        receivedListData: false,
+      })
+    ).toBe(false);
+  });
+
+  it('clears after sync removes a list that was previously shown from cache', () => {
+    expect(
+      shouldClearListOnNullSnapshot({
+        fromCache: true,
+        receivedListData: true,
+      })
+    ).toBe(true);
+  });
+
+  it('clears when the server confirms the list is gone', () => {
+    expect(
+      shouldClearListOnNullSnapshot({
+        fromCache: false,
+        receivedListData: false,
+      })
+    ).toBe(true);
   });
 });
 

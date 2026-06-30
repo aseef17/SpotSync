@@ -10,6 +10,7 @@ import { useListsContext } from '@/features/lists/context/useListsContext';
 import { isBrowserOnline } from '@/hooks/useNetworkStatus';
 import {
   isFirestorePermissionDenied,
+  shouldClearListOnNullSnapshot,
   readPersistedListAccessRevoked,
   readPersistedListSavedPrivateDenied,
   shouldClearStaleListView,
@@ -298,6 +299,7 @@ export const useListDetails = (listId: string | undefined) => {
     }
 
     let cancelled = false;
+    let receivedListData = false;
     listAccessibleRef.current = false;
     loadTrackingRef.current.listLoaded = false;
     loadTrackingRef.current.hasCachedData = false;
@@ -307,6 +309,25 @@ export const useListDetails = (listId: string | undefined) => {
       listId,
       (listData, meta) => {
         if (cancelled) return;
+        if (!listData) {
+          if (
+            shouldClearListOnNullSnapshot({
+              fromCache: meta.fromCache,
+              receivedListData,
+            })
+          ) {
+            denyListAccess();
+            setList(null);
+            setPlaces([]);
+            setError('List not found');
+            loadTrackingRef.current.hasCachedData = false;
+            loadTrackingRef.current.listLoaded = true;
+            loadTrackingRef.current.onProgress?.();
+          }
+          return;
+        }
+
+        receivedListData = true;
         if (!meta.fromCache && listData && !listData.isPublic) {
           privateListServerVerifiedRef.current = true;
         }
@@ -357,24 +378,11 @@ export const useListDetails = (listId: string | undefined) => {
         }
         listAccessibleRef.current = true;
         flushPendingPlacesSnapshot();
-        if (listData) {
-          setList(listData);
-          setError(null);
-          loadTrackingRef.current.hasCachedData = true;
-          loadTrackingRef.current.listLoaded = true;
-          loadTrackingRef.current.onProgress?.();
-          return;
-        }
-
-        if (!meta.fromCache) {
-          denyListAccess();
-          setList(null);
-          setPlaces([]);
-          setError('List not found');
-          loadTrackingRef.current.hasCachedData = false;
-          loadTrackingRef.current.listLoaded = true;
-          loadTrackingRef.current.onProgress?.();
-        }
+        setList(listData);
+        setError(null);
+        loadTrackingRef.current.hasCachedData = true;
+        loadTrackingRef.current.listLoaded = true;
+        loadTrackingRef.current.onProgress?.();
       },
       (err) => {
         if (cancelled) return;
