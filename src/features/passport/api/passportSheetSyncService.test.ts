@@ -3,12 +3,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const getAllForListMock = vi.fn();
 const fetchGroupedPassportSheetVenuesMock = vi.fn();
 const writePlaceCreateAndLinkToListMock = vi.fn();
+const deletePlaceMembershipMock = vi.fn();
 const fetchListAccessFieldsForWriteMock = vi.fn();
+const bulkCreatePlacesMock = vi.fn();
+const reconcileListPermissionsIfOwnerMock = vi.fn();
+const resolvePlaceDetailsForImportMock = vi.fn();
+const migrateLegacyMembershipToCanonicalMock = vi.fn();
 const batchCommitMock = vi.fn().mockResolvedValue(undefined);
 const batchSetMock = vi.fn();
 
 vi.mock('@/lib/firebase', () => ({
   db: {},
+  auth: { currentUser: { uid: 'owner-1' } },
 }));
 
 vi.mock('firebase/firestore', () => ({
@@ -22,6 +28,7 @@ vi.mock('firebase/firestore', () => ({
       return this;
     }),
   })),
+  updateDoc: vi.fn(),
 }));
 
 vi.mock('@/lib/localDb/repositories/placeRepository', () => ({
@@ -37,6 +44,7 @@ vi.mock('@/features/passport/lib/parsePassportSheet', () => ({
 
 vi.mock('@/features/places/api/placeFirestoreWrite', () => ({
   writePlaceCreateAndLinkToList: (...args: unknown[]) => writePlaceCreateAndLinkToListMock(...args),
+  deletePlaceMembership: (...args: unknown[]) => deletePlaceMembershipMock(...args),
 }));
 
 vi.mock('@/features/places/utils/fetchListAccessFieldsForWrite', () => ({
@@ -47,17 +55,57 @@ vi.mock('@/features/places/utils/stablePassportManualId', () => ({
   stablePassportManualId: vi.fn(async (name: string) => `manual_passport_${name.toLowerCase()}`),
 }));
 
+vi.mock('@/features/places/api/placeService', () => ({
+  PlaceService: {
+    bulkCreatePlaces: (...args: unknown[]) => bulkCreatePlacesMock(...args),
+  },
+}));
+
+vi.mock('@/features/lists/utils/listPermissionSync', () => ({
+  reconcileListPermissionsIfOwner: (...args: unknown[]) =>
+    reconcileListPermissionsIfOwnerMock(...args),
+  assertUserCanWriteList: vi.fn(),
+}));
+
+vi.mock('@/features/places/api/googleMapsService', () => ({
+  GoogleMapsService: {
+    resolvePlaceDetailsForImport: (...args: unknown[]) => resolvePlaceDetailsForImportMock(...args),
+  },
+}));
+
+vi.mock('@/features/places/utils/resolveWritableMembershipId', () => ({
+  migrateLegacyMembershipToCanonical: (...args: unknown[]) =>
+    migrateLegacyMembershipToCanonicalMock(...args),
+}));
+
 import { syncPassportListFromSheet } from '@/features/passport/api/passportSheetSyncService';
+
+const ownerList = {
+  ownerId: 'owner-1',
+  isPublic: false,
+  collaborators: [],
+  collaboratorIds: ['owner-1'],
+  editorIds: ['owner-1'],
+};
 
 describe('syncPassportListFromSheet', () => {
   beforeEach(() => {
     getAllForListMock.mockReset();
     fetchGroupedPassportSheetVenuesMock.mockReset();
     writePlaceCreateAndLinkToListMock.mockReset();
+    deletePlaceMembershipMock.mockReset();
     fetchListAccessFieldsForWriteMock.mockReset();
+    bulkCreatePlacesMock.mockReset();
+    reconcileListPermissionsIfOwnerMock.mockReset();
+    resolvePlaceDetailsForImportMock.mockReset();
+    migrateLegacyMembershipToCanonicalMock.mockReset();
     batchCommitMock.mockClear();
     batchSetMock.mockClear();
 
+    reconcileListPermissionsIfOwnerMock.mockImplementation(async (_listId, list) => list);
+    deletePlaceMembershipMock.mockResolvedValue(undefined);
+    bulkCreatePlacesMock.mockResolvedValue({ successCount: 0, failedCount: 0, errors: [] });
+    resolvePlaceDetailsForImportMock.mockResolvedValue({ details: null, canonicalId: null });
     fetchListAccessFieldsForWriteMock.mockResolvedValue({
       listOwnerId: 'owner-1',
       listIsPublic: false,
@@ -73,6 +121,7 @@ describe('syncPassportListFromSheet', () => {
         name: 'Queens Public Library',
         passportStampIds: ['misha-tyutyunik'],
         status: 'not_visited',
+        location: { lat: 40.7, lng: -73.9 },
       },
     ]);
     fetchGroupedPassportSheetVenuesMock.mockResolvedValue([
@@ -90,7 +139,7 @@ describe('syncPassportListFromSheet', () => {
       listId: 'list-1',
       sheetUrl: 'https://docs.google.com/spreadsheets/d/sheet-id/edit',
       userId: 'owner-1',
-      list: { ownerId: 'owner-1', isPublic: false },
+      list: ownerList,
     });
 
     expect(getAllForListMock).toHaveBeenCalledWith({
@@ -113,6 +162,7 @@ describe('syncPassportListFromSheet', () => {
         name: 'Queens Public Library',
         passportStampIds: ['misha-tyutyunik'],
         status: 'not_visited',
+        location: { lat: 0, lng: 0 },
       },
     ]);
     fetchGroupedPassportSheetVenuesMock.mockResolvedValue([
@@ -129,11 +179,58 @@ describe('syncPassportListFromSheet', () => {
       listId: 'list-1',
       sheetUrl: 'https://docs.google.com/spreadsheets/d/sheet-id/edit',
       userId: 'owner-1',
-      list: { ownerId: 'owner-1', isPublic: false },
+      list: ownerList,
     });
 
     expect(writePlaceCreateAndLinkToListMock).not.toHaveBeenCalled();
+    expect(bulkCreatePlacesMock).not.toHaveBeenCalled();
     expect(result.created).toBe(0);
+    expect(result.unchanged).toBe(0);
+  });
+
+  it('removes orphan manual_passport duplicates when a canonical place exists for the same name', async () => {
+    const places = [
+      {
+        id: 'list-1_ChIJbotanical',
+        googlePlaceId: 'ChIJbotanical',
+        name: 'New York Botanical Garden',
+        passportStampIds: ['stamp-a'],
+        status: 'not_visited',
+        location: { lat: 40.862, lng: -73.877 },
+      },
+      {
+        id: 'list-1_manual_passport_new york botanical garden',
+        googlePlaceId: 'manual_passport_new york botanical garden',
+        name: 'New York Botanical Garden',
+        passportStampIds: ['stamp-a'],
+        status: 'not_visited',
+        location: { lat: 0, lng: 0 },
+      },
+    ];
+
+    getAllForListMock.mockResolvedValueOnce(places).mockResolvedValueOnce(places);
+    fetchGroupedPassportSheetVenuesMock.mockResolvedValue([
+      {
+        title: 'New York Botanical Garden',
+        normalizedTitle: 'new york botanical garden',
+        stampIds: ['stamp-a'],
+        notes: [],
+        location: 'Bronx',
+      },
+    ]);
+
+    const result = await syncPassportListFromSheet({
+      listId: 'list-1',
+      sheetUrl: 'https://docs.google.com/spreadsheets/d/sheet-id/edit',
+      userId: 'owner-1',
+      list: ownerList,
+    });
+
+    expect(deletePlaceMembershipMock).toHaveBeenCalledWith(
+      'list-1_manual_passport_new york botanical garden',
+      'list-1'
+    );
+    expect(result.cleaned).toBe(1);
     expect(result.unchanged).toBe(1);
   });
 });
