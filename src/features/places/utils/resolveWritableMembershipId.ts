@@ -10,6 +10,7 @@ import {
 } from '@/features/places/constants/firestorePaths';
 import { fetchListAccessFieldsForWrite } from '@/features/places/utils/fetchListAccessFieldsForWrite';
 import { stablePassportManualId } from '@/features/places/utils/stablePassportManualId';
+import type { PlaceStatus } from '@/features/places/types/place';
 import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
 import { getCachedPlace } from '@/lib/localDb/placeCache';
 import { syncDebug, syncDebugError } from '@/utils/syncDebug';
@@ -24,6 +25,43 @@ type LegacyMembershipMergePayload = Pick<
   | 'updatedBy'
   | 'suppressNotifications'
 >;
+
+type MembershipProgressSource = Pick<ListPlaceMembership, 'status' | 'customStatus'>;
+
+function membershipProgressRank(status: PlaceStatus | undefined): number {
+  switch (status) {
+    case 'visited':
+    case 'not_going':
+      return 2;
+    case 'custom':
+      return 1;
+    default:
+      return 0;
+  }
+}
+
+/** When deduplicating memberships, keep the most progressed status/customStatus. */
+export function mergeMembershipProgressFields(
+  keep: MembershipProgressSource,
+  other: MembershipProgressSource
+): Partial<Pick<ListPlaceMembership, 'status' | 'customStatus'>> {
+  const patch: Partial<Pick<ListPlaceMembership, 'status' | 'customStatus'>> = {};
+  const keepRank = membershipProgressRank(keep.status);
+  const otherRank = membershipProgressRank(other.status);
+
+  if (otherRank > keepRank) {
+    if (other.status !== undefined) patch.status = other.status;
+    if (other.customStatus !== undefined) patch.customStatus = other.customStatus;
+  } else if (
+    other.status === 'custom' &&
+    other.customStatus &&
+    other.customStatus !== keep.customStatus
+  ) {
+    patch.customStatus = other.customStatus;
+  }
+
+  return patch;
+}
 
 function permissionDeniedError(message = 'Missing or insufficient permissions.'): Error {
   const error = new Error(message);
@@ -114,13 +152,18 @@ async function migrateLegacyMembershipToCanonical(
 
   if (canonicalSnap.exists()) {
     if (legacySnap.exists() && legacyMembershipId !== canonicalMembershipId) {
+      const canonicalData = canonicalSnap.data() as ListPlaceMembership;
       const legacyData = legacySnap.data() as ListPlaceMembership;
+      const legacyFields = pickLegacyMembershipMergeFields(legacyData);
+      delete legacyFields.status;
+      delete legacyFields.customStatus;
       const batch = writeBatch(db);
       batch.set(
         canonicalRef,
         {
-          ...canonicalSnap.data(),
-          ...pickLegacyMembershipMergeFields(legacyData),
+          ...canonicalData,
+          ...legacyFields,
+          ...mergeMembershipProgressFields(canonicalData, legacyData),
           googlePlaceId: canonicalGooglePlaceId,
           updatedAt: new Date(),
         },

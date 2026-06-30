@@ -73,10 +73,14 @@ vi.mock('@/features/places/api/googleMapsService', () => ({
   },
 }));
 
-vi.mock('@/features/places/utils/resolveWritableMembershipId', () => ({
-  migrateLegacyMembershipToCanonical: (...args: unknown[]) =>
-    migrateLegacyMembershipToCanonicalMock(...args),
-}));
+vi.mock('@/features/places/utils/resolveWritableMembershipId', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/places/utils/resolveWritableMembershipId')>();
+  return {
+    ...actual,
+    migrateLegacyMembershipToCanonical: (...args: unknown[]) =>
+      migrateLegacyMembershipToCanonicalMock(...args),
+  };
+});
 
 import { syncPassportListFromSheet } from '@/features/passport/api/passportSheetSyncService';
 
@@ -232,5 +236,58 @@ describe('syncPassportListFromSheet', () => {
     );
     expect(result.cleaned).toBe(1);
     expect(result.unchanged).toBe(1);
+  });
+
+  it('preserves visited status from manual duplicate when cleaning up', async () => {
+    const places = [
+      {
+        id: 'list-1_ChIJbotanical',
+        googlePlaceId: 'ChIJbotanical',
+        name: 'New York Botanical Garden',
+        passportStampIds: ['stamp-a'],
+        status: 'not_visited',
+        location: { lat: 40.862, lng: -73.877 },
+      },
+      {
+        id: 'list-1_manual_passport_new york botanical garden',
+        googlePlaceId: 'manual_passport_new york botanical garden',
+        name: 'New York Botanical Garden',
+        passportStampIds: ['stamp-a'],
+        status: 'visited',
+        location: { lat: 0, lng: 0 },
+      },
+    ];
+
+    getAllForListMock.mockResolvedValueOnce(places).mockResolvedValueOnce(places);
+    fetchGroupedPassportSheetVenuesMock.mockResolvedValue([
+      {
+        title: 'New York Botanical Garden',
+        normalizedTitle: 'new york botanical garden',
+        stampIds: ['stamp-a'],
+        notes: [],
+        location: 'Bronx',
+      },
+    ]);
+
+    await syncPassportListFromSheet({
+      listId: 'list-1',
+      sheetUrl: 'https://docs.google.com/spreadsheets/d/sheet-id/edit',
+      userId: 'owner-1',
+      list: ownerList,
+    });
+
+    expect(
+      batchSetMock.mock.calls.some(
+        ([, payload]) =>
+          typeof payload === 'object' &&
+          payload !== null &&
+          'status' in payload &&
+          payload.status === 'visited'
+      )
+    ).toBe(true);
+    expect(deletePlaceMembershipMock).toHaveBeenCalledWith(
+      'list-1_manual_passport_new york botanical garden',
+      'list-1'
+    );
   });
 });
