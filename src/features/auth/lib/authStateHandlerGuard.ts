@@ -31,6 +31,17 @@ export function shouldAbortResetForAuthUidChange(
   return currentUid !== uidAtResetStart;
 }
 
+/** Abort sign-out local reset when auth signs back in or the handler was superseded. */
+export function shouldAbortSignOutLocalReset(
+  handlerGeneration: number,
+  currentUid: string | null
+): boolean {
+  return (
+    !isCurrentAuthStateHandler(handlerGeneration) ||
+    shouldAbortResetForAuthUidChange(null, currentUid)
+  );
+}
+
 export function resetAuthStateHandlerGuardForTests(): void {
   authStateGeneration = 0;
 }

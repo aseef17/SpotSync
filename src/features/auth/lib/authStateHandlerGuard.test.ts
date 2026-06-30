@@ -5,6 +5,7 @@ import {
   resetAuthStateHandlerGuardForTests,
   isAccountSwitchOnSignIn,
   shouldAbortResetForAuthUidChange,
+  shouldAbortSignOutLocalReset,
   shouldRetainUserOnAuthChange,
 } from '@/features/auth/lib/authStateHandlerGuard';
 
@@ -39,5 +40,15 @@ describe('authStateHandlerGuard', () => {
     expect(shouldAbortResetForAuthUidChange('user-a', 'user-a')).toBe(false);
     expect(shouldAbortResetForAuthUidChange('user-a', 'user-b')).toBe(true);
     expect(shouldAbortResetForAuthUidChange('user-a', null)).toBe(true);
+  });
+
+  it('aborts sign-out local reset when auth signs back in or handler is superseded', () => {
+    const handlerGeneration = beginAuthStateHandler();
+
+    expect(shouldAbortSignOutLocalReset(handlerGeneration, null)).toBe(false);
+    expect(shouldAbortSignOutLocalReset(handlerGeneration, 'user-b')).toBe(true);
+
+    beginAuthStateHandler();
+    expect(shouldAbortSignOutLocalReset(handlerGeneration, null)).toBe(true);
   });
 });
