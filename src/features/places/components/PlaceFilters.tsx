@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Search,
   MapPin as MapIcon,
@@ -50,6 +50,7 @@ interface PlaceFiltersProps {
   isPassportList?: boolean;
   availablePassportStamps?: string[];
   availablePassportCategories?: string[];
+  onMobileOverlayChange?: (open: boolean) => void;
 }
 
 export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
@@ -76,10 +77,15 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
   isPassportList = false,
   availablePassportStamps = [],
   availablePassportCategories = [],
+  onMobileOverlayChange,
 }) => {
   const [activeMobileFilter, setActiveMobileFilter] = useState<
     'sort' | 'status' | 'category' | 'price' | 'rating' | 'cuisine' | null
   >(null);
+
+  useEffect(() => {
+    onMobileOverlayChange?.(activeMobileFilter !== null);
+  }, [activeMobileFilter, onMobileOverlayChange]);
 
   const [localSearchQuery, setLocalSearchQuery] = useState(filters.searchQuery || '');
 
@@ -204,8 +210,13 @@ export const PlaceFilters: React.FunctionComponent<PlaceFiltersProps> = ({
 
           {onToggleCollapse && (
             <button
-              onClick={onToggleCollapse}
-              className={`p-2 rounded-lg shadow-sm border ${themeColors.border.default} text-gray-400 hover:text-blue-500 active:scale-95 transition-all`}
+              type="button"
+              onPointerDown={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                onToggleCollapse();
+              }}
+              className={`p-2 rounded-lg shadow-sm border ${themeColors.border.default} text-gray-400 hover:text-blue-500 active:scale-95 transition-all touch-manipulation`}
             >
               {isCollapsed ? (
                 <ChevronDown className="h-5 w-5" />

@@ -9,6 +9,8 @@ interface MobileBottomSheetProps {
   defaultSnap?: number;
   snapIndex?: number; // Optional controlled snap index
   onHeightChange?: (height: number) => void; // Callback when height changes
+  /** When true, disables drag on the sheet handle (e.g. while a modal overlay is open). */
+  dragDisabled?: boolean;
 }
 
 export const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> = ({
@@ -18,6 +20,7 @@ export const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> 
   defaultSnap = 1,
   snapIndex,
   onHeightChange,
+  dragDisabled = false,
 }) => {
   // Convert snap points to pixels
   const getPixelSnaps = useCallback(() => {
@@ -92,6 +95,8 @@ export const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> 
   const lastTime = useRef<number>(0);
 
   const handlePointerDown = (e: React.PointerEvent) => {
+    if (dragDisabled) return;
+
     // Don't drag if clicking interactive elements
     const target = e.target;
     if (!(target instanceof Element)) return;
@@ -160,7 +165,7 @@ export const MobileBottomSheet: React.FunctionComponent<MobileBottomSheetProps> 
       }}
     >
       <div
-        className="w-full flex-shrink-0 cursor-grab active:cursor-grabbing"
+        className={`w-full flex-shrink-0 ${dragDisabled ? 'cursor-default' : 'cursor-grab active:cursor-grabbing'}`}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}
