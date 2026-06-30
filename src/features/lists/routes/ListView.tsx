@@ -243,7 +243,7 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
     syncFromSheet: syncPassportFromSheet,
     isSyncing: isSyncingPassportSheet,
     canSyncFromSheet,
-  } = usePassportSheetSync(displayedList, visiblePlaces, user?.id);
+  } = usePassportSheetSync(displayedList, user?.id);
 
   const { filters, setFilters, filteredPlaces, viewMode, setViewMode } = usePlaceFilters(
     visiblePlaces,
