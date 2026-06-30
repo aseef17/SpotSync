@@ -12,6 +12,7 @@ import {
   isFirestorePermissionDenied,
   readPersistedListAccessRevoked,
   readPersistedListSavedPrivateDenied,
+  shouldClearListOnNullSnapshot,
   shouldClearStaleListView,
   shouldHydrateListFromPersistentCache,
   shouldTrustPrivateListSnapshot,
@@ -104,6 +105,7 @@ export const useListDetails = (listId: string | undefined) => {
   const hadListFromContextRef = useRef(!!listFromContext);
   const placesPublishCountRef = useRef(0);
   const privateAccessConfirmKeyRef = useRef<string | null>(null);
+  const listSnapshotHadDataRef = useRef(false);
   const listIdRef = useRef(listId);
   listIdRef.current = listId;
 
@@ -176,6 +178,7 @@ export const useListDetails = (listId: string | undefined) => {
   useEffect(() => {
     hadListFromContextRef.current = false;
     privateAccessConfirmKeyRef.current = null;
+    listSnapshotHadDataRef.current = false;
     accessRevokedRef.current = readPersistedListAccessRevoked(user?.id, listId);
     privateListServerVerifiedRef.current = false;
     savedPrivateDeniedRef.current = readPersistedListSavedPrivateDenied(user?.id, listId);
@@ -299,6 +302,7 @@ export const useListDetails = (listId: string | undefined) => {
 
     let cancelled = false;
     listAccessibleRef.current = false;
+    listSnapshotHadDataRef.current = false;
     loadTrackingRef.current.listLoaded = false;
     loadTrackingRef.current.hasCachedData = false;
     loadTrackingRef.current.onProgress?.();
@@ -358,6 +362,7 @@ export const useListDetails = (listId: string | undefined) => {
         listAccessibleRef.current = true;
         flushPendingPlacesSnapshot();
         if (listData) {
+          listSnapshotHadDataRef.current = true;
           setList(listData);
           setError(null);
           loadTrackingRef.current.hasCachedData = true;
@@ -366,7 +371,12 @@ export const useListDetails = (listId: string | undefined) => {
           return;
         }
 
-        if (!meta.fromCache) {
+        if (
+          shouldClearListOnNullSnapshot({
+            fromCache: meta.fromCache,
+            hadReceivedListData: listSnapshotHadDataRef.current,
+          })
+        ) {
           denyListAccess();
           setList(null);
           setPlaces([]);

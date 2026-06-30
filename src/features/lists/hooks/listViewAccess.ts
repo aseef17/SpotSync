@@ -96,6 +96,14 @@ export function shouldTrustPrivateListSnapshot(options: {
 }
 
 /** Gate persistent-cache list hydration after shouldGrantListAccess passes. */
+/** Clear list detail UI when sync reports absence — including cache-only removal after data was shown. */
+export function shouldClearListOnNullSnapshot(options: {
+  fromCache: boolean;
+  hadReceivedListData: boolean;
+}): boolean {
+  return !options.fromCache || options.hadReceivedListData;
+}
+
 export function shouldHydrateListFromPersistentCache(options: {
   grantFromAccessRules: boolean;
   isPublic: boolean;

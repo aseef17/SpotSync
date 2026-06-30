@@ -6,12 +6,42 @@ import {
   listViewRemountKey,
   readPersistedListAccessRevoked,
   readPersistedListSavedPrivateDenied,
+  shouldClearListOnNullSnapshot,
   shouldClearStaleListView,
   shouldHydrateListFromPersistentCache,
   shouldTrustPrivateListSnapshot,
   writePersistedListAccessRevoked,
   writePersistedListSavedPrivateDenied,
 } from '@/features/lists/hooks/listViewAccess';
+
+describe('shouldClearListOnNullSnapshot', () => {
+  it('clears on server-confirmed absence even before any list payload arrived', () => {
+    expect(
+      shouldClearListOnNullSnapshot({
+        fromCache: false,
+        hadReceivedListData: false,
+      })
+    ).toBe(true);
+  });
+
+  it('waits during cold load when cache reports absence before server confirmation', () => {
+    expect(
+      shouldClearListOnNullSnapshot({
+        fromCache: true,
+        hadReceivedListData: false,
+      })
+    ).toBe(false);
+  });
+
+  it('clears on cache-only removal after the subscription already published list data', () => {
+    expect(
+      shouldClearListOnNullSnapshot({
+        fromCache: true,
+        hadReceivedListData: true,
+      })
+    ).toBe(true);
+  });
+});
 
 describe('shouldClearStaleListView', () => {
   it('clears when a list disappears from context while still mounted', () => {
