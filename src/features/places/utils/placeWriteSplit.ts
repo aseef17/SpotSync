@@ -6,6 +6,10 @@ import type { GooglePlace } from '@/features/places/types/googlePlace';
 import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
 import type { Place } from '@/features/places/types/place';
 import { getPrimaryPhotoUrl, trimPhotoUrlsForStorage } from '@/features/places/utils/placeAccess';
+import {
+  getPassportStampIds,
+  primaryPassportStampId,
+} from '@/features/passport/utils/passportStampIds';
 import { omitUndefined } from '@/utils/objectUtils';
 
 const MEMBERSHIP_UPDATE_KEYS = new Set([
@@ -46,6 +50,7 @@ const GOOGLE_PLACE_UPDATE_KEYS = new Set([
   'servesVegetarianFood',
   'wheelchairAccessible',
   'passportStampId',
+  'passportStampIds',
   'passportCategory',
   'lat',
   'lng',
@@ -150,7 +155,8 @@ export function buildGooglePlacePayload(
     servesWine: place.servesWine,
     servesVegetarianFood: place.servesVegetarianFood,
     wheelchairAccessible: place.wheelchairAccessible,
-    passportStampId: place.passportStampId,
+    passportStampIds: getPassportStampIds(place),
+    passportStampId: primaryPassportStampId(place),
     passportCategory: place.passportCategory,
     createdAt: timestamps.createdAt,
     updatedAt: timestamps.updatedAt,

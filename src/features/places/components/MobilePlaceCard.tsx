@@ -12,9 +12,10 @@ import {
 } from '@/features/places/utils/placeHelpers';
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList } from '@/features/lists/types/list';
-import { PassportStampBadge } from '@/features/passport/components/PassportStampBadge';
-import { PassportStampLabel } from '@/features/passport/components/PassportStampLabel';
+import { PassportStampBadges } from '@/features/passport/components/PassportStampBadges';
+import { PassportStampLabels } from '@/features/passport/components/PassportStampLabels';
 import { isPassportList } from '@/features/passport/utils/passportList';
+import { placeHasAnyPassportStamp } from '@/features/passport/utils/passportStampIds';
 
 interface MobilePlaceCardProps {
   place: Place;
@@ -25,7 +26,7 @@ interface MobilePlaceCardProps {
 
 export const MobilePlaceCard = React.memo<MobilePlaceCardProps>(
   ({ place, list, userLocation, onClick }) => {
-    const showPassportStamp = isPassportList(list) && place.passportStampId;
+    const showPassportStamp = isPassportList(list) && placeHasAnyPassportStamp(place);
     const hoursText = getTodayHoursText(place);
     const categoryText = place.category ? formatCategoryName(place.category) : undefined;
     const distanceText = formatPlaceDistance(place, userLocation);
@@ -36,18 +37,12 @@ export const MobilePlaceCard = React.memo<MobilePlaceCardProps>(
         onClick={() => onClick(place)}
         className={`${themeColors.background.card} mb-3 pb-3 border-b ${themeColors.border.default} last:border-0 cursor-pointer relative`}
       >
-        {showPassportStamp && place.passportStampId && (
+        {showPassportStamp && (
           <div className="absolute top-0 right-0 z-10" onClick={(e) => e.stopPropagation()}>
-            <PassportStampBadge
-              stampId={place.passportStampId}
-              status={place.status}
-              size="sm"
-              interactive
-              placeName={place.name}
-            />
+            <PassportStampBadges place={place} size="sm" interactive />
           </div>
         )}
-        <div className="flex justify-between items-start mb-0.5 pr-10">
+        <div className="flex justify-between items-start mb-0.5 pr-14">
           <div className="flex-1 min-w-0 mr-2">
             <div className="flex items-center gap-2">
               <h3 className={`text-base font-semibold ${themeColors.text.primary} line-clamp-1`}>
@@ -59,9 +54,7 @@ export const MobilePlaceCard = React.memo<MobilePlaceCardProps>(
                 </span>
               )}
             </div>
-            {showPassportStamp && place.passportStampId && (
-              <PassportStampLabel stampId={place.passportStampId} className="mt-0.5" />
-            )}
+            {showPassportStamp && <PassportStampLabels place={place} className="mt-0.5" />}
           </div>
           {place.status !== 'not_visited' && (
             <span

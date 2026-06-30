@@ -40,8 +40,9 @@ import { useToast } from '@/hooks/useToast';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
 import { logger } from '@/utils/logger';
 import { motion, AnimatePresence } from 'framer-motion';
-import { PassportStampBadge } from '@/features/passport/components/PassportStampBadge';
-import { PassportStampLabel } from '@/features/passport/components/PassportStampLabel';
+import { PassportStampBadges } from '@/features/passport/components/PassportStampBadges';
+import { PassportStampLabels } from '@/features/passport/components/PassportStampLabels';
+import { placeHasAnyPassportStamp } from '@/features/passport/utils/passportStampIds';
 
 const formatPrice = (level?: number) => {
   if (!level) return null;
@@ -71,7 +72,7 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
   canEdit = false,
   isPassportList = false,
 }) => {
-  const showPassportStamp = isPassportList && place.passportStampId;
+  const showPassportStamp = isPassportList && placeHasAnyPassportStamp(place);
   const { toast } = useToast();
   const [isStatusOpen, setIsStatusOpen] = useState(false);
   const [isSyncingFromGoogle, setIsSyncingFromGoogle] = useState(false);
@@ -215,19 +216,15 @@ export const MobilePlaceDetailHeader: React.FunctionComponent<MobilePlaceDetailH
               {place.name}
             </h2>
             {showPassportStamp && (
-              <PassportStampBadge
-                stampId={place.passportStampId!}
-                status={place.status}
+              <PassportStampBadges
+                place={place}
                 size="md"
                 interactive
-                placeName={place.name}
-                className="shrink-0 ring-2 ring-white dark:ring-gray-900 rounded-full bg-white/90 dark:bg-gray-900/90"
+                className="shrink-0 ring-2 ring-white dark:ring-gray-900 rounded-full bg-white/90 dark:bg-gray-900/90 p-0.5"
               />
             )}
           </div>
-          {showPassportStamp && (
-            <PassportStampLabel stampId={place.passportStampId!} className="mt-0.5" />
-          )}
+          {showPassportStamp && <PassportStampLabels place={place} className="mt-0.5" />}
           <div
             className={`flex flex-wrap items-center gap-1.5 text-sm ${themeColors.text.secondary} mt-1`}
           >

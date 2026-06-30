@@ -54,6 +54,7 @@ import {
   getAvailablePassportStamps,
   isPassportList,
 } from '@/features/passport/utils/passportList';
+import { usePassportSheetSync } from '@/features/passport/hooks/usePassportSheetSync';
 
 export const ListView: React.FunctionComponent = () => {
   const { listId } = useParams<{ listId: string }>();
@@ -238,6 +239,11 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
   }, []);
 
   const passportMode = isPassportList(displayedList);
+  const {
+    syncFromSheet: syncPassportFromSheet,
+    isSyncing: isSyncingPassportSheet,
+    canSyncFromSheet,
+  } = usePassportSheetSync(displayedList, visiblePlaces, user?.id);
 
   const { filters, setFilters, filteredPlaces, viewMode, setViewMode } = usePlaceFilters(
     visiblePlaces,
@@ -557,6 +563,8 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
             hasMorePlaces={hasMorePlaces}
             loadingMore={loadingMore}
             onLoadMorePlaces={loadMorePlaces}
+            onSyncPassportSheet={canSyncFromSheet ? syncPassportFromSheet : undefined}
+            isSyncingPassportSheet={isSyncingPassportSheet}
           />
 
           {/* Shared modals for mobile */}
@@ -735,6 +743,21 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                         toast.success('Link copied to clipboard!');
                       },
                     },
+                    ...(canEditList && canSyncFromSheet
+                      ? [
+                          {
+                            label: isSyncingPassportSheet
+                              ? 'Syncing from Sheet...'
+                              : 'Sync from Sheet',
+                            icon: (
+                              <RefreshCw
+                                className={`h-5 w-5 ${isSyncingPassportSheet ? 'animate-spin' : ''}`}
+                              />
+                            ),
+                            onClick: () => void syncPassportFromSheet(),
+                          },
+                        ]
+                      : []),
                     ...(canEditList && places.length > 0
                       ? [
                           {
@@ -801,6 +824,18 @@ const ListViewContent: React.FunctionComponent<{ listId: string | undefined }> =
                     </button>
                     {canEditList && (
                       <>
+                        {canSyncFromSheet && (
+                          <button
+                            onClick={() => void syncPassportFromSheet()}
+                            disabled={isSyncingPassportSheet}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border ${themeColors.border.default} ${themeColors.text.primary} hover:${themeColors.background.app} transition-colors whitespace-nowrap disabled:opacity-50`}
+                          >
+                            <RefreshCw
+                              className={`h-4 w-4 ${isSyncingPassportSheet ? 'animate-spin' : ''}`}
+                            />
+                            {isSyncingPassportSheet ? 'Syncing Sheet...' : 'Sync from Sheet'}
+                          </button>
+                        )}
                         {places.length > 0 && (
                           <button
                             onClick={async () => {

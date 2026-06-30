@@ -31,8 +31,9 @@ import { useAuth } from '@/features/auth/context/AuthContext';
 import type { Place } from '@/features/places/types/place';
 import { useToast } from '@/hooks/useToast';
 import { useDeferredAction } from '@/hooks/useDeferredAction';
-import { PassportStampBadge } from '@/features/passport/components/PassportStampBadge';
-import { PassportStampLabel } from '@/features/passport/components/PassportStampLabel';
+import { PassportStampBadges } from '@/features/passport/components/PassportStampBadges';
+import { PassportStampLabels } from '@/features/passport/components/PassportStampLabels';
+import { placeHasAnyPassportStamp } from '@/features/passport/utils/passportStampIds';
 
 export interface PlaceDetailsPaneProps {
   place: Place;
@@ -110,7 +111,7 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
   const todayDayName = getTodayDayName();
   const todayHoursText = getTodayHoursText(place);
 
-  const showPassportStamp = isPassportList && place.passportStampId;
+  const showPassportStamp = isPassportList && placeHasAnyPassportStamp(place);
 
   const photoRefs = place.photoUrls ?? [];
   const photoImages = useResolvedPlacePhotos(place.id, photoRefs, 800, 800);
@@ -278,18 +279,14 @@ export const PlaceDetailsPane: React.FunctionComponent<PlaceDetailsPaneProps> = 
           >
             {place.name}
           </h2>
-          {showPassportStamp && (
-            <PassportStampLabel stampId={place.passportStampId!} className="mt-1" />
-          )}
+          {showPassportStamp && <PassportStampLabels place={place} className="mt-1" />}
         </div>
         {showPassportStamp && (
-          <PassportStampBadge
-            stampId={place.passportStampId!}
-            status={place.status}
+          <PassportStampBadges
+            place={place}
             size="md"
             interactive
-            placeName={place.name}
-            className="shrink-0 ring-2 ring-white dark:ring-gray-900 rounded-full bg-white/90 dark:bg-gray-900/90"
+            className="shrink-0 ring-2 ring-white dark:ring-gray-900 rounded-full bg-white/90 dark:bg-gray-900/90 p-0.5"
           />
         )}
       </div>

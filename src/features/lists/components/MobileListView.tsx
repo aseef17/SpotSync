@@ -65,6 +65,8 @@ interface MobileListViewProps {
   hasMorePlaces?: boolean;
   loadingMore?: boolean;
   onLoadMorePlaces?: () => void | Promise<void>;
+  onSyncPassportSheet?: () => void | Promise<void>;
+  isSyncingPassportSheet?: boolean;
 }
 
 const ScrollRestorer = ({ scrollPos }: { scrollPos: number }) => {
@@ -100,6 +102,8 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   hasMorePlaces = false,
   loadingMore = false,
   onLoadMorePlaces,
+  onSyncPassportSheet,
+  isSyncingPassportSheet = false,
 }) => {
   const { user } = useAuth();
   const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
@@ -342,6 +346,19 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
                   toast.success('Link copied to clipboard!');
                 },
               },
+              ...(canEditList && onSyncPassportSheet
+                ? [
+                    {
+                      label: isSyncingPassportSheet ? 'Syncing from Sheet...' : 'Sync from Sheet',
+                      icon: (
+                        <RefreshCw
+                          className={`h-5 w-5 ${isSyncingPassportSheet ? 'animate-spin' : ''}`}
+                        />
+                      ),
+                      onClick: () => void onSyncPassportSheet(),
+                    },
+                  ]
+                : []),
               ...(canEditList && places.length > 0
                 ? [
                     {

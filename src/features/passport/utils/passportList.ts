@@ -1,6 +1,10 @@
 import type { PlaceList, PassportConfig } from '@/features/lists/types/list';
 import type { Place } from '@/features/places/types/place';
 import { PASSPORT_STAMP_BY_ID, PASSPORT_STAMPS } from '@/features/passport/constants/stamps';
+import {
+  getPassportStampIds,
+  placeHasAnyPassportStamp,
+} from '@/features/passport/utils/passportStampIds';
 
 export function isPassportList(list: Pick<PlaceList, 'listKind'> | null | undefined): boolean {
   return list?.listKind === 'nyc_passport';
@@ -25,12 +29,14 @@ export interface PassportProgress {
 }
 
 export function computePassportProgress(places: Place[]): PassportProgress {
-  const stampedPlaces = places.filter((p) => p.passportStampId);
+  const stampedPlaces = places.filter((p) => placeHasAnyPassportStamp(p));
   const visitedStampIds = new Set<string>();
 
   for (const place of stampedPlaces) {
-    if (place.status === 'visited' && place.passportStampId) {
-      visitedStampIds.add(place.passportStampId);
+    if (place.status === 'visited') {
+      for (const stampId of getPassportStampIds(place)) {
+        visitedStampIds.add(stampId);
+      }
     }
   }
 
@@ -47,8 +53,8 @@ export function computePassportProgress(places: Place[]): PassportProgress {
 export function getAvailablePassportStamps(places: Place[]): string[] {
   const ids = new Set<string>();
   for (const place of places) {
-    if (place.passportStampId) {
-      ids.add(place.passportStampId);
+    for (const stampId of getPassportStampIds(place)) {
+      ids.add(stampId);
     }
   }
   return [...ids].sort((a, b) => {

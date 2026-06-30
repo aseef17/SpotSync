@@ -3,6 +3,11 @@ import type { Place } from '@/features/places/types/place';
 import type { FilterOptions } from '@/features/places/types/filters';
 import { isPlaceOpen } from '@/features/places/utils/placeHelpers';
 import {
+  getPassportStampIds,
+  placeHasAnyPassportStamp,
+  placeHasPassportStamp,
+} from '@/features/passport/utils/passportStampIds';
+import {
   getDefaultPlaceFilters,
   getEmptyPlaceFilters,
 } from '@/features/places/utils/defaultPlaceFilters';
@@ -127,12 +132,12 @@ export const usePlaceFilters = (
       const stampFilter = filters.passportStamp;
       if (Array.isArray(stampFilter)) {
         if (stampFilter.length > 0) {
-          filtered = filtered.filter(
-            (place) => place.passportStampId && stampFilter.includes(place.passportStampId)
+          filtered = filtered.filter((place) =>
+            getPassportStampIds(place).some((stampId) => stampFilter.includes(stampId))
           );
         }
       } else {
-        filtered = filtered.filter((place) => place.passportStampId === stampFilter);
+        filtered = filtered.filter((place) => placeHasPassportStamp(place, stampFilter));
       }
     }
 
@@ -156,7 +161,7 @@ export const usePlaceFilters = (
 
     // NYC Passport: only places with a linked stamp
     if (filters.passportHasStamp) {
-      filtered = filtered.filter((place) => Boolean(place.passportStampId));
+      filtered = filtered.filter((place) => placeHasAnyPassportStamp(place));
     }
 
     // Open Now filter — use isPlaceOpen so filtering matches card UI (hours-first, not stale openNow)

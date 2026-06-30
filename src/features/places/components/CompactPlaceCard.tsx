@@ -11,8 +11,9 @@ import {
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList } from '@/features/lists/types/list';
 import { themeColors } from '@/styles/colors';
-import { PassportStampBadge } from '@/features/passport/components/PassportStampBadge';
-import { PassportStampLabel } from '@/features/passport/components/PassportStampLabel';
+import { PassportStampBadges } from '@/features/passport/components/PassportStampBadges';
+import { PassportStampLabels } from '@/features/passport/components/PassportStampLabels';
+import { placeHasAnyPassportStamp } from '@/features/passport/utils/passportStampIds';
 import { isPassportList } from '@/features/passport/utils/passportList';
 
 interface CompactPlaceCardProps {
@@ -25,7 +26,7 @@ interface CompactPlaceCardProps {
 
 export const CompactPlaceCard = React.memo<CompactPlaceCardProps>(
   ({ place, list, onClick, onStatusChange, layout = false }) => {
-    const showPassportStamp = isPassportList(list) && place.passportStampId;
+    const showPassportStamp = isPassportList(list) && placeHasAnyPassportStamp(place);
 
     const formatPriceLevel = (level?: number) => {
       if (!level) return '';
@@ -45,15 +46,9 @@ export const CompactPlaceCard = React.memo<CompactPlaceCardProps>(
         className={`relative ${themeColors.background.card} rounded-lg shadow-sm border ${themeColors.border.default} hover:shadow-md transition-shadow cursor-pointer flex items-center p-3 gap-4`}
         onClick={() => onClick(place)}
       >
-        {showPassportStamp && place.passportStampId && (
+        {showPassportStamp && (
           <div className="absolute top-2 right-2 z-10" onClick={(e) => e.stopPropagation()}>
-            <PassportStampBadge
-              stampId={place.passportStampId}
-              status={place.status}
-              size="sm"
-              interactive
-              placeName={place.name}
-            />
+            <PassportStampBadges place={place} size="sm" interactive />
           </div>
         )}
         <div className="w-20 h-20 shrink-0 bg-gray-100 dark:bg-gray-800 rounded-md overflow-hidden">
@@ -83,9 +78,7 @@ export const CompactPlaceCard = React.memo<CompactPlaceCardProps>(
               <h3 className={`text-base font-medium ${themeColors.text.primary} truncate`}>
                 {place.name}
               </h3>
-              {showPassportStamp && place.passportStampId && (
-                <PassportStampLabel stampId={place.passportStampId} className="mt-0.5" />
-              )}
+              {showPassportStamp && <PassportStampLabels place={place} className="mt-0.5" />}
             </div>
             <div onClick={(e) => e.stopPropagation()} className="shrink-0 scale-90 origin-right">
               <PlaceStatusSelector

@@ -12,9 +12,10 @@ import {
 import type { Place } from '@/features/places/types/place';
 import type { PlaceList } from '@/features/lists/types/list';
 import { themeColors } from '@/styles/colors';
-import { PassportStampBadge } from '@/features/passport/components/PassportStampBadge';
-import { PassportStampLabel } from '@/features/passport/components/PassportStampLabel';
+import { PassportStampBadges } from '@/features/passport/components/PassportStampBadges';
+import { PassportStampLabels } from '@/features/passport/components/PassportStampLabels';
 import { isPassportList } from '@/features/passport/utils/passportList';
+import { placeHasAnyPassportStamp } from '@/features/passport/utils/passportStampIds';
 
 interface PlaceCardProps {
   place: Place;
@@ -27,7 +28,7 @@ interface PlaceCardProps {
 
 export const PlaceCard = React.memo<PlaceCardProps>(
   ({ place, list, onClick, onStatusChange, layout = false, density = 'compact' }) => {
-    const showPassportStamp = isPassportList(list) && place.passportStampId;
+    const showPassportStamp = isPassportList(list) && placeHasAnyPassportStamp(place);
 
     return (
       <motion.div
@@ -47,9 +48,7 @@ export const PlaceCard = React.memo<PlaceCardProps>(
             <h3 className={`text-[15px] font-semibold ${themeColors.text.primary} line-clamp-1`}>
               {place.name}
             </h3>
-            {showPassportStamp && place.passportStampId && (
-              <PassportStampLabel stampId={place.passportStampId} className="mt-0.5 mb-1" />
-            )}
+            {showPassportStamp && <PassportStampLabels place={place} className="mt-0.5 mb-1" />}
             <div
               className={`flex items-center gap-1.5 text-[13px] ${themeColors.text.secondary} mb-1`}
             >
@@ -150,14 +149,12 @@ export const PlaceCard = React.memo<PlaceCardProps>(
             className="absolute -top-2 -right-2 z-10 flex flex-col items-end gap-1"
             onClick={(e) => e.stopPropagation()}
           >
-            {showPassportStamp && place.passportStampId && (
-              <PassportStampBadge
-                stampId={place.passportStampId}
-                status={place.status}
+            {showPassportStamp && (
+              <PassportStampBadges
+                place={place}
                 size="sm"
                 interactive
-                placeName={place.name}
-                className="ring-2 ring-white dark:ring-gray-900 rounded-full bg-white/90 dark:bg-gray-900/90"
+                className="ring-2 ring-white dark:ring-gray-900 rounded-full bg-white/90 dark:bg-gray-900/90 p-0.5"
               />
             )}
             <PlaceStatusSelector

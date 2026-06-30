@@ -47,6 +47,8 @@ export interface Place {
   servesVegetarianFood?: boolean;
   wheelchairAccessible?: boolean;
   passportStampId?: string;
+  /** NYC Passport: all stamp designs at this location (sheet may list multiple rows). */
+  passportStampIds?: string[];
   passportCategory?: string;
   notes?: string;
   status: PlaceStatus;
