@@ -15,6 +15,7 @@ import {
   acquireUserProfileSync,
   clearUserSavedListIdsDedupForUser,
 } from '@/lib/localDb/sync/userProfileSync';
+import { consumeListPublishFromCache } from '@/lib/localDb/sync/listPublishMeta';
 
 async function readUserLists(userId: string): Promise<PlaceList[]> {
   const cached = await getCachedUserLists(userId);
@@ -122,7 +123,7 @@ export const listRepository = {
 
     const releaseSync = acquireListSync(listId);
     const unsubscribeChanges = subscribeToChanges(changeTopics.list(listId), () => {
-      void publish(false);
+      void publish(consumeListPublishFromCache(listId));
     });
 
     return () => {
