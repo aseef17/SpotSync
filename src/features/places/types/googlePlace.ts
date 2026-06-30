@@ -41,6 +41,8 @@ export interface GooglePlace {
   detailsFetchedAt?: Date;
   /** NYC Passport stamp design at this location (googlePlaces field for listKind nyc_passport). */
   passportStampId?: string;
+  /** NYC Passport: all stamp designs linked to this venue. */
+  passportStampIds?: string[];
   /** Venue type from the community spreadsheet (Library, Museum, etc.). */
   passportCategory?: string;
   createdAt: Date;

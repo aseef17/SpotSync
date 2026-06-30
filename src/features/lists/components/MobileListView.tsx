@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useLayoutEffect, useEffect } from 'react';
+import React, { useState, useCallback, useLayoutEffect, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -65,6 +65,8 @@ interface MobileListViewProps {
   hasMorePlaces?: boolean;
   loadingMore?: boolean;
   onLoadMorePlaces?: () => void | Promise<void>;
+  onSyncPassportSheet?: () => void | Promise<void>;
+  isSyncingPassportSheet?: boolean;
 }
 
 const ScrollRestorer = ({ scrollPos }: { scrollPos: number }) => {
@@ -100,6 +102,8 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   hasMorePlaces = false,
   loadingMore = false,
   onLoadMorePlaces,
+  onSyncPassportSheet,
+  isSyncingPassportSheet = false,
 }) => {
   const { user } = useAuth();
   const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
@@ -113,6 +117,9 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
   const [showListInfo, setShowListInfo] = useState(false);
   const [isFiltersCollapsed, setIsFiltersCollapsed] = useState(false);
   const [isPassportCollapsed, setIsPassportCollapsed] = useState(true);
+  const [isMobileFilterOverlayOpen, setIsMobileFilterOverlayOpen] = useState(false);
+  const filtersPinnedExpandedRef = useRef(false);
+  const lastListScrollTopRef = useRef(0);
   const [isSyncingPhotos, setIsSyncingPhotos] = useState(false);
   const [mapMounted, setMapMounted] = useState(false);
 
@@ -136,8 +143,15 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
     if (!el) return;
 
     const handleScroll = () => {
-      // Collapse if scrolled down more than 20px
-      if (el.scrollTop > 20) {
+      const scrollTop = el.scrollTop;
+      const scrollingDown = scrollTop > lastListScrollTopRef.current + 2;
+
+      if (scrollingDown && scrollTop > 20) {
+        if (filtersPinnedExpandedRef.current) {
+          filtersPinnedExpandedRef.current = false;
+          lastListScrollTopRef.current = scrollTop;
+          return;
+        }
         if (!isFiltersCollapsed) {
           setIsFiltersCollapsed(true);
         }
@@ -145,6 +159,8 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
           setIsPassportCollapsed(true);
         }
       }
+
+      lastListScrollTopRef.current = scrollTop;
     };
 
     el.addEventListener('scroll', handleScroll, { passive: true });
@@ -342,6 +358,19 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
                   toast.success('Link copied to clipboard!');
                 },
               },
+              ...(canEditList && onSyncPassportSheet
+                ? [
+                    {
+                      label: isSyncingPassportSheet ? 'Syncing from Sheet...' : 'Sync from Sheet',
+                      icon: (
+                        <RefreshCw
+                          className={`h-5 w-5 ${isSyncingPassportSheet ? 'animate-spin' : ''}`}
+                        />
+                      ),
+                      onClick: () => void onSyncPassportSheet(),
+                    },
+                  ]
+                : []),
               ...(canEditList && places.length > 0
                 ? [
                     {
@@ -412,7 +441,14 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
             onAiModeChange={handleAiModeChange}
             isAiLoading={isAiSearching}
             isCollapsed={isFiltersCollapsed}
-            onToggleCollapse={() => setIsFiltersCollapsed(!isFiltersCollapsed)}
+            onToggleCollapse={() => {
+              setIsFiltersCollapsed((collapsed) => {
+                const next = !collapsed;
+                filtersPinnedExpandedRef.current = !next;
+                return next;
+              });
+            }}
+            onMobileOverlayChange={setIsMobileFilterOverlayOpen}
           />
         </>
       )}
@@ -671,6 +707,7 @@ export const MobileListView: React.FunctionComponent<MobileListViewProps> = ({
       </AnimatePresence>
 
       <MobileBottomSheet
+        dragDisabled={isMobileFilterOverlayOpen || showPassportInfo || showListInfo}
         header={
           <AnimatePresence mode="wait">
             <motion.div

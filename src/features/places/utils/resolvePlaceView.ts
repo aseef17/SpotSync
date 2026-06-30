@@ -3,6 +3,10 @@ import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembe
 import type { Place } from '@/features/places/types/place';
 import type { PlaceListAccessFields } from '@/features/places/utils/placeAccess';
 import { normalizeOpeningHours } from '@/features/places/utils/openingHoursUtils';
+import {
+  getPassportStampIds,
+  primaryPassportStampId,
+} from '@/features/passport/utils/passportStampIds';
 
 export interface ResolvePlaceViewOptions {
   /** Denormalized list access fields until security rules no longer need them on Place. */
@@ -57,7 +61,8 @@ export function resolvePlaceView(
     servesWine: googlePlace.servesWine,
     servesVegetarianFood: googlePlace.servesVegetarianFood,
     wheelchairAccessible: googlePlace.wheelchairAccessible,
-    passportStampId: googlePlace.passportStampId,
+    passportStampIds: getPassportStampIds(googlePlace),
+    passportStampId: primaryPassportStampId(googlePlace),
     passportCategory: googlePlace.passportCategory,
     notes: membership.notes,
     status: membership.status,
