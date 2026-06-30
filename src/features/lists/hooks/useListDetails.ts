@@ -150,12 +150,22 @@ export const useListDetails = (listId: string | undefined) => {
           loadTrackingRef.current.listLoaded = true;
           loadTrackingRef.current.onProgress?.();
         })
-        .catch(() => {
+        .catch((error) => {
           privateAccessConfirmKeyRef.current = null;
-          // Permission denied or offline — keep sticky revocation.
+          if (isFirestorePermissionDenied(error)) {
+            setAccessRevoked(true);
+            denyListAccess();
+            setList(null);
+            setPlaces([]);
+            setError('List not found');
+            loadTrackingRef.current.hasCachedData = false;
+            loadTrackingRef.current.listLoaded = true;
+            loadTrackingRef.current.onProgress?.();
+          }
+          // Offline or transient errors — keep sticky revocation without clearing UI.
         });
     },
-    [setAccessRevoked, setSavedPrivateDenied, flushPendingPlacesSnapshot]
+    [setAccessRevoked, setSavedPrivateDenied, flushPendingPlacesSnapshot, denyListAccess]
   );
 
   useEffect(() => {
@@ -292,9 +302,6 @@ export const useListDetails = (listId: string | undefined) => {
       listId,
       (listData, meta) => {
         if (cancelled) return;
-        if (!meta.fromCache && listData && !listData.isPublic) {
-          privateListServerVerifiedRef.current = true;
-        }
         if (
           listData &&
           !shouldTrustPrivateListSnapshot({

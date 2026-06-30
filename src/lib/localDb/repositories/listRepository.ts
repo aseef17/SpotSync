@@ -105,24 +105,26 @@ export const listRepository = {
   ): () => void {
     let cancelled = false;
 
-    const publish = async (fromCache: boolean) => {
+    const publish = async () => {
       if (cancelled) {
         return;
       }
 
       try {
         const list = await readList(listId);
-        onUpdate(list, { fromCache });
+        // Local SQLite reads (including rows written by Firestore listeners) stay fromCache:true
+        // until getDocFromServer confirms access in useListDetails.
+        onUpdate(list, { fromCache: true });
       } catch (error) {
         onError(error instanceof Error ? error : new Error('Failed to read list from local store'));
       }
     };
 
-    void publish(true);
+    void publish();
 
     const releaseSync = acquireListSync(listId);
     const unsubscribeChanges = subscribeToChanges(changeTopics.list(listId), () => {
-      void publish(false);
+      void publish();
     });
 
     return () => {
