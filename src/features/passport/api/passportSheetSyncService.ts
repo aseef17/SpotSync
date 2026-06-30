@@ -1,10 +1,12 @@
 import { writeBatch } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
-import type { Place } from '@/features/places/types/place';
+import type { PlaceList } from '@/features/lists/types/list';
 import { googlePlaceDocRef } from '@/features/places/api/googlePlaceFirestore';
 import { listPlaceMembershipDocRef } from '@/features/places/api/listPlaceMembershipFirestore';
 import { writePlaceCreateAndLinkToList } from '@/features/places/api/placeFirestoreWrite';
+import type { Place } from '@/features/places/types/place';
 import { fetchListAccessFieldsForWrite } from '@/features/places/utils/fetchListAccessFieldsForWrite';
+import { toPlaceListAccessQuery } from '@/features/places/utils/placeAccess';
+import { stablePassportManualId } from '@/features/places/utils/stablePassportManualId';
 import { fetchGroupedPassportSheetVenues } from '@/features/passport/lib/parsePassportSheet';
 import { normalizePassportName } from '@/features/passport/utils/normalizePassportName';
 import {
@@ -12,6 +14,8 @@ import {
   mergePassportStampIds,
   primaryPassportStampId,
 } from '@/features/passport/utils/passportStampIds';
+import { db } from '@/lib/firebase';
+import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
 import { logger } from '@/utils/logger';
 import { omitUndefined } from '@/utils/objectUtils';
 
@@ -25,16 +29,6 @@ export interface PassportSheetSyncResult {
   skipped: number;
 }
 
-async function stablePassportManualId(name: string): Promise<string> {
-  const data = new TextEncoder().encode(name.trim().toLowerCase());
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  const hex = [...new Uint8Array(digest)]
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('')
-    .slice(0, 16);
-  return `manual_passport_${hex}`;
-}
-
 function notesFromSheet(notes: string[]): string | undefined {
   if (!notes.length) return undefined;
   return notes.join('\n');
@@ -45,22 +39,75 @@ function stampIdsChanged(existing: string[], next: string[]): boolean {
   return existing.some((id, index) => id !== next[index]);
 }
 
-export async function syncPassportListFromSheet(options: {
-  listId: string;
-  sheetUrl: string;
-  userId: string;
-  places: Place[];
-}): Promise<PassportSheetSyncResult> {
-  const { listId, sheetUrl, userId, places } = options;
-  const groupedVenues = await fetchGroupedPassportSheetVenues(sheetUrl);
+function indexPlacesByName(places: Place[]): Map<string, Place> {
   const placesByName = new Map<string, Place>();
-
   for (const place of places) {
     const key = normalizePassportName(place.name);
     if (key && !placesByName.has(key)) {
       placesByName.set(key, place);
     }
   }
+  return placesByName;
+}
+
+function indexPlacesByGooglePlaceId(places: Place[]): Map<string, Place> {
+  const byGooglePlaceId = new Map<string, Place>();
+  for (const place of places) {
+    if (place.googlePlaceId && !byGooglePlaceId.has(place.googlePlaceId)) {
+      byGooglePlaceId.set(place.googlePlaceId, place);
+    }
+  }
+  return byGooglePlaceId;
+}
+
+function queueVenueUpdate(
+  existing: Place & { googlePlaceId: string },
+  venue: {
+    stampIds: string[];
+    passportCategory?: string;
+    notes: string[];
+  },
+  pendingUpdates: Array<{
+    googlePlaceId: string;
+    membershipId: string;
+    stampIds: string[];
+    passportCategory?: string;
+    notes?: string;
+  }>,
+  result: PassportSheetSyncResult
+): void {
+  const stampIds = mergePassportStampIds(venue.stampIds);
+  const sheetNotes = notesFromSheet(venue.notes);
+  const currentStampIds = getPassportStampIds(existing);
+  const categoryChanged = (existing.passportCategory || '') !== (venue.passportCategory || '');
+  const notesChanged = sheetNotes !== undefined && sheetNotes !== (existing.notes || '');
+  const stampsChanged = stampIdsChanged(currentStampIds, stampIds);
+
+  if (!stampsChanged && !categoryChanged && !notesChanged) {
+    result.unchanged += 1;
+    return;
+  }
+
+  pendingUpdates.push({
+    googlePlaceId: existing.googlePlaceId,
+    membershipId: existing.id,
+    stampIds,
+    passportCategory: venue.passportCategory,
+    notes: sheetNotes ?? existing.notes,
+  });
+}
+
+export async function syncPassportListFromSheet(options: {
+  listId: string;
+  sheetUrl: string;
+  userId: string;
+  list: Pick<PlaceList, 'ownerId' | 'isPublic'>;
+}): Promise<PassportSheetSyncResult> {
+  const { listId, sheetUrl, userId, list } = options;
+  const groupedVenues = await fetchGroupedPassportSheetVenues(sheetUrl);
+  const places = await placeRepository.getAllForList(toPlaceListAccessQuery(listId, userId, list));
+  const placesByName = indexPlacesByName(places);
+  const placesByGooglePlaceId = indexPlacesByGooglePlaceId(places);
 
   const accessFields = await fetchListAccessFieldsForWrite(listId);
   const now = new Date();
@@ -81,33 +128,24 @@ export async function syncPassportListFromSheet(options: {
   }> = [];
 
   for (const venue of groupedVenues) {
-    const existing = placesByName.get(venue.normalizedTitle);
     const stampIds = mergePassportStampIds(venue.stampIds);
-    const sheetNotes = notesFromSheet(venue.notes);
+    const existingByName = placesByName.get(venue.normalizedTitle);
+    const manualGooglePlaceId = await stablePassportManualId(venue.title);
+    const existing =
+      existingByName ?? placesByGooglePlaceId.get(manualGooglePlaceId) ?? null;
 
     if (existing?.googlePlaceId) {
-      const currentStampIds = getPassportStampIds(existing);
-      const categoryChanged = (existing.passportCategory || '') !== (venue.passportCategory || '');
-      const notesChanged = sheetNotes !== undefined && sheetNotes !== (existing.notes || '');
-      const stampsChanged = stampIdsChanged(currentStampIds, stampIds);
-
-      if (!stampsChanged && !categoryChanged && !notesChanged) {
-        result.unchanged += 1;
-        continue;
-      }
-
-      pendingUpdates.push({
-        googlePlaceId: existing.googlePlaceId,
-        membershipId: existing.id,
-        stampIds,
-        passportCategory: venue.passportCategory,
-        notes: sheetNotes ?? existing.notes,
-      });
+      queueVenueUpdate(
+        { ...existing, googlePlaceId: existing.googlePlaceId },
+        venue,
+        pendingUpdates,
+        result
+      );
       continue;
     }
 
     try {
-      const googlePlaceId = await stablePassportManualId(venue.title);
+      const googlePlaceId = manualGooglePlaceId;
       const membershipId = `${listId}_${googlePlaceId}`;
       const placePayload: Omit<Place, 'id'> = {
         listId,
@@ -118,7 +156,7 @@ export async function syncPassportListFromSheet(options: {
         passportStampIds: stampIds,
         passportStampId: primaryPassportStampId({ passportStampIds: stampIds }),
         passportCategory: venue.passportCategory,
-        notes: sheetNotes,
+        notes: notesFromSheet(venue.notes),
         status: 'not_visited',
         addedBy: userId,
         addedAt: now,
