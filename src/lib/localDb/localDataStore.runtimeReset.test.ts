@@ -111,4 +111,15 @@ describe('resetLocalDataRuntime generation lock', () => {
     expect(clearLocalDatabaseMock).toHaveBeenCalledTimes(1);
     expect(syncEngine.ownsRuntimeResetLock(1)).toBe(false);
   });
+
+  it('skips clearing local data when shouldAbort returns true mid-reset', async () => {
+    const { resetLocalDataRuntime } = await import('@/lib/localDb/localDataStore');
+
+    await resetLocalDataRuntime({
+      skipPendingFlush: true,
+      shouldAbort: () => true,
+    });
+
+    expect(clearLocalDatabaseMock).not.toHaveBeenCalled();
+  });
 });
