@@ -1,17 +1,38 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   beginAuthStateHandler,
   isCurrentAuthStateHandler,
+  readPersistedLastAuthenticatedUid,
   resetAuthStateHandlerGuardForTests,
   isAccountSwitchOnSignIn,
   shouldAbortResetForAuthUidChange,
   shouldAbortSignOutLocalReset,
   shouldRetainUserOnAuthChange,
+  writePersistedLastAuthenticatedUid,
 } from '@/features/auth/lib/authStateHandlerGuard';
 
 describe('authStateHandlerGuard', () => {
+  const storage = new Map<string, string>();
+
+  beforeEach(() => {
+    storage.clear();
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      },
+      clear: () => {
+        storage.clear();
+      },
+    });
+  });
+
   afterEach(() => {
     resetAuthStateHandlerGuardForTests();
+    vi.unstubAllGlobals();
   });
 
   it('marks only the latest auth handler as current', () => {
@@ -34,6 +55,15 @@ describe('authStateHandlerGuard', () => {
     expect(isAccountSwitchOnSignIn('user-a', 'user-b')).toBe(true);
     expect(isAccountSwitchOnSignIn(null, 'user-b')).toBe(false);
     expect(isAccountSwitchOnSignIn('user-a', 'user-a')).toBe(false);
+  });
+
+  it('persists the last authenticated uid across reloads for account-switch detection', () => {
+    writePersistedLastAuthenticatedUid('user-a');
+    expect(readPersistedLastAuthenticatedUid()).toBe('user-a');
+    expect(isAccountSwitchOnSignIn(readPersistedLastAuthenticatedUid(), 'user-b')).toBe(true);
+
+    writePersistedLastAuthenticatedUid(null);
+    expect(readPersistedLastAuthenticatedUid()).toBeNull();
   });
 
   it('aborts auth-scoped local reset when Firebase uid changes mid-reset', () => {
