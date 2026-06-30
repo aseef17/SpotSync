@@ -19,6 +19,7 @@ import {
   shouldCommitSavedListFetch,
 } from '@/features/lists/api/savedListsFetch';
 import { reconcileSavedLists } from '@/features/lists/api/reconcileSavedLists';
+import { stageListPublishFromCache } from '@/lib/localDb/sync/listPublishMeta';
 import type { PlaceList } from '@/features/lists/types/list';
 
 function getExpectedCollaboratorIds(list: PlaceList): string[] {
@@ -291,6 +292,7 @@ export function acquireUserOwnedListsSync(userId: string): () => void {
             if (change.type === 'removed') {
               await removeCachedList(change.doc.id);
               await removeCachedUserList(userId, change.doc.id);
+              stageListPublishFromCache(change.doc.id, snapshot.metadata.fromCache);
               emitChange(changeTopics.list(change.doc.id));
               continue;
             }
@@ -304,6 +306,7 @@ export function acquireUserOwnedListsSync(userId: string): () => void {
               updatesNeeded = true;
             }
 
+            stageListPublishFromCache(list.id, snapshot.metadata.fromCache);
             emitChange(changeTopics.list(list.id));
           }
 
@@ -338,11 +341,13 @@ export function acquireListSync(listId: string): () => void {
         enqueueSnapshotTask(listSnapshotChains, listId, async () => {
           if (!docSnap.exists()) {
             await removeCachedList(listId);
+            stageListPublishFromCache(listId, docSnap.metadata.fromCache);
             emitChange(changeTopics.list(listId));
             return;
           }
 
           await upsertCachedList(docSnap.data());
+          stageListPublishFromCache(listId, docSnap.metadata.fromCache);
           emitChange(changeTopics.list(listId));
         });
       },

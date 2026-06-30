@@ -150,12 +150,22 @@ export const useListDetails = (listId: string | undefined) => {
           loadTrackingRef.current.listLoaded = true;
           loadTrackingRef.current.onProgress?.();
         })
-        .catch(() => {
+        .catch((err) => {
           privateAccessConfirmKeyRef.current = null;
-          // Permission denied or offline — keep sticky revocation.
+          if (isFirestorePermissionDenied(err)) {
+            setAccessRevoked(true);
+            listAccessibleRef.current = false;
+            clearPendingPlacesSnapshot();
+            setList(null);
+            setPlaces([]);
+            setError('List not found');
+            loadTrackingRef.current.hasCachedData = false;
+            loadTrackingRef.current.listLoaded = true;
+            loadTrackingRef.current.onProgress?.();
+          }
         });
     },
-    [setAccessRevoked, setSavedPrivateDenied, flushPendingPlacesSnapshot]
+    [setAccessRevoked, setSavedPrivateDenied, flushPendingPlacesSnapshot, clearPendingPlacesSnapshot]
   );
 
   useEffect(() => {
