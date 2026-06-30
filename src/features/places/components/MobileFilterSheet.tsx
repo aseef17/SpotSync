@@ -37,7 +37,7 @@ function MobileFilterSheetPanel({
   userLocation,
 }: MobileFilterSheetProps & { activeFilter: NonNullable<MobileFilterSheetProps['activeFilter']> }) {
   const sheetRef = useRef<HTMLDivElement>(null);
-  const sheetHeightRef = useRef(0);
+  const [measuredSheetHeight, setMeasuredSheetHeight] = useState(0);
   const dragYRef = useRef(0);
   const [dragY, setDragY] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
@@ -53,9 +53,9 @@ function MobileFilterSheetPanel({
   const measureSheetHeight = useCallback(() => {
     const height = sheetRef.current?.offsetHeight ?? 0;
     if (height > 0) {
-      sheetHeightRef.current = height;
+      setMeasuredSheetHeight(height);
     }
-    return sheetHeightRef.current;
+    return height;
   }, []);
 
   useEffect(() => {
@@ -94,7 +94,7 @@ function MobileFilterSheetPanel({
       e.currentTarget.releasePointerCapture(e.pointerId);
     }
 
-    const height = measureSheetHeight() || window.innerHeight * 0.85;
+    const height = measureSheetHeight() || measuredSheetHeight || window.innerHeight * 0.85;
     if (dragYRef.current > height * DISMISS_DRAG_RATIO) {
       onClose();
       return;
@@ -113,7 +113,7 @@ function MobileFilterSheetPanel({
           ? 'Select Venue Type'
           : `Select ${activeFilter}`;
 
-  const sheetHeight = sheetHeightRef.current || window.innerHeight * 0.85;
+  const sheetHeight = measuredSheetHeight || window.innerHeight * 0.85;
   const backdropAlpha = 0.5 * Math.max(0, 1 - dragY / sheetHeight);
 
   return (
