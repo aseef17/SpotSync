@@ -114,17 +114,27 @@ function MobileFilterSheetPanel({
           : `Select ${activeFilter}`;
 
   const sheetHeight = measuredSheetHeight || window.innerHeight * 0.85;
-  const backdropAlpha = 0.5 * Math.max(0, 1 - dragY / sheetHeight);
+  const mapDimAlpha = 0.5 * Math.max(0, 1 - dragY / sheetHeight);
 
   return (
     <>
+      {/* Dim the map only — sits below the list bottom sheet (z-50) */}
       <motion.div
         initial={{ opacity: 0 }}
-        animate={{ opacity: isDragging || dragY > 0 ? 1 : undefined }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: isDragging ? 0 : 0.2 }}
+        className="fixed inset-0 z-40 pointer-events-none"
+        style={{ backgroundColor: `rgba(0, 0, 0, ${mapDimAlpha})` }}
+      />
+
+      {/* Transparent tap target — list sheet stays visible through this layer */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: isDragging ? 0 : 0.2 }}
         className="fixed inset-0 z-[60] touch-none"
-        style={{ backgroundColor: `rgba(0, 0, 0, ${backdropAlpha})` }}
         onClick={onClose}
         onPointerDown={(e) => e.stopPropagation()}
       />
@@ -132,21 +142,19 @@ function MobileFilterSheetPanel({
       <motion.div
         ref={sheetRef}
         initial={{ y: '100%' }}
-        animate={{ y: 0 }}
+        animate={{ y: dragY }}
         exit={{ y: '100%' }}
-        transition={isDragging ? { duration: 0 } : { type: 'spring', damping: 25, stiffness: 200 }}
+        transition={
+          isDragging
+            ? { duration: 0 }
+            : dragY > 0
+              ? { duration: 0.25, ease: [0.25, 0.46, 0.45, 0.94] }
+              : { type: 'spring', damping: 25, stiffness: 200 }
+        }
         className={`fixed bottom-0 left-0 right-0 z-[61] ${themeColors.background.card} rounded-t-xl overflow-hidden shadow-2xl max-h-[85vh] flex flex-col pb-[env(safe-area-inset-bottom)]`}
         onPointerDown={(e) => e.stopPropagation()}
       >
-        <div
-          className="flex flex-col flex-1 min-h-0"
-          style={{
-            transform: dragY > 0 ? `translateY(${dragY}px)` : undefined,
-            transition: isDragging
-              ? 'none'
-              : 'transform 0.25s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-          }}
-        >
+        <div className="flex flex-col flex-1 min-h-0">
           <div
             className="flex-shrink-0 cursor-grab active:cursor-grabbing touch-none"
             onPointerDown={handleDragPointerDown}
