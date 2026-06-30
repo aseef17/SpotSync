@@ -30,8 +30,7 @@ export const ListCardIconPicker: React.FunctionComponent<ListCardIconPickerProps
   const resolved = resolveListCardAppearance(selectedIcon, selectedColor);
   const PreviewIcon = (Icons[resolved.icon as keyof typeof Icons] ||
     Icons.MapPin) as React.ElementType;
-  const previewColor =
-    COLOR_PALETTES.find((c) => c.name === resolved.color) || COLOR_PALETTES[0];
+  const previewColor = COLOR_PALETTES.find((c) => c.name === resolved.color) || COLOR_PALETTES[0];
 
   const filteredIcons = AVAILABLE_ICONS.filter((icon) =>
     icon.toLowerCase().includes(searchQuery.toLowerCase())
@@ -44,8 +43,8 @@ export const ListCardIconPicker: React.FunctionComponent<ListCardIconPickerProps
           List Icon
         </label>
         <p className={`text-xs ${themeColors.text.secondary} mb-2`}>
-          How this list appears on your lists page so you can tell it apart at a glance. Map
-          markers use the settings above.
+          How this list appears on your lists page so you can tell it apart at a glance. Map markers
+          use the settings above.
         </p>
 
         <button

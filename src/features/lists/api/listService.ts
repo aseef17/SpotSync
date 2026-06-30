@@ -20,10 +20,7 @@ import type { PlaceList, Collaborator, Permission } from '@/features/lists/types
 import { logger } from '@/utils/logger';
 import { listConverter } from '@/features/lists/api/listFirestore';
 import { omit } from '@/utils/objectUtils';
-import {
-  DEFAULT_LIST_CARD_COLOR,
-  DEFAULT_LIST_CARD_ICON,
-} from '@/constants/mapIcons';
+import { DEFAULT_LIST_CARD_COLOR, DEFAULT_LIST_CARD_ICON } from '@/constants/mapIcons';
 
 function getExpectedEditorIds(list: PlaceList): string[] {
   return Array.from(

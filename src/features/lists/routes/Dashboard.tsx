@@ -587,7 +587,11 @@ export const Dashboard: React.FunctionComponent = () => {
                         >
                           <div className="flex items-start justify-between">
                             <div className="mr-4 flex-shrink-0">
-                              <ListIcon cardIcon={list.cardIcon} cardColor={list.cardColor} size={24} />
+                              <ListIcon
+                                cardIcon={list.cardIcon}
+                                cardColor={list.cardColor}
+                                size={24}
+                              />
                             </div>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
@@ -685,7 +689,11 @@ export const Dashboard: React.FunctionComponent = () => {
                           >
                             <div className="flex items-start justify-between">
                               <div className="mr-4 flex-shrink-0">
-                                <ListIcon cardIcon={list.cardIcon} cardColor={list.cardColor} size={24} />
+                                <ListIcon
+                                  cardIcon={list.cardIcon}
+                                  cardColor={list.cardColor}
+                                  size={24}
+                                />
                               </div>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">

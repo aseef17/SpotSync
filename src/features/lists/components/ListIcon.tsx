@@ -18,8 +18,7 @@ export const ListIcon: React.FunctionComponent<ListIconProps> = ({
   const LucideIcon = (Icons[resolved.icon as keyof typeof Icons] ||
     Icons.MapPin) as React.ElementType;
 
-  const colorObj =
-    COLOR_PALETTES.find((c) => c.name === resolved.color) || COLOR_PALETTES[0];
+  const colorObj = COLOR_PALETTES.find((c) => c.name === resolved.color) || COLOR_PALETTES[0];
 
   return (
     <div

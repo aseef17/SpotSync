@@ -3,10 +3,7 @@ import { LoadingButton } from '@/components/Elements/Button/LoadingButton';
 import { themeColors, colors } from '@/styles/colors';
 import { IconPicker } from '@/components/Elements/IconPicker/IconPicker';
 import { ListCardIconPicker } from '@/features/lists/components/ListCardIconPicker';
-import {
-  DEFAULT_LIST_CARD_COLOR,
-  DEFAULT_LIST_CARD_ICON,
-} from '@/constants/mapIcons';
+import { DEFAULT_LIST_CARD_COLOR, DEFAULT_LIST_CARD_ICON } from '@/constants/mapIcons';
 import { CollaboratorManager } from '@/features/lists/components/CollaboratorManager';
 import type { PlaceList } from '@/features/lists/types/list';
 import { LIST_NAME_MAX_LENGTH, LIST_DESCRIPTION_MAX_LENGTH } from '@/features/lists/types/list';
