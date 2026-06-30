@@ -24,9 +24,11 @@ import {
   beginAuthStateHandler,
   isAccountSwitchOnSignIn,
   isCurrentAuthStateHandler,
+  readPersistedLastAuthenticatedUid,
   shouldAbortResetForAuthUidChange,
   shouldAbortSignOutLocalReset,
   shouldRetainUserOnAuthChange,
+  writePersistedLastAuthenticatedUid,
 } from '@/features/auth/lib/authStateHandlerGuard';
 import {
   hasConfirmedAccountDeletionTombstone,
@@ -221,7 +223,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
   const [googleMapsConnected, setGoogleMapsConnected] = useState(false);
 
   useEffect(() => {
-    let lastAuthenticatedUid: string | null = null;
+    let lastAuthenticatedUid: string | null = readPersistedLastAuthenticatedUid();
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       const handlerGeneration = beginAuthStateHandler();
@@ -254,6 +256,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             }
           }
           lastAuthenticatedUid = fbUser.uid;
+          writePersistedLastAuthenticatedUid(fbUser.uid);
           await initLocalDataStore();
           if (!isCurrentAuthStateHandler(handlerGeneration)) {
             return;
@@ -394,6 +397,7 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
             return;
           }
           lastAuthenticatedUid = null;
+          writePersistedLastAuthenticatedUid(null);
           setFirebaseUser(null);
           setUser(null);
         }
