@@ -2,11 +2,12 @@ import {
   arrayRemove,
   arrayUnion,
   doc,
+  setDoc,
   updateDoc,
   writeBatch,
   type WriteBatch,
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { auth, db } from '@/lib/firebase';
 import { googlePlaceDocRef } from '@/features/places/api/googlePlaceFirestore';
 import { listPlaceMembershipDocRef } from '@/features/places/api/listPlaceMembershipFirestore';
 import {
@@ -16,12 +17,16 @@ import {
 import type { GooglePlace } from '@/features/places/types/googlePlace';
 import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
 import type { Place } from '@/features/places/types/place';
+import { fetchListAccessFieldsForWrite } from '@/features/places/utils/fetchListAccessFieldsForWrite';
+import { safeGetMembershipDoc } from '@/features/places/utils/safeMembershipGetDoc';
 import {
   buildGooglePlacePayload,
   buildMembershipPayload,
   splitPlaceUpdates,
 } from '@/features/places/utils/placeWriteSplit';
 import { resolveWritableMembershipId } from '@/features/places/utils/resolveWritableMembershipId';
+import { getCachedPlace } from '@/lib/localDb/placeCache';
+import { omitUndefined } from '@/utils/objectUtils';
 import { syncDebug, syncDebugError } from '@/utils/syncDebug';
 
 export interface WritePlaceCreateInput {
@@ -88,6 +93,67 @@ export function resolveGooglePlaceIdFromMembershipId(membershipId: string): stri
   return parseListPlaceMembershipDocId(membershipId)?.googlePlaceId ?? null;
 }
 
+async function createMissingMembershipDoc(
+  resolvedMembershipId: string,
+  googlePlaceId: string,
+  membershipPatch: Partial<ListPlaceMembership>
+): Promise<void> {
+  const parsed = parseListPlaceMembershipDocId(resolvedMembershipId);
+  if (!parsed) {
+    throw new Error(`Invalid membership ID: ${resolvedMembershipId}`);
+  }
+
+  const { listId } = parsed;
+  const accessFields = await fetchListAccessFieldsForWrite(listId);
+  const cached = await getCachedPlace(resolvedMembershipId);
+  const now = membershipPatch.updatedAt ?? new Date();
+  const userId = membershipPatch.updatedBy ?? cached?.updatedBy ?? auth.currentUser?.uid ?? '';
+
+  const payload = omitUndefined({
+    id: resolvedMembershipId,
+    listId,
+    googlePlaceId,
+    ...accessFields,
+    status: membershipPatch.status ?? cached?.status ?? 'not_visited',
+    customStatus: membershipPatch.customStatus ?? cached?.customStatus,
+    notes: cached?.notes,
+    addedBy: cached?.addedBy || userId,
+    addedAt: cached?.addedAt ?? now,
+    updatedAt: now,
+    updatedBy: userId || undefined,
+    ...(cached?.suppressNotifications ? { suppressNotifications: true } : {}),
+  }) as ListPlaceMembership;
+
+  syncDebug('writePlaceUpdates-membership-create', {
+    resolvedMembershipId,
+    listId,
+    googlePlaceId,
+  });
+  await setDoc(listPlaceMembershipDocRef(resolvedMembershipId), payload, { merge: true });
+}
+
+async function writeMembershipUpdates(
+  resolvedMembershipId: string,
+  googlePlaceId: string,
+  membershipPatch: Partial<ListPlaceMembership>
+): Promise<void> {
+  const membershipRef = listPlaceMembershipDocRef(resolvedMembershipId);
+  const membershipSnap = await safeGetMembershipDoc(
+    membershipRef,
+    'writePlaceUpdates-membership-get',
+    {
+      membershipId: resolvedMembershipId,
+    }
+  );
+
+  if (membershipSnap.exists()) {
+    await updateDoc(membershipRef, membershipPatch);
+    return;
+  }
+
+  await createMissingMembershipDoc(resolvedMembershipId, googlePlaceId, membershipPatch);
+}
+
 export async function writePlaceUpdates(
   membershipId: string,
   updates: Partial<Place> & { updatedAt?: Date; updatedBy?: string }
@@ -124,7 +190,7 @@ export async function writePlaceUpdates(
       patch: membershipPatch,
     });
     try {
-      await updateDoc(listPlaceMembershipDocRef(resolvedMembershipId), membershipPatch);
+      await writeMembershipUpdates(resolvedMembershipId, googlePlaceId, membershipPatch);
       syncDebug('writePlaceUpdates-membership-ok', { resolvedMembershipId });
     } catch (error) {
       syncDebugError('writePlaceUpdates-membership-failed', error, { resolvedMembershipId });
