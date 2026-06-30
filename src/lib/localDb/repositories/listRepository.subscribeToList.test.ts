@@ -52,6 +52,9 @@ const staleList: PlaceList = {
   isPublic: false,
   collaboratorIds: ['owner-1'],
   collaborators: [],
+  places: [],
+  customStatuses: [],
+  tags: [],
   createdAt: new Date(0),
   updatedAt: new Date(0),
 };
