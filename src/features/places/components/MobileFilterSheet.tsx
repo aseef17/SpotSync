@@ -113,14 +113,18 @@ function MobileFilterSheetPanel({
           ? 'Select Venue Type'
           : `Select ${activeFilter}`;
 
+  const sheetHeight = sheetHeightRef.current || window.innerHeight * 0.85;
+  const backdropAlpha = 0.5 * Math.max(0, 1 - dragY / sheetHeight);
+
   return (
     <>
       <motion.div
         initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
+        animate={{ opacity: isDragging || dragY > 0 ? 1 : undefined }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.2 }}
-        className="fixed inset-0 bg-black/50 z-[60] touch-none"
+        transition={{ duration: isDragging ? 0 : 0.2 }}
+        className="fixed inset-0 z-[60] touch-none"
+        style={{ backgroundColor: `rgba(0, 0, 0, ${backdropAlpha})` }}
         onClick={onClose}
         onPointerDown={(e) => e.stopPropagation()}
       />
