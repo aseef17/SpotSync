@@ -9,7 +9,12 @@ export function stageListPublishFromCache(listId: string, fromCache: boolean): v
 }
 
 export function consumeListPublishFromCache(listId: string): boolean {
-  return pendingListPublishFromCache.get(listId) ?? true;
+  const staged = pendingListPublishFromCache.get(listId);
+  if (staged === undefined) {
+    return true;
+  }
+  pendingListPublishFromCache.delete(listId);
+  return staged;
 }
 
 export function resetListPublishMetaForTests(): void {

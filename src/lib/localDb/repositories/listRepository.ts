@@ -105,16 +105,25 @@ export const listRepository = {
     onError: (error: Error) => void
   ): () => void {
     let cancelled = false;
+    let publishGeneration = 0;
 
     const publish = async (fromCache: boolean) => {
       if (cancelled) {
         return;
       }
 
+      const generation = ++publishGeneration;
+
       try {
         const list = await readList(listId);
+        if (cancelled || generation !== publishGeneration) {
+          return;
+        }
         onUpdate(list, { fromCache });
       } catch (error) {
+        if (cancelled || generation !== publishGeneration) {
+          return;
+        }
         onError(error instanceof Error ? error : new Error('Failed to read list from local store'));
       }
     };
