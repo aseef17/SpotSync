@@ -41,18 +41,18 @@ export const ListCardIconPicker: React.FunctionComponent<ListCardIconPickerProps
     <div className="space-y-4">
       <div>
         <label className={`block text-sm font-medium ${themeColors.form.label} mb-2`}>
-          Home Screen Icon
+          List Icon
         </label>
         <p className={`text-xs ${themeColors.text.secondary} mb-2`}>
-          Shown on your lists page so you can tell lists apart at a glance. Map markers use the
-          settings above.
+          How this list appears on your lists page so you can tell it apart at a glance. Map
+          markers use the settings above.
         </p>
 
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
           className={`w-full flex items-center space-x-3 p-2 rounded-lg border transition-colors text-left ${themeColors.background.card} ${themeColors.border.default} hover:bg-gray-50 dark:hover:bg-gray-800`}
-          title="Customize home screen appearance"
+          title="Customize list icon"
         >
           <div
             className={`rounded-full flex items-center justify-center text-white shadow-sm ${previewColor.bg}`}
