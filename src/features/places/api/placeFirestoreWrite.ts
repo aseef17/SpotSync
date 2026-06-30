@@ -121,7 +121,7 @@ async function createMissingMembershipDoc(
     addedAt: cached?.addedAt ?? now,
     updatedAt: now,
     updatedBy: userId || undefined,
-    ...(membershipPatch.suppressNotifications ?? cached?.suppressNotifications
+    ...((membershipPatch.suppressNotifications ?? cached?.suppressNotifications)
       ? {
           suppressNotifications:
             membershipPatch.suppressNotifications ?? cached?.suppressNotifications,

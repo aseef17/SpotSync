@@ -325,11 +325,7 @@ export const useListDetails = (listId: string | undefined) => {
             savedPrivateDenied: savedPrivateDeniedRef.current,
           })
         ) {
-          if (
-            !meta.fromCache ||
-            accessRevokedRef.current ||
-            savedPrivateDeniedRef.current
-          ) {
+          if (!meta.fromCache || accessRevokedRef.current || savedPrivateDeniedRef.current) {
             denyListAccess();
             setList(null);
             setPlaces([]);
