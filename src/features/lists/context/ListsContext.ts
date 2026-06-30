@@ -13,6 +13,8 @@ export interface ListsContextValue {
     icon: string;
     color: string;
     iconSize: number;
+    cardIcon: string;
+    cardColor: string;
     isPublic: boolean;
     email: string;
     username: string;

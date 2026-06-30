@@ -46,8 +46,11 @@ export const IconPicker: React.FunctionComponent<IconPickerProps> = ({
     <div className="space-y-4">
       <div>
         <label className={`block text-sm font-medium ${themeColors.form.label} mb-2`}>
-          List Icon & Style
+          Map Marker Style
         </label>
+        <p className={`text-xs ${themeColors.text.secondary} mb-2`}>
+          Icons and colors for places on the map. Auto assigns by place category.
+        </p>
 
         <div className="flex items-center space-x-4">
           {/* Preview / Toggle Button */}

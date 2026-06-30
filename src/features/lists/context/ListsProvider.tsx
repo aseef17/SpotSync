@@ -166,6 +166,8 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
       icon: string;
       color: string;
       iconSize: number;
+      cardIcon: string;
+      cardColor: string;
       isPublic: boolean;
       email: string;
       username: string;
@@ -181,6 +183,8 @@ export const ListsProvider: React.FunctionComponent<ListsProviderProps> = ({
           data.icon,
           data.color,
           data.iconSize,
+          data.cardIcon,
+          data.cardColor,
           data.isPublic,
           data.email,
           data.username,
