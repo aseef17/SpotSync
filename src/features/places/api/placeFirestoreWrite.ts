@@ -116,12 +116,17 @@ async function createMissingMembershipDoc(
     ...accessFields,
     status: membershipPatch.status ?? cached?.status ?? 'not_visited',
     customStatus: membershipPatch.customStatus ?? cached?.customStatus,
-    notes: cached?.notes,
+    notes: membershipPatch.notes ?? cached?.notes,
     addedBy: cached?.addedBy || userId,
     addedAt: cached?.addedAt ?? now,
     updatedAt: now,
     updatedBy: userId || undefined,
-    ...(cached?.suppressNotifications ? { suppressNotifications: true } : {}),
+    ...((membershipPatch.suppressNotifications ?? cached?.suppressNotifications)
+      ? {
+          suppressNotifications:
+            membershipPatch.suppressNotifications ?? cached?.suppressNotifications,
+        }
+      : {}),
   }) as ListPlaceMembership;
 
   syncDebug('writePlaceUpdates-membership-create', {
