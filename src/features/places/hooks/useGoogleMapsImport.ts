@@ -5,6 +5,10 @@ import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
 import { listRepository } from '@/lib/localDb/repositories/listRepository';
 import { toPlaceListAccessQuery } from '@/features/places/utils/placeAccess';
 import { ListService } from '@/features/lists/api/listService';
+import {
+  DEFAULT_LIST_CARD_COLOR,
+  DEFAULT_LIST_CARD_ICON,
+} from '@/constants/mapIcons';
 import { GoogleMapsService } from '@/features/places/api/googleMapsService';
 import { parseTakeoutJson, type ParsedPlace } from '@/utils/googleTakeoutParser';
 import type { Place } from '@/features/places/types/place';
@@ -215,6 +219,8 @@ export const useGoogleMapsImport = (existingLists: { id: string; name: string }[
           'AUTO',
           'AUTO',
           36,
+          DEFAULT_LIST_CARD_ICON,
+          DEFAULT_LIST_CARD_COLOR,
           false,
           user.email,
           user.username
