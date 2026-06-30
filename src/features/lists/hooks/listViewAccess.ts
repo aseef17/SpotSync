@@ -119,3 +119,11 @@ export function isFirestorePermissionDenied(error: unknown): boolean {
     (error as { code?: string }).code === 'permission-denied'
   );
 }
+
+/** Clear the list view when sync removes local data; fromCache only gates private content trust. */
+export function shouldClearListOnNullSnapshot(options: {
+  fromCache: boolean;
+  receivedListData: boolean;
+}): boolean {
+  return !options.fromCache || options.receivedListData;
+}
