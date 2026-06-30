@@ -41,6 +41,12 @@ export interface ResetLocalDataRuntimeOptions {
   skipPendingFlush?: boolean;
   /** Auth handler generation that owns the early account-switch reset lock. */
   lockGeneration?: number;
+  /** When true, skip destructive cleanup (e.g. superseded auth handler or cross-tab sign-in). */
+  shouldAbort?: () => boolean;
+}
+
+function shouldAbortReset(options: ResetLocalDataRuntimeOptions): boolean {
+  return options.shouldAbort?.() === true;
 }
 
 export async function resetLocalDataRuntime(
@@ -62,7 +68,7 @@ export async function resetLocalDataRuntime(
     }
     await awaitSyncDrainIdle();
 
-    if (!ownsRuntimeResetLock(lockGeneration)) {
+    if (!ownsRuntimeResetLock(lockGeneration) || shouldAbortReset(options)) {
       return;
     }
 
@@ -70,7 +76,7 @@ export async function resetLocalDataRuntime(
       await flushPendingMutations({ allowDuringRuntimeReset: true });
     }
 
-    if (!ownsRuntimeResetLock(lockGeneration)) {
+    if (!ownsRuntimeResetLock(lockGeneration) || shouldAbortReset(options)) {
       return;
     }
 

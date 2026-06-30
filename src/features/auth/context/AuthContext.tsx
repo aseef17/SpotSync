@@ -23,6 +23,7 @@ import { getAuthActionCodeSettings } from '@/features/auth/lib/authActionSetting
 import {
   beginAuthStateHandler,
   isCurrentAuthStateHandler,
+  shouldAbortResetForAuthUidChange,
   shouldRetainUserOnAuthChange,
 } from '@/features/auth/lib/authStateHandlerGuard';
 import {
@@ -558,8 +559,21 @@ export const AuthProvider: React.FunctionComponent<{ children: React.ReactNode }
   }, []);
 
   const logout = useCallback(async () => {
+    const uidAtLogout = auth.currentUser?.uid ?? null;
+    if (!uidAtLogout) {
+      return;
+    }
+
     const { resetLocalDataRuntime } = await import('@/lib/localDb');
-    await resetLocalDataRuntime();
+    await resetLocalDataRuntime({
+      shouldAbort: () =>
+        shouldAbortResetForAuthUidChange(uidAtLogout, auth.currentUser?.uid ?? null),
+    });
+
+    if (shouldAbortResetForAuthUidChange(uidAtLogout, auth.currentUser?.uid ?? null)) {
+      return;
+    }
+
     await signOut(auth);
   }, []);
 
