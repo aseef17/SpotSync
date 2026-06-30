@@ -52,8 +52,8 @@ const staleList: PlaceList = {
   isPublic: false,
   collaboratorIds: ['owner-1'],
   collaborators: [],
-  createdAt: 0,
-  updatedAt: 0,
+  createdAt: new Date(0),
+  updatedAt: new Date(0),
 };
 
 describe('listRepository.subscribeToList', () => {
