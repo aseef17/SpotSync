@@ -131,8 +131,7 @@ export async function syncPassportListFromSheet(options: {
     const stampIds = mergePassportStampIds(venue.stampIds);
     const existingByName = placesByName.get(venue.normalizedTitle);
     const manualGooglePlaceId = await stablePassportManualId(venue.title);
-    const existing =
-      existingByName ?? placesByGooglePlaceId.get(manualGooglePlaceId) ?? null;
+    const existing = existingByName ?? placesByGooglePlaceId.get(manualGooglePlaceId) ?? null;
 
     if (existing?.googlePlaceId) {
       queueVenueUpdate(
