@@ -324,13 +324,15 @@ export const useListDetails = (listId: string | undefined) => {
             savedPrivateDenied: savedPrivateDeniedRef.current,
           })
         ) {
-          denyListAccess();
-          setList(null);
-          setPlaces([]);
-          setError('List not found');
-          loadTrackingRef.current.hasCachedData = false;
-          loadTrackingRef.current.listLoaded = true;
-          loadTrackingRef.current.onProgress?.();
+          if (!meta.fromCache) {
+            denyListAccess();
+            setList(null);
+            setPlaces([]);
+            setError('List not found');
+            loadTrackingRef.current.hasCachedData = false;
+            loadTrackingRef.current.listLoaded = true;
+            loadTrackingRef.current.onProgress?.();
+          }
           return;
         }
 
@@ -339,11 +341,24 @@ export const useListDetails = (listId: string | undefined) => {
         }
         listAccessibleRef.current = true;
         flushPendingPlacesSnapshot();
-        setList(listData);
-        setError(listData ? null : 'List not found');
-        loadTrackingRef.current.hasCachedData = !!listData;
-        loadTrackingRef.current.listLoaded = true;
-        loadTrackingRef.current.onProgress?.();
+        if (listData) {
+          setList(listData);
+          setError(null);
+          loadTrackingRef.current.hasCachedData = true;
+          loadTrackingRef.current.listLoaded = true;
+          loadTrackingRef.current.onProgress?.();
+          return;
+        }
+
+        if (!meta.fromCache) {
+          denyListAccess();
+          setList(null);
+          setPlaces([]);
+          setError('List not found');
+          loadTrackingRef.current.hasCachedData = false;
+          loadTrackingRef.current.listLoaded = true;
+          loadTrackingRef.current.onProgress?.();
+        }
       },
       (err) => {
         if (cancelled) return;
@@ -379,6 +394,19 @@ export const useListDetails = (listId: string | undefined) => {
     confirmPrivateAccessFromServer,
     setSavedPrivateDenied,
   ]);
+
+  useEffect(() => {
+    if (!listId || !user?.id || listFromContext) {
+      return;
+    }
+
+    const confirmKey = `${user.id}:${listId}`;
+    if (privateAccessConfirmKeyRef.current === confirmKey) {
+      return;
+    }
+    privateAccessConfirmKeyRef.current = confirmKey;
+    confirmPrivateAccessFromServer(listId, user.id);
+  }, [listId, user?.id, listFromContext, confirmPrivateAccessFromServer]);
 
   useEffect(() => {
     if (!listId || !listAccessKey || !placeAccessQuery) {
@@ -505,7 +533,10 @@ export const useListDetails = (listId: string | undefined) => {
 
     const timeoutId = window.setTimeout(
       () => {
-        if (!cancelled && !hasCachedData && !loadTrackingRef.current.hasCachedData) {
+        if (cancelled || hasCachedData || loadTrackingRef.current.hasCachedData) {
+          return;
+        }
+        if (!loadTrackingRef.current.listLoaded) {
           setListLoading(false);
           setPlacesLoading(false);
           if (!isBrowserOnline()) {
@@ -513,7 +544,9 @@ export const useListDetails = (listId: string | undefined) => {
           } else {
             setError('Loading is taking longer than expected. Please check your connection.');
           }
+          return;
         }
+        setPlacesLoading(false);
       },
       isBrowserOnline() ? OFFLINE_LOAD_TIMEOUT_MS : 3000
     );
@@ -532,6 +565,7 @@ export const useListDetails = (listId: string | undefined) => {
       setHasMorePlaces(
         placesData.length >= PLACES_SUBSCRIPTION_LIMIT || paginationCursorRef.current !== null
       );
+      setError(null);
       placesLoaded = true;
       hasCachedData = hasCachedData || deduped.length > 0;
       finishLoading();
@@ -658,13 +692,27 @@ export const useListDetails = (listId: string | undefined) => {
     if ((!listLoading && !placesLoading) || !listId) return;
 
     const timeoutId = window.setTimeout(() => {
-      setError(
-        (prev) =>
-          prev ??
-          (isBrowserOnline()
-            ? 'Loading is taking longer than expected. Please try again.'
-            : 'You appear to be offline. Reconnect to the internet to load this list.')
-      );
+      const listReady = loadTrackingRef.current.listLoaded;
+      if (!listReady) {
+        setError(
+          (prev) =>
+            prev ??
+            (isBrowserOnline()
+              ? 'Loading is taking longer than expected. Please try again.'
+              : 'You appear to be offline. Reconnect to the internet to load this list.')
+        );
+      } else {
+        setError((prev) => {
+          if (
+            prev?.includes('longer than expected') ||
+            prev?.includes('offline') ||
+            prev?.includes('Failed to load')
+          ) {
+            return null;
+          }
+          return prev;
+        });
+      }
       setListLoading(false);
       setPlacesLoading(false);
     }, 12000);
