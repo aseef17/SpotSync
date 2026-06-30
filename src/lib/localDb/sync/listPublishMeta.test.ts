@@ -22,6 +22,12 @@ describe('listPublishMeta', () => {
     expect(consumeListPublishFromCache('list-1')).toBe(false);
   });
 
+  it('clears staged metadata after consume so later publishes default to cache', () => {
+    stageListPublishFromCache('list-1', false);
+    expect(consumeListPublishFromCache('list-1')).toBe(false);
+    expect(consumeListPublishFromCache('list-1')).toBe(true);
+  });
+
   it('tracks publish metadata independently per list', () => {
     stageListPublishFromCache('list-a', false);
     stageListPublishFromCache('list-b', true);
