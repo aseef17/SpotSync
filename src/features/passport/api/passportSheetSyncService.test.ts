@@ -74,7 +74,8 @@ vi.mock('@/features/places/api/googleMapsService', () => ({
 }));
 
 vi.mock('@/features/places/utils/resolveWritableMembershipId', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@/features/places/utils/resolveWritableMembershipId')>();
+  const actual =
+    await importOriginal<typeof import('@/features/places/utils/resolveWritableMembershipId')>();
   return {
     ...actual,
     migrateLegacyMembershipToCanonical: (...args: unknown[]) =>
@@ -83,13 +84,21 @@ vi.mock('@/features/places/utils/resolveWritableMembershipId', async (importOrig
 });
 
 import { syncPassportListFromSheet } from '@/features/passport/api/passportSheetSyncService';
+import type { PlaceList } from '@/features/lists/types/list';
 
-const ownerList = {
+const ownerList: PlaceList = {
+  id: 'list-1',
+  name: 'Passport',
   ownerId: 'owner-1',
   isPublic: false,
   collaborators: [],
   collaboratorIds: ['owner-1'],
   editorIds: ['owner-1'],
+  places: [],
+  customStatuses: [],
+  tags: [],
+  createdAt: new Date(),
+  updatedAt: new Date(),
 };
 
 describe('syncPassportListFromSheet', () => {

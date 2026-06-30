@@ -12,6 +12,7 @@ import {
   deletePlaceMembership,
   writePlaceCreateAndLinkToList,
 } from '@/features/places/api/placeFirestoreWrite';
+import type { ListPlaceMembership } from '@/features/places/types/listPlaceMembership';
 import type { Place } from '@/features/places/types/place';
 import { fetchListAccessFieldsForWrite } from '@/features/places/utils/fetchListAccessFieldsForWrite';
 import { createPlaceFromGoogleDetails } from '@/features/places/utils/placeFactory';
@@ -32,7 +33,7 @@ import {
 import { db } from '@/lib/firebase';
 import { placeRepository } from '@/lib/localDb/repositories/placeRepository';
 import { logger } from '@/utils/logger';
-import { omitUndefined } from '@/utils/objectUtils';
+import { omitUndefined, omit } from '@/utils/objectUtils';
 
 const BATCH_SIZE = 120;
 const ENRICH_BATCH_SIZE = 5;
@@ -63,8 +64,10 @@ interface PendingVenueUpdate {
   stampIds: string[];
   passportCategory?: string;
   notes?: string;
-  enrichment?: Omit<Place, 'id'>;
+  enrichment?: PassportPlaceDraft;
 }
+
+type PassportPlaceDraft = Omit<Place, 'id' | 'addedAt' | 'updatedAt'>;
 
 function notesFromSheet(notes: string[]): string | undefined {
   if (!notes.length) return undefined;
@@ -107,7 +110,10 @@ function passportFieldsFromVenue(
   venue: SheetVenue,
   userId: string,
   now: Date
-): Pick<Place, 'passportStampIds' | 'passportStampId' | 'passportCategory' | 'notes' | 'updatedAt' | 'updatedBy'> {
+): Pick<
+  Place,
+  'passportStampIds' | 'passportStampId' | 'passportCategory' | 'notes' | 'updatedAt' | 'updatedBy'
+> {
   const stampIds = mergePassportStampIds(venue.stampIds);
   return {
     passportStampIds: stampIds,
@@ -142,7 +148,7 @@ function queueVenueUpdate(
   venue: SheetVenue,
   pendingUpdates: PendingVenueUpdate[],
   result: PassportSheetSyncResult,
-  enrichment?: Omit<Place, 'id'>
+  enrichment?: PassportPlaceDraft
 ): void {
   const stampIds = mergePassportStampIds(venue.stampIds);
   const sheetNotes = notesFromSheet(venue.notes);
@@ -179,7 +185,7 @@ async function buildEnrichedPlace(
   userId: string,
   accessFields: Awaited<ReturnType<typeof fetchListAccessFieldsForWrite>>,
   now: Date
-): Promise<{ place: Omit<Place, 'id' | 'addedAt' | 'updatedAt'>; googlePlaceId: string } | null> {
+): Promise<{ place: PassportPlaceDraft; googlePlaceId: string }> {
   const { details, canonicalId } = await enrichVenueFromSheet(venue);
   const passportFields = passportFieldsFromVenue(venue, userId, now);
 
@@ -190,7 +196,7 @@ async function buildEnrichedPlace(
       status: 'not_visited',
       ...accessFields,
     });
-    const { id: _id, addedAt: _addedAt, updatedAt: _updatedAt, ...place } = factoryPlace;
+    const place = omit(factoryPlace, ['id', 'addedAt', 'updatedAt']);
     return { place, googlePlaceId: canonicalId };
   }
 
@@ -214,7 +220,7 @@ async function buildEnrichedPlace(
 async function upgradeManualPlaceToCanonical(options: {
   listId: string;
   existing: Place;
-  enrichedPlace: Omit<Place, 'id' | 'addedAt' | 'updatedAt'>;
+  enrichedPlace: PassportPlaceDraft;
   canonicalGooglePlaceId: string;
   now: Date;
 }): Promise<{ googlePlaceId: string; membershipId: string }> {
@@ -230,7 +236,7 @@ async function upgradeManualPlaceToCanonical(options: {
     listId,
     googlePlaceId: canonicalGooglePlaceId,
     membershipId,
-    place: enrichedPlace,
+    place: { ...enrichedPlace, addedAt: now, updatedAt: now },
     timestamps: { addedAt: now, updatedAt: now },
   });
 
@@ -311,7 +317,7 @@ async function cleanupManualPassportDuplicates(options: {
         ...(manual.customStatus && !keep.customStatus ? { customStatus: manual.customStatus } : {}),
         ...(mergedNotes !== keep.notes ? { notes: mergedNotes } : {}),
         updatedBy: options.userId,
-      });
+      } as ListPlaceMembership);
       const membershipNeedsMerge =
         membershipMerge.status !== undefined ||
         membershipMerge.customStatus !== undefined ||
@@ -375,7 +381,7 @@ export async function syncPassportListFromSheet(options: {
   list: PlaceList;
 }): Promise<PassportSheetSyncResult> {
   const { listId, sheetUrl, userId } = options;
-  let list = await reconcileListPermissionsIfOwner(listId, options.list, userId);
+  const list = await reconcileListPermissionsIfOwner(listId, options.list, userId);
   assertUserCanWriteList(list, userId);
 
   const groupedVenues = await fetchGroupedPassportSheetVenues(sheetUrl);
@@ -400,8 +406,13 @@ export async function syncPassportListFromSheet(options: {
 
   for (const venue of groupedVenues) {
     const manualGooglePlaceId = await stablePassportManualId(venue.title);
-    const existing =
-      findExistingPlace(venue, manualGooglePlaceId, undefined, placesByName, placesByGooglePlaceId);
+    const existing = findExistingPlace(
+      venue,
+      manualGooglePlaceId,
+      undefined,
+      placesByName,
+      placesByGooglePlaceId
+    );
 
     if (existing?.googlePlaceId) {
       if (needsPlaceEnrichment(existing)) {
@@ -423,14 +434,10 @@ export async function syncPassportListFromSheet(options: {
   await enrichVenuesInBatches(venuesToEnrich, async ({ venue, existing }) => {
     try {
       const built = await buildEnrichedPlace(venue, listId, userId, accessFields, now);
-      if (!built) {
-        result.skipped += 1;
-        return;
-      }
 
       let targetGooglePlaceId = built.googlePlaceId;
       let targetMembershipId = existing.id;
-      let enrichment: Omit<Place, 'id'> | undefined = built.place;
+      let enrichment: PassportPlaceDraft | undefined = built.place;
 
       if (
         existing.googlePlaceId?.startsWith('manual_passport_') &&
@@ -467,7 +474,7 @@ export async function syncPassportListFromSheet(options: {
     }
   });
 
-  const placesToCreate: Array<Omit<Place, 'id' | 'addedAt' | 'updatedAt'>> = [];
+  const placesToCreate: PassportPlaceDraft[] = [];
 
   for (let i = 0; i < venuesToCreate.length; i += ENRICH_BATCH_SIZE) {
     const batch = venuesToCreate.slice(i, i + ENRICH_BATCH_SIZE);
@@ -540,9 +547,9 @@ export async function syncPassportListFromSheet(options: {
 
       if (update.enrichment) {
         const enrichmentPayload = buildGooglePlacePayload(
-          { ...update.enrichment, ...stampPatch, listId },
+          { ...update.enrichment, ...stampPatch, listId, addedAt: now, updatedAt: now },
           update.googlePlaceId,
-          { updatedAt: now }
+          { createdAt: now, updatedAt: now }
         );
         batch.set(googlePlaceDocRef(update.googlePlaceId), enrichmentPayload, { merge: true });
       } else {
