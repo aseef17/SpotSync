@@ -30,9 +30,16 @@ export function usePassportSheetSync(
         userId,
         list,
       });
-      toast.success(
-        `Sheet sync complete: ${result.updated} updated, ${result.created} added, ${result.unchanged} unchanged.`
-      );
+      const summary = [
+        `${result.updated} updated`,
+        `${result.created} added`,
+        result.cleaned > 0 ? `${result.cleaned} duplicates removed` : null,
+        `${result.unchanged} unchanged`,
+        result.skipped > 0 ? `${result.skipped} skipped` : null,
+      ]
+        .filter(Boolean)
+        .join(', ');
+      toast.success(`Sheet sync complete: ${summary}.`);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Failed to sync from spreadsheet.');
     } finally {

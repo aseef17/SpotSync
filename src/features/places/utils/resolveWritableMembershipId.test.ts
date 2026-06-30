@@ -187,6 +187,37 @@ describe('resolveWritableMembershipId', () => {
     );
   });
 
+  it('preserves canonical visited status when legacy manual is still not_visited', async () => {
+    getDocMock
+      .mockResolvedValueOnce({ exists: () => false })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ name: 'MoMA PS1' }),
+      })
+      .mockResolvedValueOnce({ exists: () => true })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ listId: LIST_ID, status: 'not_visited' }),
+      })
+      .mockResolvedValueOnce({
+        exists: () => true,
+        data: () => ({ listId: LIST_ID, status: 'visited', notes: 'already visited' }),
+      });
+
+    await expect(resolveWritableMembershipId(CHIJ_MEMBERSHIP)).resolves.toBe(CHIJ_MEMBERSHIP);
+
+    expect(batchSetMock).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        status: 'visited',
+        notes: 'already visited',
+        googlePlaceId: CHIJ,
+      }),
+      { merge: true }
+    );
+    expect(batchDeleteMock).toHaveBeenCalled();
+  });
+
   it('uses current list access fields when creating canonical from legacy membership', async () => {
     getDocMock
       .mockResolvedValueOnce({ exists: () => false })
