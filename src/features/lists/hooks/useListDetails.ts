@@ -326,6 +326,7 @@ export const useListDetails = (listId: string | undefined) => {
           return;
         }
         if (
+          listData &&
           !shouldGrantListAccess({
             list: listData,
             userId: user?.id,
@@ -334,7 +335,7 @@ export const useListDetails = (listId: string | undefined) => {
             savedPrivateDenied: savedPrivateDeniedRef.current,
           })
         ) {
-          if (!meta.fromCache) {
+          if (!meta.fromCache || accessRevokedRef.current || savedPrivateDeniedRef.current) {
             denyListAccess();
             setList(null);
             setPlaces([]);
